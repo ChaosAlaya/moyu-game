@@ -12,7 +12,8 @@
     return {
       unlocks: { xiaoq: true, shengfan: false, jihuang: false, shuanglaoya: false },
       maxFloor: 0, wins: 0, runs: 0,
-      codex: { cards: {}, relics: {}, enemies: {} }
+      codex: { cards: {}, relics: {}, enemies: {} },
+      history: []
     };
   }
 
@@ -237,6 +238,7 @@
   /* ---------- 结算 ---------- */
   function gameOver() {
     if (S.run.victory) S.save.wins++;
+    g.GameEngine.pushHistory(S.save, S.run); // 战绩簿
     syncSave();
     S.screen = 'over';
     render();
@@ -295,6 +297,57 @@
         fallback();
       }
     } catch (e) { fallback(); }
+  };
+
+  /* ---------- 战绩簿 ---------- */
+  Game.toHistory = function () { S.screen = 'history'; render(); };
+
+  /* ---------- 存档码导入/导出 ---------- */
+  Game.toSave = function () {
+    // 打包本游戏所有 localStorage key
+    var data = { save: S.save };
+    try { data.sfx = localStorage.getItem('moyu_sfx') || 'on'; } catch (e) { data.sfx = 'on'; }
+    S.saveCode = g.GameEngine.saveCodec.encode(data);
+    S.screen = 'save';
+    render();
+  };
+  Game.copySaveCode = function () {
+    var ta = document.getElementById('save-export');
+    if (!ta) return;
+    function fallback() { ta.focus(); ta.select(); UI.toast('自动复制失败，请手动复制（已全选）'); }
+    try {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(ta.value).then(function () {
+          UI.toast('存档码已复制！');
+        }, fallback);
+      } else fallback();
+    } catch (e) { fallback(); }
+  };
+  Game.importSave = function () {
+    var ta = document.getElementById('save-import');
+    if (!ta) return;
+    var data = g.GameEngine.saveCodec.decode(ta.value);
+    if (!data || !data.save || typeof data.save !== 'object' ||
+        !data.save.unlocks || !data.save.codex) {
+      UI.toast('存档码无效，请检查后重试');
+      return;
+    }
+    try {
+      // 合并缺省字段后写入
+      var d = defaultSave();
+      var sv = data.save;
+      for (var k in d) if (!(k in sv)) sv[k] = d[k];
+      for (var k2 in d.codex) if (!(k2 in sv.codex)) sv.codex[k2] = {};
+      localStorage.setItem(SAVE_KEY, JSON.stringify(sv));
+      if (data.sfx) localStorage.setItem('moyu_sfx', data.sfx);
+    } catch (e) {
+      UI.toast('写入失败：' + e.message);
+      return;
+    }
+    S.save = loadSave();
+    UI.toast('导入成功！');
+    S.screen = 'title';
+    render();
   };
 
   /* ---------- 调试钩子（无害，供自动化截图/测试） ---------- */

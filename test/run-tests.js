@@ -375,6 +375,55 @@ section('b2) 新机制数值断言');
   ok(st.deck.some(cc => cc.id === 'chicken'), '外卖：获得香香鸡');
 }
 
+/* ---------- b3) v2 美术资源 / 存档码 / 战绩簿 ---------- */
+section('b3) v2 资源 / 存档码 / 战绩簿');
+{
+  // v2 资源文件存在性
+  const v2 = (p) => fs.existsSync(path.join(root, p));
+  let missing = 0;
+  for (const eid in D.enemies) if (!v2(`assets/v2/enemy/${eid}.jpg`)) { missing++; console.error('  ✗ 缺敌人图', eid); }
+  ok(v2('assets/v2/enemy/boss3_p2.jpg'), '老板第二阶段图存在');
+  for (const rid in D.relics) if (!v2(`assets/v2/relic/${rid}.jpg`)) { missing++; console.error('  ✗ 缺遗物图', rid); }
+  for (const evid in D.events) if (!v2(`assets/v2/event/${evid}.jpg`)) { missing++; console.error('  ✗ 缺事件图', evid); }
+  for (let a = 1; a <= 10; a++) if (!v2(`assets/v2/banner/act${a}.jpg`)) { missing++; console.error('  ✗ 缺横幅', a); }
+  for (const cid in D.characters) {
+    const av = D.characters[cid].avatar;
+    ok(av && v2(av), `角色 ${cid} 头像存在`);
+  }
+  ['title_main', 'over_win', 'over_lose', 'cardback'].forEach(u => {
+    if (!v2(`assets/v2/ui/${u}.jpg`)) { missing++; console.error('  ✗ 缺 UI 图', u); }
+  });
+  ['energy', 'gold', 'block', 'intent_attack', 'defend', 'debuff', 'charge', 'heal', 'buff'].forEach(ic => {
+    if (!v2(`assets/v2/icon/${ic}.png`)) { missing++; console.error('  ✗ 缺图标', ic); }
+  });
+  ok(missing === 0, `v2 美术资源齐全（缺失 ${missing}）`);
+
+  // 存档码 round-trip + 坏码容错
+  const codec = globalThis.GameEngine.saveCodec;
+  const sample = { save: { unlocks: { xiaoq: true }, 备注: '中文内容😀', n: 42 }, sfx: 'off' };
+  const code = codec.encode(sample);
+  const back = codec.decode(code);
+  ok(back && back.save.n === 42 && back.save.备注 === '中文内容😀' && back.sfx === 'off', '存档码 round-trip（含中文/emoji）');
+  ok(codec.decode('这不是存档码!!!') === null, '坏码返回 null（不崩）');
+  ok(codec.decode('') === null, '空码返回 null');
+  ok(codec.decode(Buffer.from('{"v":2,"data":{}}').toString('base64')) === null, '版本不符返回 null');
+
+  // 战绩簿：写入 + 截断 20 条 + 最新在前
+  const pushHistory = globalThis.GameEngine.pushHistory;
+  const save = { history: [] };
+  for (let i = 0; i < 25; i++) {
+    pushHistory(save, {
+      charId: 'xiaoq', act: (i % 10) + 1, victory: i % 5 === 0,
+      combat: { enemy: { name: '敌人' + i } },
+      deck: new Array(10 + i % 5), relics: new Array(i % 4)
+    });
+  }
+  ok(save.history.length === 20, `战绩截断为 20 条（实际 ${save.history.length}）`);
+  ok(save.history[0].killer === '敌人24', '最新战绩在前');
+  ok(save.history[0].deck === 14 && typeof save.history[0].t === 'number', '战绩字段完整');
+  ok(save.history[19].act === 6 && save.history[19].victory === true, '最旧战绩正确淘汰');
+}
+
 /* ---------- c) 地图生成 ---------- */
 section('c) 地图生成（10 层 × 100 次）');
 {

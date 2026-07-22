@@ -345,6 +345,7 @@
   var characters = {
     xiaoq: {
       name: '摸鱼奎恩', title: '摸鱼之道', img: 'xiaoq',
+      avatar: 'assets/v2/avatar/xiaoq.jpg',
       maxHp: 75, gold: 99,
       passive: '每场战斗的第一回合多抽 2 张牌。',
       passiveId: 'firstDraw2',
@@ -355,6 +356,7 @@
     },
     shengfan: {
       name: '北极熊剩饭', title: '干饭人', img: 'shengfan',
+      avatar: 'assets/v2/avatar/shengfan.jpg',
       maxHp: 90, gold: 99,
       passive: '最大精力 +15，战斗胜利后额外回复 4 点精力。',
       passiveId: 'foodie',
@@ -365,6 +367,7 @@
     },
     jihuang: {
       name: '企鹅机皇', title: '攻略制定', img: 'jihuang',
+      avatar: 'assets/v2/avatar/jihuang.jpg',
       maxHp: 70, gold: 99,
       passive: '每回合多抽 1 张牌。',
       passiveId: 'extraDraw1',
@@ -375,6 +378,7 @@
     },
     shuanglaoya: {
       name: '爽老鸭', title: '财力支柱', img: 'shuanglaoya',
+      avatar: 'assets/v2/avatar/shuanglaoya.jpg',
       maxHp: 80, gold: 120,
       passive: '商店卡牌商品 +1 格，每场战斗开始获得 10 金币。',
       passiveId: 'moneybags',
@@ -410,11 +414,31 @@
     ultimate: ['assets/cardart/kenni_sword.png'],
     money: ['assets/cardart/duck_suit.png'],
     shades: ['assets/cardart/duck_cry.png'],
-    scarf_power: ['assets/char/xiaoq.png', 'contain'],
-    guide: ['assets/char/jihuang.png', 'contain'],
-    optimize: ['assets/char/jihuang.png', 'contain'],
-    calc: ['assets/char/jihuang.png', 'contain'],
-    leftover_shield: ['assets/char/shengfan.png', 'contain']
+    /* Lovart 新美术：整卡设计图裁出的插画（v2，cover） */
+    strike_moyu: ['assets/v2/card/strike_moyu.jpg'],
+    squat: ['assets/v2/card/squat.jpg'],
+    keyboard: ['assets/v2/card/keyboard.jpg'],
+    keystorm: ['assets/v2/card/keystorm.jpg'],
+    pie: ['assets/v2/card/pie.jpg'],
+    weekly: ['assets/v2/card/weekly.jpg'],
+    breakdown: ['assets/v2/card/breakdown.jpg'],
+    fakebusy: ['assets/v2/card/fakebusy.jpg'],
+    spiritwin: ['assets/v2/card/spiritwin.jpg'],
+    paidpoop: ['assets/v2/card/paidpoop.jpg'],
+    stealth: ['assets/v2/card/stealth.jpg'],
+    vacation: ['assets/v2/card/vacation.jpg'],
+    procrastinate: ['assets/v2/card/procrastinate.jpg'],
+    clockout: ['assets/v2/card/clockout.jpg'],
+    coffee: ['assets/v2/card/coffee.jpg'],
+    bigbook: ['assets/v2/card/bigbook.jpg'],
+    realm: ['assets/v2/card/realm.jpg'],
+    chicken_bucket_card: ['assets/v2/card/chicken_bucket_card.jpg'],
+    /* 角色专属牌卡面用新头像 */
+    scarf_power: ['assets/v2/avatar/xiaoq.jpg', 'contain'],
+    guide: ['assets/v2/avatar/jihuang.jpg', 'contain'],
+    optimize: ['assets/v2/avatar/jihuang.jpg', 'contain'],
+    calc: ['assets/v2/avatar/jihuang.jpg', 'contain'],
+    leftover_shield: ['assets/v2/avatar/shengfan.jpg', 'contain']
   };
   for (var artId in CARD_ART) {
     if (cards[artId]) {

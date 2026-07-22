@@ -42,19 +42,89 @@ button:disabled { opacity: .45; cursor: not-allowed; }
 button.primary { background: var(--red); color: #fff; }
 button.yellow { background: var(--yellow); }
 
-/* ---------- 标题界面 ---------- */
-#screen-title { justify-content: center; gap: 28px;
-  background: radial-gradient(circle at 50% 30%, #fff 0%, var(--cream) 60%); }
-#screen-title .logo {
-  font-size: 72px; color: var(--red);
-  text-shadow: 4px 4px 0 var(--ink);
-  letter-spacing: 8px;
+/* ---------- 标题界面（主视觉背景） ---------- */
+#screen-title.title-bg {
+  justify-content: flex-end; align-items: center;
+  background: url('assets/v2/ui/title_main.jpg') center 30%/cover no-repeat #1a2340;
+  position: relative;
 }
-#screen-title .subtitle { font-size: 20px; font-weight: 700; color: var(--ink); opacity: .7; }
-#screen-title .mascot { height: 260px; filter: drop-shadow(4px 4px 0 rgba(0,0,0,.25)); animation: bob 2.4s ease-in-out infinite; }
-@keyframes bob { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-12px); } }
-#screen-title .menu { display: flex; flex-direction: column; gap: 14px; width: 240px; }
-#screen-title .stats { position: absolute; bottom: 16px; font-size: 14px; opacity: .65; font-weight: 700; }
+#screen-title.title-bg::before {
+  content: ''; position: absolute; inset: 0;
+  background: linear-gradient(rgba(10,14,30,.05) 55%, rgba(10,14,30,.55));
+}
+.title-menu {
+  position: relative; z-index: 2;
+  display: flex; gap: 12px; margin-bottom: 12px; flex-wrap: wrap; justify-content: center;
+}
+#screen-title .stats {
+  position: relative; z-index: 2; margin-bottom: 18px;
+  font-size: 14px; font-weight: 700; color: #fff; opacity: .85;
+  text-shadow: 1px 1px 0 #000;
+}
+
+/* ---------- 通用小图标 ---------- */
+.ico { height: 1.15em; width: auto; vertical-align: -0.2em; border-radius: 4px; }
+
+/* ---------- 战绩簿 ---------- */
+.h-list { display: flex; flex-direction: column; gap: 8px; width: 640px; max-height: 400px; overflow-y: auto; }
+.h-row {
+  display: flex; gap: 14px; align-items: center;
+  border: 2px solid var(--ink); border-radius: 10px; padding: 8px 14px;
+  background: var(--cream); font-size: 14px; font-weight: 700;
+}
+.h-date { opacity: .6; width: 86px; flex-shrink: 0; }
+.h-char { color: var(--red); width: 90px; flex-shrink: 0; }
+.h-result { flex: 1; }
+.h-detail { opacity: .6; flex-shrink: 0; }
+.h-win { color: #B8860B; font-weight: 900; }
+
+/* ---------- 存档页 ---------- */
+#screen-save textarea {
+  width: 560px; height: 90px;
+  border: 3px solid var(--ink); border-radius: 10px;
+  font-family: inherit; font-size: 13px; padding: 8px; resize: none; background: #fff;
+}
+
+/* ---------- 角色头像（v2） ---------- */
+.char-card img.char-avatar {
+  height: 150px; width: 150px; object-fit: cover;
+  border: 3px solid var(--ink); border-radius: 16px;
+}
+
+/* ---------- 地图楼层横幅 ---------- */
+.map-banner {
+  width: 100%; height: 120px; object-fit: cover;
+  border-bottom: 3px solid var(--ink); display: block;
+}
+
+/* ---------- v2 图块（敌人/玩家/事件/结算） ---------- */
+.enemy-img.v2 {
+  height: 230px; width: 230px; object-fit: cover;
+  border: 3px solid var(--ink); border-radius: 18px;
+  box-shadow: 4px 4px 0 rgba(0,0,0,.3); background: #fff;
+}
+.enemy-img.v2.elite { height: 250px; width: 250px; }
+.enemy-img.v2.boss { height: 280px; width: auto; min-width: 280px; }
+.player-img.v2 {
+  height: 165px; width: 165px; object-fit: cover;
+  border: 3px solid var(--ink); border-radius: 50%;
+  box-shadow: 3px 3px 0 rgba(0,0,0,.25); background: #fff;
+}
+.event-img.v2 {
+  width: 480px; max-height: 200px; object-fit: cover;
+  border: 3px solid var(--ink); border-radius: 14px;
+}
+.over-img {
+  width: 420px; border: 3px solid var(--ink); border-radius: 16px;
+  box-shadow: 4px 4px 0 var(--ink);
+}
+
+/* 能量球样式在下方原定义处合并修改 */
+
+/* 遗物图标（v2 方图） */
+.relic-icon img { width: 100%; height: 100%; object-fit: cover; border-radius: 5px; }
+.relic-icon.big { width: 52px; height: 52px; }
+.shop-relic .relic-icon.big img { height: auto; }
 
 /* ---------- 角色选择 ---------- */
 #screen-chars { justify-content: center; gap: 24px; }
@@ -176,16 +246,20 @@ button.yellow { background: var(--yellow); }
 }
 .energy-orb {
   position: absolute; left: 14px; bottom: 14px;
-  width: 64px; height: 64px; border-radius: 50%;
+  width: auto; min-width: 64px; height: 64px; border-radius: 32px; padding: 0 10px;
   background: var(--yellow); border: 3px solid var(--ink);
-  display: flex; align-items: center; justify-content: center;
-  font-size: 24px; font-weight: 900; box-shadow: 3px 3px 0 var(--ink);
+  display: flex; gap: 5px; align-items: center; justify-content: center;
+  font-size: 20px; font-weight: 900; box-shadow: 3px 3px 0 var(--ink);
 }
+.energy-orb .ico { height: 24px; border-radius: 50%; }
 .pile {
   position: absolute; bottom: 16px; font-weight: 900; font-size: 13px;
   background: #fff; border: 2px solid var(--ink); border-radius: 8px; padding: 3px 10px;
 }
-.pile.draw { left: 92px; }
+.pile.draw { right: 16px; bottom: 154px; display: flex; align-items: center; gap: 6px; }
+.pile .cardback {
+  height: 34px; width: auto; border: 2px solid var(--ink); border-radius: 4px;
+}
 .pile.discard { right: 16px; bottom: 78px; }
 .pile.exhaust { right: 16px; bottom: 116px; }
 .endturn { position: absolute; right: 16px; bottom: 16px; }

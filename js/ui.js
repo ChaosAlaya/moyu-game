@@ -7,7 +7,14 @@
   var app = null;
   function el() { if (!app) app = document.getElementById('app'); return app; }
 
-  function imgSrc(img) { return 'assets/char/' + img + '.png'; }
+  function imgSrc(img) { return 'assets/char/' + img + '.png'; } // 旧立绘（备用）
+  // v2 美术（约定路径，无需数据字段）
+  function enemyArt(id, phase2) { return 'assets/v2/enemy/' + id + (phase2 ? '_p2' : '') + '.jpg'; }
+  function relicArt(id) { return 'assets/v2/relic/' + id + '.jpg'; }
+  function eventArt(id) { return 'assets/v2/event/' + id + '.jpg'; }
+  function bannerArt(act) { return 'assets/v2/banner/act' + act + '.jpg'; }
+  function iconSrc(name) { return 'assets/v2/icon/' + name + '.png'; }
+  function ico(name) { return '<img class="ico" src="' + iconSrc(name) + '" alt="">'; }
 
   /* ---------- 通用片段 ---------- */
   function topbarHtml(S) {
@@ -15,12 +22,12 @@
     var relics = run.relics.map(function (rid) {
       var r = D.relics[rid];
       return '<div class="relic-icon" title="' + r.name + '：' + r.desc + '">' +
-        '<img src="' + imgSrc(r.img) + '" alt=""></div>';
+        '<img src="' + relicArt(rid) + '" alt=""></div>';
     }).join('');
     return '<div class="topbar">' +
       '<span class="floor">' + D.acts[run.act - 1].name + ' · 第 ' + (run.step + 1) + '/' + D.STEPS_PER_ACT + ' 步</span>' +
       '<span class="hp-mini">精力 ' + run.hp + '/' + run.maxHp + '</span>' +
-      '<span class="gold">金币 ' + run.gold + '</span>' +
+      '<span class="gold">' + ico('gold') + ' ' + run.gold + '</span>' +
       '<div class="relics">' + relics + '</div>' +
       '<div class="spacer"></div>' +
       '<button onclick="Game.showCodex()">图鉴</button>' +
@@ -55,17 +62,57 @@
   /* ---------- 标题 ---------- */
   function renderTitle(S) {
     var sv = S.save;
-    return '<div class="screen" id="screen-title">' +
-      '<div class="logo">摸鱼大作战</div>' +
-      '<div class="subtitle">—— 猛男寨出品 · 摸穿 10 层公司大楼 ——</div>' +
-      '<img class="mascot" src="' + imgSrc('xiaoq') + '" alt="摸鱼奎恩">' +
-      '<div class="menu">' +
+    return '<div class="screen title-bg" id="screen-title">' +
+      '<div class="title-menu">' +
       '<button class="primary" onclick="Game.toChars()">开始摸鱼</button>' +
       '<button class="yellow" onclick="Game.showCodex()">图鉴</button>' +
+      '<button class="yellow" onclick="Game.toHistory()">战绩</button>' +
+      '<button onclick="Game.toSave()">存档</button>' +
       '<button onclick="Game.toggleSfx()">音效：' + (g.GameSfx.enabled ? '开' : '关') + '</button>' +
       '</div>' +
       '<div class="stats">最高到达：第 ' + sv.maxFloor + ' 层 · 通关 ' + sv.wins + ' 次 · 累计摸鱼 ' + sv.runs + ' 局</div>' +
       '</div>';
+  }
+
+  /* ---------- 战绩簿 ---------- */
+  function renderHistory(S) {
+    var list = (S.save.history || []).map(function (h) {
+      var d = new Date(h.t);
+      var date = (d.getMonth() + 1) + '/' + d.getDate() + ' ' +
+        ('0' + d.getHours()).slice(-2) + ':' + ('0' + d.getMinutes()).slice(-2);
+      var chName = D.characters[h.char] ? D.characters[h.char].name : h.char;
+      var result = h.victory
+        ? '<span class="h-win">通关 10 层！</span>'
+        : '倒在第 ' + h.act + ' 层' + (h.killer ? '（' + h.killer + '）' : '');
+      return '<div class="h-row">' +
+        '<span class="h-date">' + date + '</span>' +
+        '<span class="h-char">' + chName + '</span>' +
+        '<span class="h-result">' + result + '</span>' +
+        '<span class="h-detail">牌组 ' + h.deck + ' · 遗物 ' + h.relics + '</span>' +
+        '</div>';
+    }).join('') || '<div class="event-text">还没有战绩，去摸一局吧！</div>';
+    return '<div class="screen" id="screen-history">' +
+      '<div class="center-wrap"><div class="panel">' +
+      '<h2>📜 摸鱼战绩簿</h2>' +
+      '<div class="h-list">' + list + '</div>' +
+      '<button onclick="Game.toTitle()">返回</button>' +
+      '</div></div></div>';
+  }
+
+  /* ---------- 存档导入/导出 ---------- */
+  function renderSave(S) {
+    return '<div class="screen" id="screen-save">' +
+      '<div class="center-wrap"><div class="panel">' +
+      '<h2>💾 存档</h2>' +
+      '<div class="event-text">导出存档码可转移到其他设备；导入他人存档码会覆盖当前进度。</div>' +
+      '<h3>导出存档码</h3>' +
+      '<textarea id="save-export" readonly>' + (S.saveCode || '') + '</textarea>' +
+      '<button class="yellow" onclick="Game.copySaveCode()">复制存档码</button>' +
+      '<h3>导入存档码</h3>' +
+      '<textarea id="save-import" placeholder="粘贴存档码…"></textarea>' +
+      '<button class="primary" onclick="Game.importSave()">导入</button>' +
+      '<button onclick="Game.toTitle()">返回</button>' +
+      '</div></div></div>';
   }
 
   /* ---------- 角色选择 ---------- */
@@ -76,7 +123,7 @@
       var lockText = ch.unlock > 0 ? '通关第 ' + ch.unlock + ' 层解锁' : '';
       return '<div class="char-card' + (unlocked ? '' : ' locked') + '"' +
         (unlocked ? ' onclick="Game.pickChar(\'' + cid + '\')"' : '') + '>' +
-        '<img src="' + imgSrc(ch.img) + '" alt="' + ch.name + '">' +
+        '<img class="char-avatar" src="' + (ch.avatar || imgSrc(ch.img)) + '" alt="' + ch.name + '">' +
         '<div class="cname">' + ch.name + '</div>' +
         '<div class="ctitle">' + ch.title + '</div>' +
         '<div class="cdesc">' + (unlocked ? ch.passive : '🔒 ' + lockText) + '</div>' +
@@ -107,6 +154,7 @@
       return '<div class="map-step"><div class="step-label">第 ' + (i + 1) + ' 步</div>' + nodes + '</div>';
     }).join('');
     return '<div class="screen" id="screen-map">' + topbarHtml(S) +
+      '<img class="map-banner" src="' + bannerArt(run.act) + '" alt="' + D.acts[run.act - 1].name + '">' +
       '<div class="map-body">' + steps +
       '<div class="map-hint">选择一个节点前进，打败第 ' + run.act + ' 层的 BOSS！</div>' +
       '</div></div>';
@@ -115,27 +163,28 @@
   /* ---------- 战斗 ---------- */
   function intentHtml(S) {
     var c = S.run.combat, e = c.enemy;
-    if (e.skipTurns > 0) return '<div class="intent debuff">😴 跳过行动</div>';
+    if (e.skipTurns > 0) return '<div class="intent debuff">' + ico('debuff') + ' 跳过行动</div>';
     var mv = e.intent;
     if (!mv) return '<div class="intent">…</div>';
     var exact = S.run.relics.indexOf('glasses') >= 0;
-    var txt = '';
+    var txt = '', ic = 'buff';
     if (mv.type === 'attack') {
       var v = mv.value;
       if (exact) {
-        v = v + e.strength;
+        v = v + e.strength + (e.dmgBonus || 0);
         if (e.weak > 0) v = Math.floor(v * 0.75);
         if (c.playerVuln > 0) v = Math.floor(v * 1.5);
       }
-      txt = '⚔ 攻击 ' + v + (mv.times > 1 ? '×' + mv.times : '');
+      ic = 'intent_attack';
+      txt = '攻击 ' + v + (mv.times > 1 ? '×' + mv.times : '');
       if (mv.weak) txt += ' +虚弱';
       if (mv.vulnerable) txt += ' +易伤';
-    } else if (mv.type === 'block') txt = '🛡 防御 ' + (exact || true ? mv.value : '');
-    else if (mv.type === 'debuff') txt = '💢 ' + mv.name;
-    else if (mv.type === 'buff') txt = '💪 ' + mv.name + (mv.strength ? '（力量+' + mv.strength + '）' : '');
-    else if (mv.type === 'charge') txt = '🔮 蓄力中…';
-    else if (mv.type === 'heal') txt = '💚 回复 ' + mv.value;
-    return '<div class="intent ' + mv.type + '">' + txt + '</div>';
+    } else if (mv.type === 'block') { ic = 'defend'; txt = '防御 ' + mv.value; }
+    else if (mv.type === 'debuff') { ic = 'debuff'; txt = mv.name; }
+    else if (mv.type === 'buff') { ic = 'buff'; txt = mv.name + (mv.strength ? '（力量+' + mv.strength + '）' : ''); }
+    else if (mv.type === 'charge') { ic = 'charge'; txt = '蓄力中…'; }
+    else if (mv.type === 'heal') { ic = 'heal'; txt = '回复 ' + mv.value; }
+    return '<div class="intent ' + mv.type + '">' + ico(ic) + ' ' + txt + '</div>';
   }
 
   function statusBadges(list) {
@@ -151,6 +200,8 @@
     var cls = edef.boss ? 'boss' : edef.elite ? 'elite' : '';
     var eHpPct = Math.max(0, e.hp / e.maxHp * 100);
     var pHpPct = Math.max(0, run.hp / run.maxHp * 100);
+    // 老板等带阶段的 BOSS：阶段 2 换图
+    var eArt = enemyArt(e.id, edef.phases && e.phase > 0);
 
     var eStatus = statusBadges([
       e.strength ? { cls: 'str', txt: '力量+' + e.strength } : null,
@@ -181,25 +232,25 @@
     return '<div class="screen" id="screen-combat">' + topbarHtml(S) +
       '<div class="combat-area">' +
         '<div class="player-zone">' +
-          '<img class="player-img" id="player-img" src="' + imgSrc(ch.img) + '" alt="' + ch.name + '">' +
+          '<img class="player-img v2" id="player-img" src="' + (ch.avatar || imgSrc(ch.img)) + '" alt="' + ch.name + '">' +
           '<div class="enemy-name">' + ch.name + '</div>' +
           '<div class="hpbar"><div class="fill" style="width:' + pHpPct + '%"></div>' +
             '<div class="txt">' + run.hp + '/' + run.maxHp + '</div></div>' +
-          (c.playerBlock > 0 ? '<div class="block-badge">🛡 格挡 ' + c.playerBlock + '</div>' : '') +
+          (c.playerBlock > 0 ? '<div class="block-badge">' + ico('block') + ' 格挡 ' + c.playerBlock + '</div>' : '') +
           '<div class="status-row">' + pStatus + '</div>' +
-          '<div class="energy-orb" title="能量">' + c.energy + '/' + c.maxEnergy + '</div>' +
-          '<div class="pile draw">牌堆 ' + c.drawPile.length + '</div>' +
+          '<div class="energy-orb" title="能量">' + ico('energy') + '<span>' + c.energy + '/' + c.maxEnergy + '</span></div>' +
+          '<div class="pile draw"><img class="cardback" src="assets/v2/ui/cardback.jpg" alt="">牌堆 ' + c.drawPile.length + '</div>' +
           '<div class="pile discard">弃牌 ' + c.discard.length + '</div>' +
           (c.exhausted.length ? '<div class="pile exhaust">消耗 ' + c.exhausted.length + '</div>' : '') +
           '<button class="endturn primary" onclick="Game.endTurn()">结束回合</button>' +
         '</div>' +
         '<div class="enemy-zone">' +
           intentHtml(S) +
-          '<img class="enemy-img ' + cls + ' act' + run.act + '" id="enemy-img" src="' + imgSrc(edef.img) + '" alt="' + e.name + '">' +
+          '<img class="enemy-img v2 ' + cls + '" id="enemy-img" src="' + eArt + '" alt="' + e.name + '">' +
           '<div class="enemy-name">' + e.name + '</div>' +
           '<div class="hpbar"><div class="fill" style="width:' + eHpPct + '%"></div>' +
             '<div class="txt">' + e.hp + '/' + e.maxHp + '</div></div>' +
-          (e.block > 0 ? '<div class="block-badge">🛡 格挡 ' + e.block + '</div>' : '') +
+          (e.block > 0 ? '<div class="block-badge">' + ico('block') + ' 格挡 ' + e.block + '</div>' : '') +
           '<div class="status-row">' + eStatus + '</div>' +
         '</div>' +
       '</div>' +
@@ -238,7 +289,7 @@
     var relicsHtml = shop.relics.map(function (item, i) {
       var r = D.relics[item.id];
       return '<div class="shop-item shop-relic' + (item.sold ? ' sold' : '') + '">' +
-        '<div class="relic-icon"><img src="' + imgSrc(r.img) + '"></div>' +
+        '<div class="relic-icon big"><img src="' + relicArt(item.id) + '"></div>' +
         '<div class="rname">' + r.name + '</div>' +
         '<div class="rdesc">' + r.desc + '</div>' +
         (item.sold ? '<div class="price-tag">已售出</div>'
@@ -290,7 +341,7 @@
     return '<div class="screen" id="screen-event">' + topbarHtml(S) +
       '<div class="center-wrap"><div class="panel">' +
       '<h2>' + ev.name + '</h2>' +
-      '<img class="event-img" src="' + imgSrc(ev.img) + '">' +
+      '<img class="event-img v2" src="' + eventArt(S.eventId) + '">' +
       '<div class="event-text">' + ev.text + '</div>' + body +
       '</div></div></div>';
   }
@@ -324,7 +375,7 @@
     });
     return '<div class="screen" id="screen-over">' +
       '<div class="verdict ' + (win ? 'win' : 'lose') + '">' + (win ? '下班成功！' : '被工作击倒了…') + '</div>' +
-      '<img class="mascot" style="height:220px" src="' + imgSrc(D.characters[run.charId].img) + '">' +
+      '<img class="over-img" src="assets/v2/ui/' + (win ? 'over_win' : 'over_lose') + '.jpg">' +
       '<div class="summary">角色：' + D.characters[run.charId].name +
       '<br>到达：第 ' + run.act + ' 层 · 通关层数：' + run.floorsCleared +
       '<br>剩余金币：' + run.gold + ' · 牌组：' + run.deck.length + ' 张 · 遗物：' + run.relics.length + ' 件</div>' +
@@ -350,7 +401,7 @@
       body = Object.keys(D.relics).map(function (rid) {
         var r = D.relics[rid], s = seen.relics[rid];
         return '<div class="codex-item' + (s ? '' : ' unseen') + '">' +
-          '<img src="' + imgSrc(r.img) + '">' +
+          '<img src="' + relicArt(rid) + '">' +
           '<div class="nm">' + (s ? r.name : '？？？') + '</div>' +
           '<div>' + (s ? r.desc : '尚未见过') + '</div></div>';
       }).join('');
@@ -358,7 +409,7 @@
       body = Object.keys(D.enemies).map(function (eid) {
         var e = D.enemies[eid], s = seen.enemies[eid];
         return '<div class="codex-item' + (s ? '' : ' unseen') + '">' +
-          '<img src="' + imgSrc(e.img) + '">' +
+          '<img src="' + enemyArt(eid) + '">' +
           '<div class="nm">' + (s ? e.name : '？？？') + '</div>' +
           '<div>' + (s ? ('精力 ' + e.hp + (e.boss ? ' · BOSS' : e.elite ? ' · 精英' : '')) : '尚未见过') + '</div></div>';
       }).join('');
@@ -394,6 +445,8 @@
       case 'deckSelect': html = renderDeckSelect(S); break;
       case 'over': html = renderOver(S); break;
       case 'codex': html = renderCodex(S); break;
+      case 'history': html = renderHistory(S); break;
+      case 'save': html = renderSave(S); break;
       default: html = '<div class="screen">未知界面</div>';
     }
     el().innerHTML = html;

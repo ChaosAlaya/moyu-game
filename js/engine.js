@@ -839,8 +839,52 @@
     };
   };
 
+  /* ---------- 存档码与战绩簿（纯函数，Node 可测） ---------- */
+  // Base64(UTF-8) 编解码，浏览器 btoa/atob 与 Node 全局均可用
+  function b64encode(str) {
+    var bytes = new TextEncoder().encode(str);
+    var bin = '';
+    for (var i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
+    return btoa(bin);
+  }
+  function b64decode(b64) {
+    var bin = atob(b64);
+    var bytes = new Uint8Array(bin.length);
+    for (var i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+    return new TextDecoder().decode(bytes);
+  }
+  var saveCodec = {
+    encode: function (obj) { return b64encode(JSON.stringify({ v: 1, data: obj })); },
+    // 非法码返回 null（不抛异常）
+    decode: function (str) {
+      try {
+        var o = JSON.parse(b64decode(String(str).trim()));
+        if (!o || o.v !== 1 || typeof o.data !== 'object' || o.data === null) return null;
+        return o.data;
+      } catch (e) { return null; }
+    }
+  };
+
+  // 战绩：最新在前，最多 20 条
+  function pushHistory(save, run) {
+    if (!save.history) save.history = [];
+    save.history.unshift({
+      t: Date.now(),
+      char: run.charId,
+      act: run.act,
+      victory: !!run.victory,
+      killer: (!run.victory && run.combat && run.combat.enemy) ? run.combat.enemy.name : '',
+      deck: run.deck.length,
+      relics: run.relics.length
+    });
+    if (save.history.length > 20) save.history.length = 20;
+    return save.history;
+  }
+
   g.GameEngine = {
     Engine: Engine,
-    makeRng: makeRng
+    makeRng: makeRng,
+    saveCodec: saveCodec,
+    pushHistory: pushHistory
   };
 })(typeof window !== 'undefined' ? window : globalThis);
