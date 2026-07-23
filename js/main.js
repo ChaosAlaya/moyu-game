@@ -46,13 +46,37 @@
       eventId: null, eventResult: null,
       selecting: null, screenBeforeCodex: null, codexTab: 'cards',
       newUnlocks: [],
-      animating: false        // 战斗动画编排期间锁输入
+      animating: false,       // 战斗动画编排期间锁输入
+      playerPose: 'stage'     // 当前玩家立绘姿势（stage/attack/hit/low）
     }
   };
 
   var S = Game.state;
 
-  function render() { UI.render(); }
+  function render() {
+    // 低血姿势常驻（仅在 stage/low 两态间自动切换，不打断 attack/hit 演出）
+    if (S.run && (S.playerPose === 'stage' || S.playerPose === 'low' || !S.playerPose)) {
+      S.playerPose = (S.run.hp < S.run.maxHp * 0.3) ? 'low' : 'stage';
+    }
+    UI.render();
+  }
+
+  /* ---------- 角色姿势管理（阵亡 > hit 瞬间 > attack 出牌 > low 常驻 > stage） ---------- */
+  function basePose() {
+    return (S.run && S.run.hp < S.run.maxHp * 0.3) ? 'low' : 'stage';
+  }
+  function setPlayerPose(pose) {
+    S.playerPose = pose;
+    var el = document.getElementById('player-img');
+    if (el && S.run) el.src = 'assets/v2/char-stage/' + S.run.charId + '-' + pose + '.png';
+  }
+  // 姿势演出：播 pose 一段时间（ms）后回到基准姿势；阵亡时不恢复
+  function playPose(pose, ms) {
+    setPlayerPose(pose);
+    setTimeout(function () {
+      if (S.run && S.run.hp > 0) setPlayerPose(basePose());
+    }, ms);
+  }
 
   // 将 run 进度合并进存档
   function syncSave() {
@@ -85,6 +109,7 @@
     S.run = S.engine.state;
     S.newUnlocks = [];
     S.animating = false; // 新开一局时复位动画锁，防死锁带入新 run
+    S.playerPose = 'stage';
     S.save.runs++;
     persist();
     syncSave(); // 初始牌组进图鉴
@@ -170,11 +195,20 @@
       preMs = 550;
     }
     setTimeout(function () {
-      // 攻击牌：克隆体飞向敌人
+      // 攻击牌：角色切 attack 姿势 + 冲刺，克隆体从角色手部飞出
       var flyMs = 0;
-      if (def0 && def0.type === 'attack' && r.hits.length && fromRect) {
+      if (def0 && def0.type === 'attack' && r.hits.length) {
         flyMs = 260;
-        UI.cardFly(fromRect, 'enemy-img', 260, null);
+        playPose('attack', 400);
+        var pel = document.getElementById('player-img');
+        if (pel) {
+          pel.classList.add('plunge');
+          setTimeout(function () { pel.classList.remove('plunge'); }, 260);
+          var pr = pel.getBoundingClientRect();
+          // 手部位置：立绘右侧中部
+          var handRect = { left: pr.left + pr.width * 0.72, top: pr.top + pr.height * 0.42, width: 44, height: 58 };
+          UI.cardFly(handRect, 'enemy-img', 260, null);
+        }
       }
       render();
       // 命中帧：敌人抖动+闪白+星环+冲击波，序列帧增强（大伤 crit / 多段 combo / 普通 hit）
@@ -270,6 +304,7 @@
           return;
         }
         var big = h >= 15;
+        playPose('hit', 400); // 受击姿势
         UI.hitFlash('player-img');
         UI.edgeFlash();
         UI.shockRing('player-img');

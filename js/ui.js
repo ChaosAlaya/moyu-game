@@ -15,6 +15,8 @@
   function bannerArt(act) { return 'assets/v2/banner/act' + act + '.jpg'; }
   function iconSrc(name) { return 'assets/v2/icon/' + name + '.png'; }
   function ico(name) { return '<img class="ico" src="' + iconSrc(name) + '" alt="">'; }
+  // 角色舞台立绘（stage/attack/hit/low）
+  function charArt(cid, pose) { return 'assets/v2/char-stage/' + cid + '-' + (pose || 'stage') + '.png'; }
 
   /* ---------- 通用片段 ---------- */
   // 已装备圣物判定（与引擎 hasRelic 口径一致；旧内存档无 equippedRelics 时回退为全部拥有）
@@ -369,7 +371,7 @@
             '<div class="energy-orb" title="能量">' + ico('energy') + '<span>' + c.energy + '/' + c.maxEnergy + '</span></div>' +
           '</div>' +
           '<div class="pstage">' +
-            '<img class="player-img full" id="player-img" src="' + imgSrc(ch.img) + '" alt="' + ch.name + '">' +
+            '<img class="player-img full" id="player-img" src="' + charArt(run.charId, S.playerPose) + '" alt="' + ch.name + '">' +
             '<div class="stage-ellipse"></div>' +
           '</div>' +
           '<div class="pile draw" onclick="Game.showDeck(\'draw\')" title="查看抽牌堆"><img class="cardback" src="assets/v2/ui/cardback.jpg" alt="">牌堆 ' + c.drawPile.length + '</div>' +
