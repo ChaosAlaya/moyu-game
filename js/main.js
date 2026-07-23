@@ -398,6 +398,9 @@
   Game.toHistory = function () { S.screen = 'history'; render(); };
 
   /* ---------- 存档码导入/导出 ---------- */
+  Game.showDeck = function (mode) { S.deckView = mode; render(); };
+  Game.closeDeck = function () { S.deckView = null; render(); };
+
   Game.toSave = function () {
     // 打包本游戏所有 localStorage key
     var data = { save: S.save };

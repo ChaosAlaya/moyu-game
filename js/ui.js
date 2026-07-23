@@ -30,6 +30,7 @@
       '<span class="gold">' + ico('gold') + ' ' + run.gold + '</span>' +
       '<div class="relics">' + relics + '</div>' +
       '<div class="spacer"></div>' +
+      '<button onclick="Game.showDeck(\'deck\')">牌组 ' + run.deck.length + '</button>' +
       '<button onclick="Game.showCodex()">图鉴</button>' +
       '<button onclick="Game.toTitle()">回标题</button>' +
       '</div>';
@@ -240,30 +241,49 @@
   }
 
   /* ---------- 战斗 ---------- */
+  // 从招式数据自动生成中文效果描述（不写死）
+  function moveDesc(mv) {
+    var parts = [];
+    if (mv.type === 'attack') {
+      parts.push('造成 ' + mv.value + ' 点伤害' + (mv.times > 1 ? ' ×' + mv.times : ''));
+      if (mv.weak) parts.push('给你 ' + mv.weak + ' 回合虚弱');
+      if (mv.vulnerable) parts.push('给你 ' + mv.vulnerable + ' 回合易伤');
+      if (mv.strength) parts.push('自身力量 +' + mv.strength);
+    } else if (mv.type === 'block') parts.push('获得 ' + mv.value + ' 点格挡');
+    else if (mv.type === 'debuff') {
+      if (mv.weak) parts.push('给你 ' + mv.weak + ' 回合虚弱');
+      if (mv.vulnerable) parts.push('给你 ' + mv.vulnerable + ' 回合易伤');
+    }
+    else if (mv.type === 'buff') parts.push(mv.strength ? '自身力量 +' + mv.strength : '强化自身');
+    else if (mv.type === 'charge') parts.push('蓄力中，下回合大额伤害');
+    else if (mv.type === 'heal') parts.push('回复 ' + mv.value + ' 点精力');
+    return parts.join('，');
+  }
+
   function intentHtml(S) {
     var c = S.run.combat, e = c.enemy;
-    if (e.skipTurns > 0) return '<div class="intent debuff">' + ico('debuff') + ' 跳过行动</div>';
+    if (e.skipTurns > 0) {
+      return '<div class="intent debuff" title="摸鱼禁止生效中">' + ico('debuff') +
+        ' 被禁止摸鱼：跳过下一次行动</div>';
+    }
     var mv = e.intent;
     if (!mv) return '<div class="intent">…</div>';
-    var exact = S.run.relics.indexOf('glasses') >= 0;
-    var txt = '', ic = 'buff';
-    if (mv.type === 'attack') {
-      var v = mv.value;
-      if (exact) {
-        v = v + e.strength + (e.dmgBonus || 0);
-        if (e.weak > 0) v = Math.floor(v * 0.75);
-        if (c.playerVuln > 0) v = Math.floor(v * 1.5);
-      }
-      ic = 'intent_attack';
-      txt = '攻击 ' + v + (mv.times > 1 ? '×' + mv.times : '');
-      if (mv.weak) txt += ' +虚弱';
-      if (mv.vulnerable) txt += ' +易伤';
-    } else if (mv.type === 'block') { ic = 'defend'; txt = '防御 ' + mv.value; }
-    else if (mv.type === 'debuff') { ic = 'debuff'; txt = mv.name; }
-    else if (mv.type === 'buff') { ic = 'buff'; txt = mv.name + (mv.strength ? '（力量+' + mv.strength + '）' : ''); }
-    else if (mv.type === 'charge') { ic = 'charge'; txt = '蓄力中…'; }
-    else if (mv.type === 'heal') { ic = 'heal'; txt = '回复 ' + mv.value; }
-    return '<div class="intent ' + mv.type + '">' + ico(ic) + ' ' + txt + '</div>';
+    var ic = 'buff';
+    if (mv.type === 'attack') ic = 'intent_attack';
+    else if (mv.type === 'block') ic = 'defend';
+    else if (mv.type === 'debuff') ic = 'debuff';
+    else if (mv.type === 'charge') ic = 'charge';
+    else if (mv.type === 'heal') ic = 'heal';
+    var text = mv.name + '：' + moveDesc(mv);
+    // 肯尼的镜片：tooltip 里给精确结算数值
+    var tip = text;
+    if (S.run.relics.indexOf('glasses') >= 0 && mv.type === 'attack') {
+      var v = mv.value + e.strength + (e.dmgBonus || 0);
+      if (e.weak > 0) v = Math.floor(v * 0.75);
+      if (c.playerVuln > 0) v = Math.floor(v * 1.5);
+      tip += '（精确：每段 ' + v + ' 点）';
+    }
+    return '<div class="intent ' + mv.type + '" title="' + tip + '">' + ico(ic) + ' ' + text + '</div>';
   }
 
   function statusBadges(list) {
@@ -326,8 +346,8 @@
           (c.playerBlock > 0 ? '<div class="block-badge">' + ico('block') + ' 格挡 ' + c.playerBlock + '</div>' : '') +
           '<div class="status-row">' + pStatus + '</div>' +
           '<div class="energy-orb" title="能量">' + ico('energy') + '<span>' + c.energy + '/' + c.maxEnergy + '</span></div>' +
-          '<div class="pile draw"><img class="cardback" src="assets/v2/ui/cardback.jpg" alt="">牌堆 ' + c.drawPile.length + '</div>' +
-          '<div class="pile discard">弃牌 ' + c.discard.length + '</div>' +
+          '<div class="pile draw" onclick="Game.showDeck(\'draw\')" title="查看抽牌堆"><img class="cardback" src="assets/v2/ui/cardback.jpg" alt="">牌堆 ' + c.drawPile.length + '</div>' +
+          '<div class="pile discard" onclick="Game.showDeck(\'discard\')" title="查看弃牌堆">弃牌 ' + c.discard.length + '</div>' +
           (c.exhausted.length ? '<div class="pile exhaust">消耗 ' + c.exhausted.length + '</div>' : '') +
           '<button class="endturn primary" onclick="Game.endTurn()">结束回合</button>' +
         '</div>' +
@@ -537,6 +557,36 @@
       '</div></div></div>';
   }
 
+  /* ---------- 牌组/牌堆/弃牌查看弹层 ---------- */
+  function deckViewHtml(S) {
+    var body = '';
+    if (S.deckView === 'deck') {
+      var byType = { attack: [], skill: [], power: [] };
+      S.run.deck.forEach(function (inst) { byType[Engine.cardDef(inst).type].push(inst); });
+      body = '<h2>当前牌组（' + S.run.deck.length + ' 张）</h2>';
+      ['attack', 'skill', 'power'].forEach(function (t) {
+        if (!byType[t].length) return;
+        body += '<div class="dv-group"><h3>' + TYPE_META[t].name + ' × ' + byType[t].length + '</h3>' +
+          '<div class="deck-select">' + byType[t].map(function (i) { return cardHtml(i); }).join('') + '</div></div>';
+      });
+    } else {
+      var isDraw = S.deckView === 'draw';
+      var pile = (S.run.combat ? (isDraw ? S.run.combat.drawPile : S.run.combat.discard) : []) || [];
+      body = '<h2>' + (isDraw ? '抽牌堆（' + pile.length + ' 张，顺序已打乱）' : '弃牌堆（' + pile.length + ' 张）') + '</h2>';
+      var list = pile.slice();
+      if (isDraw) {
+        // 显示前做确定性乱序，避免剧透抽牌顺序
+        list.sort(function (a, b) { return ((a.uid * 9301 + 49297) % 233) - ((b.uid * 9301 + 49297) % 233); });
+      }
+      body += '<div class="deck-select">' +
+        (list.length ? list.map(function (i) { return cardHtml(i); }).join('') : '<div class="event-text">空空如也</div>') +
+        '</div>';
+    }
+    return '<div class="dv-backdrop" onclick="Game.closeDeck()">' +
+      '<div class="dv-panel" onclick="event.stopPropagation()">' + body +
+      '<button onclick="Game.closeDeck()">关闭</button></div></div>';
+  }
+
   /* ---------- 主渲染 ---------- */
   var lastScreen = null;
   function render() {
@@ -558,7 +608,7 @@
       case 'save': html = renderSave(S); break;
       default: html = '<div class="screen">未知界面</div>';
     }
-    el().innerHTML = html;
+    el().innerHTML = html + (S.deckView ? deckViewHtml(S) : '');
     // 界面切换时统一清理动画临时元素，防止飘字跨屏残留（同屏重绘保留进行中的动画）
     if (S.screen !== lastScreen) {
       var fx = document.getElementById('fx');

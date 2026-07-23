@@ -138,14 +138,14 @@ button.yellow { background: var(--yellow); }
 
 /* ---------- v2 图块（敌人/玩家/事件/结算） ---------- */
 .enemy-img.v2 {
-  height: 230px; width: 230px; object-fit: cover;
+  height: 300px; width: 300px; object-fit: cover;
   border: 3px solid var(--ink); border-radius: 18px;
   box-shadow: 4px 4px 0 rgba(0,0,0,.3); background: #fff;
 }
-.enemy-img.v2.elite { height: 250px; width: 250px; }
-.enemy-img.v2.boss { height: 280px; width: auto; min-width: 280px; }
+.enemy-img.v2.elite { height: 320px; width: 320px; }
+.enemy-img.v2.boss { height: 340px; width: auto; min-width: 340px; }
 .player-img.v2 {
-  height: 165px; width: 165px; object-fit: cover;
+  height: 200px; width: 200px; object-fit: cover;
   border: 3px solid var(--ink); border-radius: 50%;
   box-shadow: 3px 3px 0 rgba(0,0,0,.25); background: #fff;
 }
@@ -313,8 +313,9 @@ button.yellow { background: var(--yellow); }
 .enemy-zone { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: flex-start; padding-top: 26px; position: relative; }
 .intent {
   background: #fff; border: 3px solid var(--ink); border-radius: 12px;
-  padding: 5px 14px; font-weight: 900; font-size: 15px; margin-bottom: 6px;
-  box-shadow: 2px 2px 0 var(--ink); position: relative;
+  padding: 6px 16px; font-weight: 900; font-size: 17px; margin-bottom: 8px;
+  box-shadow: 2px 2px 0 var(--ink); position: relative; max-width: 460px;
+  text-align: center;
 }
 .intent::after {
   content: ''; position: absolute; bottom: -10px; left: 50%; margin-left: -6px;
@@ -339,11 +340,11 @@ button.yellow { background: var(--yellow); }
 .enemy-img.boss { height: 300px; }
 .enemy-name { font-weight: 900; font-size: 19px; margin-top: 4px; }
 .hpbar {
-  width: 220px; height: 20px; border: 3px solid var(--ink); border-radius: 10px;
-  background: #fff; overflow: hidden; position: relative; margin-top: 4px;
+  width: 280px; height: 24px; border: 3px solid var(--ink); border-radius: 12px;
+  background: #fff; overflow: hidden; position: relative; margin-top: 6px;
 }
 .hpbar .fill { height: 100%; background: var(--red); transition: width .25s; }
-.hpbar .txt { position: absolute; inset: 0; text-align: center; font-size: 13px; font-weight: 900; line-height: 15px; }
+.hpbar .txt { position: absolute; inset: 0; text-align: center; font-size: 15px; font-weight: 900; line-height: 19px; }
 .block-badge {
   display: inline-flex; align-items: center; gap: 3px;
   background: #D9ECFF; border: 2px solid var(--ink); border-radius: 8px;
@@ -359,7 +360,7 @@ button.yellow { background: var(--yellow); }
 .status.str { background: var(--yellow); }
 
 .player-zone {
-  width: 300px; display: flex; flex-direction: column; align-items: center;
+  width: 340px; display: flex; flex-direction: column; align-items: center;
   justify-content: flex-end; padding-bottom: 100px; position: relative;
 }
 .player-img { height: 185px; filter: drop-shadow(3px 3px 0 rgba(0,0,0,.2)); }
@@ -381,7 +382,25 @@ button.yellow { background: var(--yellow); }
 .pile {
   position: absolute; bottom: 16px; font-weight: 900; font-size: 13px;
   background: #fff; border: 2px solid var(--ink); border-radius: 8px; padding: 3px 10px;
+  cursor: pointer;
 }
+.pile:hover { background: var(--yellow); }
+
+/* 牌组/牌堆查看弹层 */
+.dv-backdrop {
+  position: fixed; inset: 0; z-index: 150;
+  background: rgba(10, 10, 20, .65);
+  display: flex; align-items: center; justify-content: center;
+}
+.dv-panel {
+  background: #fff; border: 3px solid var(--ink); border-radius: 18px;
+  box-shadow: 5px 5px 0 var(--ink); padding: 22px 30px;
+  max-width: 1100px; max-height: 88vh; overflow-y: auto;
+  display: flex; flex-direction: column; align-items: center; gap: 14px;
+}
+.dv-panel h2 { color: var(--red); font-size: 24px; }
+.dv-group { width: 100%; }
+.dv-group h3 { font-size: 16px; margin-bottom: 8px; color: var(--ink); opacity: .8; }
 .pile.draw { right: 16px; bottom: 154px; display: flex; align-items: center; gap: 6px; }
 .pile .cardback {
   height: 34px; width: auto; border: 2px solid var(--ink); border-radius: 4px;
@@ -392,41 +411,42 @@ button.yellow { background: var(--yellow); }
 
 /* 手牌 */
 .hand {
-  width: 100%; height: 210px; display: flex; justify-content: center; align-items: flex-end;
-  padding: 0 40px 12px; gap: 0; position: relative; z-index: 6;
+  width: 100%; height: 262px; display: flex; justify-content: center; align-items: flex-end;
+  padding: 0 40px 14px; gap: 0; position: relative; z-index: 6;
 }
 .card {
-  width: 122px; height: 176px; background: var(--cream);
+  width: 150px; height: 215px; background: var(--cream);
   border: 3px solid var(--ink); border-radius: 12px;
-  margin: 0 -14px; cursor: pointer; position: relative;
+  margin: 0 -18px; cursor: pointer; position: relative;
   display: flex; flex-direction: column;
   box-shadow: 2px 3px 0 rgba(0,0,0,.35);
   transition: transform .12s, margin .12s;
   flex-shrink: 0;
   color: var(--ink); /* 深色面板（如小卖铺）内文字不被继承色冲淡 */
 }
-.card:hover { transform: translateY(-26px) scale(1.14); z-index: 20; margin: 0 2px; }
+.card:hover { transform: translateY(-26px) scale(1.12); z-index: 20; margin: 0 2px; }
 .card.unplayable { opacity: .55; }
 .card .cost {
   position: absolute; top: -10px; left: -10px; z-index: 3;
-  width: 32px; height: 32px; border-radius: 50%;
+  width: 36px; height: 36px; border-radius: 50%;
   background: #4A90E2; color: #fff; border: 3px solid var(--ink);
-  font-weight: 900; display: flex; align-items: center; justify-content: center; font-size: 16px;
+  font-weight: 900; display: flex; align-items: center; justify-content: center; font-size: 18px;
 }
 .card .ctitle {
-  background: var(--red); color: #fff; font-weight: 900; font-size: 14px;
-  text-align: center; padding: 4px 2px; border-bottom: 3px solid var(--ink);
+  background: var(--red); color: #fff; font-weight: 900; font-size: 16px;
+  text-align: center; padding: 5px 2px; border-bottom: 3px solid var(--ink);
   border-radius: 8px 8px 0 0;
 }
 /* 类型行：图标 + 类型名，右侧小字稀有度 */
 .card .ctype {
   display: flex; align-items: center; gap: 4px; justify-content: center;
-  font-size: 11px; font-weight: 900; padding: 2px 0;
+  font-size: 12px; font-weight: 900; padding: 3px 0;
   border-bottom: 2px solid var(--ink); background: #fff;
+  white-space: nowrap; overflow: hidden;
 }
-.card .ctype .ico { height: 14px; }
-.card .ctype em { font-style: normal; font-weight: 700; opacity: .5; font-size: 10px; margin-left: 2px; }
-.card .cdesc { flex: 1; padding: 6px 8px; font-size: 12px; line-height: 1.45; font-weight: 600; }
+.card .ctype .ico { height: 15px; }
+.card .ctype em { font-style: normal; font-weight: 700; opacity: .5; font-size: 11px; margin-left: 2px; }
+.card .cdesc { flex: 1; padding: 7px 9px; font-size: 13px; line-height: 1.45; font-weight: 600; }
 /* 升级+角标（金色圆底） */
 .card .upbadge {
   position: absolute; right: -9px; bottom: -9px; z-index: 3;
@@ -441,7 +461,7 @@ button.yellow { background: var(--yellow); }
 .card.upgraded .ctitle { background-image: linear-gradient(rgba(255,255,255,.18), rgba(255,255,255,.18)); }
 /* 卡面窗：标题条与文本之间 */
 .card .cart {
-  height: 66px; border-bottom: 2px solid var(--ink);
+  height: 82px; border-bottom: 2px solid var(--ink);
   background: #fff; overflow: hidden;
   display: flex; align-items: center; justify-content: center;
 }
@@ -631,6 +651,8 @@ button.yellow { background: var(--yellow); }
 /* 商店内卡牌用小号尺寸，控制整页高度 */
 .shop-panel-v2 .card { width: 104px; height: 150px; }
 .shop-panel-v2 .card .cdesc { font-size: 11px; }
+.shop-panel-v2 .card .ctype { font-size: 10px; }
+.shop-panel-v2 .card .ctype em { display: none; } /* 小卡省略稀有度小字防溢出 */
 .shop-panel-v2 .card .cart { height: 42px; }
 .shop-panel-v2 .shop-relic { width: 140px; }
 .shop-panel-v2 .shop-relic .rdesc { font-size: 11px; }
