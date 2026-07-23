@@ -362,21 +362,40 @@
         ico('charge') + '蓄力 ' + ico('heal') + '回血 ' + ico('buff') + '强化</div>' +
       '<div class="combat-area">' +
         '<div class="player-zone">' +
-          '<div class="pstat">' +
-            '<div class="pname">' + ch.name + '</div>' +
-            '<div class="hpbar"><div class="fill" style="width:' + pHpPct + '%"></div>' +
-              '<div class="txt">' + run.hp + '/' + run.maxHp + '</div></div>' +
-            '<div class="block-badge">' + ico('block') + ' 格挡 ' + c.playerBlock + '</div>' +
+          '<div class="infocard">' +
+            '<div class="ic-name">' + ch.name + '</div>' +
+            '<div class="ic-row' + (pHpPct < 30 ? ' lowhp' : '') + '">' +
+              '<span class="ic-label">❤ 精力</span>' +
+              '<div class="hpbar"><div class="fill" style="width:' + pHpPct + '%"></div>' +
+                '<div class="txt">' + run.hp + '/' + run.maxHp + '</div></div>' +
+            '</div>' +
+            '<div class="ic-row"><span class="ic-label">' + ico('block') + ' 格挡</span>' +
+              '<span class="ic-val">' + c.playerBlock + '</span></div>' +
+            '<div class="ic-row' + (c.energy === 0 ? ' empty' : '') + '"><span class="ic-label">' + ico('energy') + ' 能量</span>' +
+              '<span class="ic-val">' + c.energy + '/' + c.maxEnergy + '</span></div>' +
+            '<div class="ic-row ic-pile" onclick="Game.showDeck(\'draw\')" title="查看抽牌堆">' +
+              '<span class="ic-label"><img class="ic-32" src="assets/v2/ui/cardback.jpg" alt=""> 牌堆</span>' +
+              '<span class="ic-val">' + c.drawPile.length + '</span></div>' +
+            '<div class="ic-row ic-pile" onclick="Game.showDeck(\'discard\')" title="查看弃牌堆">' +
+              '<span class="ic-label"><span class="ic-trash">🗑</span> 弃牌</span>' +
+              '<span class="ic-val">' + c.discard.length + '</span></div>' +
+            (c.exhausted.length ?
+              '<div class="ic-row"><span class="ic-label">✕ 消耗</span><span class="ic-val">' + c.exhausted.length + '</span></div>' : '') +
+            '<div class="ic-row ic-relics"><span class="ic-label">圣物</span><span class="ic-relic-row">' +
+              [0, 1, 2, 3].map(function (ri) {
+                var rid = run.relics[ri];
+                return rid
+                  ? '<img class="ic-relic" src="' + relicArt(rid) + '" title="' + D.relics[rid].name + '：' + D.relics[rid].desc + '">'
+                  : '<span class="ic-relic-slot"></span>';
+              }).join('') +
+              (run.relics.length > 4 ? '<span class="ic-more">+' + (run.relics.length - 4) + '</span>' : '') +
+            '</span></div>' +
             '<div class="status-row">' + pStatus + '</div>' +
-            '<div class="energy-orb" title="能量">' + ico('energy') + '<span>' + c.energy + '/' + c.maxEnergy + '</span></div>' +
           '</div>' +
           '<div class="pstage">' +
             '<img class="player-img full" id="player-img" src="' + charArt(run.charId, S.playerPose) + '" alt="' + ch.name + '">' +
             '<div class="stage-ellipse"></div>' +
           '</div>' +
-          '<div class="pile draw" onclick="Game.showDeck(\'draw\')" title="查看抽牌堆"><img class="cardback" src="assets/v2/ui/cardback.jpg" alt="">牌堆 ' + c.drawPile.length + '</div>' +
-          '<div class="pile discard" onclick="Game.showDeck(\'discard\')" title="查看弃牌堆">弃牌 ' + c.discard.length + '</div>' +
-          (c.exhausted.length ? '<div class="pile exhaust">消耗 ' + c.exhausted.length + '</div>' : '') +
         '</div>' +
         '<div class="enemy-zone">' +
           intentHtml(S) +

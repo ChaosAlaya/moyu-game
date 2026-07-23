@@ -359,7 +359,7 @@ button.yellow { background: var(--yellow); }
 .status.vuln { background: #FFD9DE; }
 .status.str { background: var(--yellow); }
 
-.player-zone { width: 480px; }
+.player-zone { width: 620px; position: relative; }
 .player-img { height: 185px; filter: drop-shadow(3px 3px 0 rgba(0,0,0,.2)); }
 .player-img.hurt { animation: shake .35s; }
 .enemy-img.hurt { animation: shake .35s; }
@@ -813,24 +813,65 @@ button.yellow { background: var(--yellow); }
 }
 .card .dmg-badge .ico { width: 13px; height: 13px; }
 
-/* ---------- 战斗布局 方案A·对角线对位 ---------- */
-/* 主角：状态栏竖排最左缘，立绘站金色舞台 */
-.pstat {
-  position: absolute; left: max(10px, calc(29% - 300px)); top: 44%; transform: translateY(-50%); z-index: 3;
-  display: flex; flex-direction: column; align-items: flex-start; gap: 7px; width: 170px;
+/* ---------- 玩家状态区：左侧角色信息卡（方案A标注稿） ---------- */
+.infocard {
+  position: absolute; left: 14px; top: 46%; transform: translateY(-50%); z-index: 3;
+  width: 280px; background: var(--cream);
+  border: 4px solid #1A1A1A; border-radius: 16px;
+  box-shadow: 4px 4px 0 rgba(0,0,0,.4);
+  display: flex; flex-direction: column; overflow: hidden;
 }
-.pname {
-  font-size: 17px; font-weight: 900; color: var(--ink);
-  background: #fff; border: 2px solid var(--ink); border-radius: 8px;
-  padding: 2px 10px; box-shadow: 2px 2px 0 var(--ink);
+.ic-name {
+  background: var(--red); color: #fff; font-size: 20px; font-weight: 900;
+  text-align: center; padding: 8px 0; border-bottom: 3px solid var(--ink);
 }
-.pstat .hpbar { width: 170px; margin-top: 0; }
-.pstat .block-badge { margin-top: 0; }
-.pstat .status-row { margin-top: 0; flex-wrap: wrap; }
-.pstat .energy-orb { position: static; height: 44px; min-width: 96px; border-radius: 10px; font-size: 16px; }
-.pstat .energy-orb .ico { height: 20px; }
+.ic-row {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 7px 14px; border-bottom: 1px dashed rgba(0,0,0,.2); gap: 8px;
+}
+.ic-row .ic-label {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 15px; font-weight: 900; white-space: nowrap;
+}
+.ic-row .ic-label .ico { height: 24px; }
+.ic-row .ic-val { font-size: 16px; font-weight: 900; }
+.ic-row .hpbar { width: 150px; height: 18px; margin-top: 0; }
+.ic-row .hpbar .txt { font-size: 12px; line-height: 13px; }
+/* 低血：血条红色脉冲 */
+.ic-row.lowhp .hpbar { animation: hp-pulse 1s infinite; }
+@keyframes hp-pulse {
+  0%,100% { box-shadow: 0 0 0 0 rgba(192,52,74,0); }
+  50% { box-shadow: 0 0 10px 4px rgba(192,52,74,.85); }
+}
+/* 能量用尽置灰 */
+.ic-row.empty .ic-label, .ic-row.empty .ic-val { color: #999; }
+.ic-row.empty .ico { filter: grayscale(1); }
+/* 牌堆/弃牌可点击 */
+.ic-pile { cursor: pointer; }
+.ic-pile:hover {
+  transform: scale(1.05);
+  outline: 3px solid var(--yellow); outline-offset: -3px;
+  background: #fff;
+}
+.ic-32 { width: 32px; height: 32px; object-fit: cover; border: 2px solid var(--ink); border-radius: 5px; }
+.ic-trash { font-size: 22px; line-height: 1; }
+/* 圣物槽位 */
+.ic-relic-row { display: flex; gap: 6px; align-items: center; }
+.ic-relic {
+  width: 36px; height: 36px; object-fit: cover;
+  border: 2px solid var(--ink); border-radius: 8px;
+  transition: transform .1s; cursor: help;
+}
+.ic-relic:hover { transform: scale(1.2); }
+.ic-relic-slot {
+  width: 36px; height: 36px; border: 2px dashed rgba(0,0,0,.3); border-radius: 8px;
+}
+.ic-more { font-size: 13px; font-weight: 900; opacity: .6; }
+.infocard .status-row { padding: 6px 12px; flex-wrap: wrap; }
+
+/* 舞台立绘在信息卡右侧 */
 .pstage {
-  position: absolute; left: 29%; bottom: 60px; transform: translateX(-50%); z-index: 1;
+  position: absolute; left: 440px; bottom: 60px; transform: translateX(-50%); z-index: 1;
   display: flex; flex-direction: column; align-items: center;
 }
 .pstage .player-img.v2 { height: 215px; width: 215px; position: relative; z-index: 1; }
