@@ -446,6 +446,26 @@ section('b3) v2 资源 / 存档码 / 战绩簿');
   ok(fs.existsSync(path.join(root, 'assets/v2/relic/coffee_can.jpg')), '红罐咖啡遗物图存在');
 }
 
+// 逐段伤害 hits[]（打击感动画数据源）
+{
+  const engine = new Engine(23);
+  engine.newRun('xiaoq');
+  engine.startCombat('punchclock');
+  const c = engine.state.combat;
+  c.enemy.hp = 300; c.enemy.maxHp = 300;
+  c.hand.unshift({ uid: 1, id: 'keystorm', up: false });
+  const r = engine.playCard(0);
+  ok(Array.isArray(r.hits) && r.hits.length === 3, `多段攻击 hits[] 长度 3（实际 ${r.hits.length}）`);
+  ok(r.hits.every(h => h === 2) && r.dmgToEnemy === 6, '多段每段数值正确');
+  c.hand.unshift({ uid: 2, id: 'chicken', up: false });
+  const r2 = engine.playCard(0);
+  ok(r2.healGained === 5, 'healGained 记录回血量');
+  c.hand.length = 0;
+  const r3 = engine.endTurn();
+  ok(Array.isArray(r3.hits), 'endTurn 返回 hits[]');
+  if (r3.dmgToPlayer > 0) ok(r3.attacked === true, '受击时 attacked 标记');
+}
+
 /* ---------- c) 地图生成 ---------- */
 section('c) 地图生成（10 层 × 100 次）');
 {

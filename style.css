@@ -332,6 +332,7 @@ button.yellow { background: var(--yellow); }
   box-shadow: 2px 3px 0 rgba(0,0,0,.35);
   transition: transform .12s, margin .12s;
   flex-shrink: 0;
+  color: var(--ink); /* 深色面板（如小卖铺）内文字不被继承色冲淡 */
 }
 .card:hover { transform: translateY(-26px) scale(1.14); z-index: 20; margin: 0 2px; }
 .card.unplayable { opacity: .55; }
@@ -366,16 +367,99 @@ button.yellow { background: var(--yellow); }
 /* 飘字 */
 #fx { position: fixed; inset: 0; pointer-events: none; z-index: 99; }
 .floater {
-  position: absolute; font-size: 30px; font-weight: 900;
-  text-shadow: 2px 2px 0 var(--ink); animation: floatup 1s forwards;
+  position: absolute; font-size: 28px; font-weight: 900;
+  text-shadow: 2px 2px 0 var(--ink); animation: floatup 1.1s forwards;
 }
 .floater.dmg { color: var(--red); }
+.floater.dmg.big { font-size: 42px; color: var(--yellow); }
 .floater.heal { color: #2E9E4F; }
 .floater.block { color: #3E7CB1; }
 .floater.text { color: var(--yellow); font-size: 24px; }
 @keyframes floatup {
-  0% { opacity: 1; transform: translateY(0); }
-  100% { opacity: 0; transform: translateY(-70px); }
+  0% { opacity: 0; transform: translateY(6px) scale(.3); }
+  18% { opacity: 1; transform: translateY(0) scale(1.2); }
+  30% { transform: translateY(-4px) scale(1); }
+  75% { opacity: 1; transform: translateY(-42px) scale(1); }
+  100% { opacity: 0; transform: translateY(-70px) scale(.95); }
+}
+
+/* ---------- 打击感 FX ---------- */
+/* 飞牌克隆体 */
+.fx-fly {
+  position: absolute; z-index: 100; pointer-events: none;
+  background: var(--red); border: 3px solid var(--ink); border-radius: 12px;
+  box-shadow: 0 0 18px rgba(192, 52, 74, .7);
+  transition: transform .26s cubic-bezier(.3,.7,.4,1), opacity .26s;
+}
+/* 命中闪白（单次短脉冲） */
+.flashwhite { animation: flashwhite .3s; }
+@keyframes flashwhite {
+  0% { filter: brightness(2.6) saturate(.3); }
+  100% { filter: brightness(1); }
+}
+/* 敌人前冲 */
+.lunge { animation: lunge .36s; }
+@keyframes lunge {
+  0% { transform: translateX(0); }
+  35% { transform: translateX(-42px) scale(1.04); }
+  100% { transform: translateX(0); }
+}
+/* 屏幕边缘红闪 */
+.fx-edge {
+  position: absolute; inset: 0; pointer-events: none;
+  box-shadow: inset 0 0 90px 26px rgba(192, 52, 74, .85);
+  animation: edgeflash .45s forwards;
+}
+@keyframes edgeflash {
+  0% { opacity: 0; } 20% { opacity: 1; } 100% { opacity: 0; }
+}
+/* 全屏震动（BOSS 阶段切换） */
+.appshake { animation: appshake .42s; }
+@keyframes appshake {
+  0%,100% { transform: translate(0,0); }
+  15% { transform: translate(-10px, 6px); } 30% { transform: translate(9px, -7px); }
+  45% { transform: translate(-7px, -5px); } 60% { transform: translate(6px, 5px); }
+  75% { transform: translate(-4px, 3px); } 90% { transform: translate(3px, -2px); }
+}
+/* 阶段名大字 */
+.fx-big {
+  position: absolute; left: 50%; top: 34%; transform: translate(-50%,-50%);
+  font-size: 64px; font-weight: 900; color: var(--red); white-space: nowrap;
+  text-shadow: 4px 4px 0 var(--ink), 0 0 30px rgba(192,52,74,.8);
+  animation: bigpop 1.2s forwards;
+}
+@keyframes bigpop {
+  0% { opacity: 0; transform: translate(-50%,-50%) scale(.2); }
+  22% { opacity: 1; transform: translate(-50%,-50%) scale(1.15); }
+  34% { transform: translate(-50%,-50%) scale(1); }
+  78% { opacity: 1; }
+  100% { opacity: 0; transform: translate(-50%,-50%) scale(1.05); }
+}
+/* 敌人死亡消散 */
+.dying {
+  animation: dying .7s forwards !important;
+}
+@keyframes dying {
+  0% { opacity: 1; transform: scale(1) translateY(0); }
+  100% { opacity: 0; transform: scale(.55) translateY(-40px); }
+}
+/* 稀有牌金边 */
+.goldflash { animation: goldflash .7s; }
+@keyframes goldflash {
+  0%,100% { box-shadow: 2px 3px 0 rgba(0,0,0,.35); }
+  40% { box-shadow: 0 0 0 4px var(--yellow), 0 0 22px 6px rgba(245,194,66,.9); }
+}
+/* 格挡盾脉冲 */
+.blockpulse { animation: blockpulse .5s; }
+@keyframes blockpulse {
+  0%,100% { filter: none; }
+  40% { filter: drop-shadow(0 0 14px rgba(62,124,177,.95)); }
+}
+/* 抽牌入场 */
+.card.deal-in { animation: dealin .32s backwards; }
+@keyframes dealin {
+  0% { opacity: 0; transform: translateY(26px) rotate(4deg); }
+  100% { opacity: 1; transform: translateY(0) rotate(0); }
 }
 
 /* ---------- 奖励 / 商店 / 休息 / 事件 ---------- */

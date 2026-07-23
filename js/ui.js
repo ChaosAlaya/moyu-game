@@ -48,7 +48,7 @@
       ? '<div class="cart"><img class="' + (def.artFit === 'contain' ? 'fit-contain' : 'fit-cover') +
         '" src="' + def.art + '" alt=""></div>'
       : '';
-    return '<div class="' + cls + '" ' + (opts.onclick ? 'onclick="' + opts.onclick + '"' : '') + '>' +
+    return '<div class="' + cls + '" ' + (opts.extraAttr || '') + (opts.onclick ? 'onclick="' + opts.onclick + '"' : '') + '>' +
       '<div class="cost">' + cost + '</div>' +
       '<div class="ctitle">' + def.name + (inst.up ? '+' : '') + '</div>' +
       artHtml +
@@ -268,9 +268,14 @@
       var cost = def.cost;
       if (def.type === 'skill' && hasGamepad && !c.flags.gamepadUsed) cost = Math.max(0, cost - 1);
       var playable = cost <= c.energy && !c.over;
+      // 抽牌入场动画（仅在 endTurn 后的那次渲染开启）
+      var dealAttr = S.dealAnim
+        ? ' style="animation-delay:' + (i * 45) + 'ms"'
+        : '';
       return cardHtml(inst, {
-        extraCls: playable ? '' : ' unplayable',
-        onclick: playable ? 'Game.playCard(' + i + ')' : ''
+        extraCls: (playable ? '' : ' unplayable') + (S.dealAnim ? ' deal-in' : ''),
+        onclick: playable ? 'Game.playCard(' + i + ')' : '',
+        extraAttr: dealAttr
       });
     }).join('');
 
@@ -509,27 +514,127 @@
     if (S.screen === 'map') drawMapLinks();
   }
 
-  /* ---------- 飘字与受击 ---------- */
-  function floater(targetId, text, cls) {
-    var t = document.getElementById(targetId);
+  /* ---------- 打击感 FX 系统 ---------- */
+  // 飘字：层叠时自动错位避免重叠
+  var floatStreak = 0, floatLast = 0;
+  function spawnFloatText(x, y, text, cls) {
     var fx = document.getElementById('fx');
-    if (!t || !fx) return;
-    var r = t.getBoundingClientRect();
+    if (!fx) return;
+    var now = Date.now();
+    floatStreak = (now - floatLast < 450) ? floatStreak + 1 : 0;
+    floatLast = now;
     var d = document.createElement('div');
     d.className = 'floater ' + (cls || 'dmg');
     d.textContent = text;
-    d.style.left = (r.left + r.width / 2 - 20 + (Math.random() * 40 - 20)) + 'px';
-    d.style.top = (r.top + r.height / 3) + 'px';
+    d.style.left = (x - 20 + (Math.random() * 30 - 15)) + 'px';
+    d.style.top = (y - floatStreak * 18) + 'px';
     fx.appendChild(d);
-    setTimeout(function () { d.remove(); }, 1000);
+    setTimeout(function () { d.remove(); }, 1100);
   }
 
-  function shake(targetId) {
+  function targetPos(targetId) {
+    var t = document.getElementById(targetId);
+    if (!t) return null;
+    var r = t.getBoundingClientRect();
+    // 取目标头顶上方空白区，避免数字与立绘图案撞色
+    return { x: r.left + r.width / 2, y: r.top - 6, rect: r };
+  }
+
+  function floater(targetId, text, cls) {
+    var p = targetPos(targetId);
+    if (p) spawnFloatText(p.x, p.y, text, cls);
+  }
+
+  // 卡牌克隆体从 fromRect 飞向目标元素，到达后回调
+  function cardFly(fromRect, targetId, duration, onArrive) {
+    var fx = document.getElementById('fx');
+    var t = document.getElementById(targetId);
+    if (!fx || !t) { if (onArrive) onArrive(); return; }
+    var tr = t.getBoundingClientRect();
+    var c = document.createElement('div');
+    c.className = 'fx-fly';
+    c.style.left = fromRect.left + 'px';
+    c.style.top = fromRect.top + 'px';
+    c.style.width = fromRect.width + 'px';
+    c.style.height = fromRect.height + 'px';
+    fx.appendChild(c);
+    // 强制 reflow 后启动 transition
+    void c.offsetWidth;
+    c.style.transform = 'translate(' + (tr.left + tr.width / 2 - fromRect.left - fromRect.width / 2) + 'px,' +
+      (tr.top + tr.height / 2 - fromRect.top - fromRect.height / 2) + 'px) scale(.35)';
+    c.style.opacity = '0.9';
+    setTimeout(function () {
+      c.remove();
+      if (onArrive) onArrive();
+    }, duration || 260);
+  }
+
+  // 命中：抖动 + 闪白（单次短脉冲）
+  function hitFlash(targetId) {
     var t = document.getElementById(targetId);
     if (!t) return;
-    t.classList.add('hurt');
-    setTimeout(function () { t.classList.remove('hurt'); }, 400);
+    t.classList.remove('hurt', 'flashwhite');
+    void t.offsetWidth;
+    t.classList.add('hurt', 'flashwhite');
+    setTimeout(function () { t.classList.remove('hurt', 'flashwhite'); }, 420);
   }
+
+  // 敌人前冲
+  function lunge(targetId) {
+    var t = document.getElementById(targetId);
+    if (!t) return;
+    t.classList.remove('lunge');
+    void t.offsetWidth;
+    t.classList.add('lunge');
+    setTimeout(function () { t.classList.remove('lunge'); }, 380);
+  }
+
+  // 屏幕边缘红闪（玩家受创）
+  function edgeFlash() {
+    var fx = document.getElementById('fx');
+    if (!fx) return;
+    var d = document.createElement('div');
+    d.className = 'fx-edge';
+    fx.appendChild(d);
+    setTimeout(function () { d.remove(); }, 450);
+  }
+
+  // 全屏震动
+  function appShake() {
+    var app = document.getElementById('app');
+    if (!app) return;
+    app.classList.remove('appshake');
+    void app.offsetWidth;
+    app.classList.add('appshake');
+    setTimeout(function () { app.classList.remove('appshake'); }, 450);
+  }
+
+  // 阶段名大字弹出
+  function bigText(text) {
+    var fx = document.getElementById('fx');
+    if (!fx) return;
+    var d = document.createElement('div');
+    d.className = 'fx-big';
+    d.textContent = text;
+    fx.appendChild(d);
+    setTimeout(function () { d.remove(); }, 1200);
+  }
+
+  // 敌人死亡消散
+  function deathAnim(targetId) {
+    var t = document.getElementById(targetId);
+    if (t) t.classList.add('dying');
+  }
+
+  // 稀有牌金边闪光（直接作用于手牌元素）
+  function goldFlash(el) {
+    if (!el) return;
+    el.classList.add('goldflash');
+    setTimeout(function () { el.classList.remove('goldflash'); }, 700);
+  }
+
+  // 旧接口保留（受击抖动）
+  function shake(targetId) { hitFlash(targetId); }
 
   // 轻提示（复制成功等）
   function toast(msg) {
@@ -544,5 +649,10 @@
     }, 1800);
   }
 
-  g.GameUI = { render: render, floater: floater, shake: shake, toast: toast };
+  g.GameUI = {
+    render: render, floater: floater, shake: shake, toast: toast,
+    spawnFloatText: spawnFloatText, targetPos: targetPos, cardFly: cardFly,
+    hitFlash: hitFlash, lunge: lunge, edgeFlash: edgeFlash, appShake: appShake,
+    bigText: bigText, deathAnim: deathAnim, goldFlash: goldFlash
+  };
 })(typeof window !== 'undefined' ? window : globalThis);

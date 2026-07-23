@@ -337,7 +337,7 @@
       c.flags.attackPadUsed = true;
     }
     c.hand.splice(handIdx, 1);
-    var result = { ok: true, card: def, dmgToEnemy: 0, dmgToPlayer: 0, blockGained: 0 };
+    var result = { ok: true, card: def, dmgToEnemy: 0, dmgToPlayer: 0, blockGained: 0, healGained: 0, hits: [] };
     var self = this;
 
     // 遗物伤害加成：键盘（攻击牌每段 +1）、黑暗剑穗（对精英/BOSS +2）
@@ -357,6 +357,7 @@
       var through = dmg - absorbed;
       c.enemy.hp -= through;
       result.dmgToEnemy += through;
+      result.hits.push(through);
     }
 
     def.effects.forEach(function (ef) {
@@ -379,6 +380,7 @@
           var hv = ef.value;
           if (self.hasRelic('noodle_god')) hv += 2;
           st.hp = Math.min(st.maxHp, st.hp + hv);
+          result.healGained += hv;
           break;
         }
         case 'energy': c.energy += ef.value; break;
@@ -483,7 +485,7 @@
   Engine.prototype.endTurn = function () {
     var st = this.state, c = st.combat;
     if (!c || c.over) return { over: true };
-    var result = { dmgToPlayer: 0, enemyBlock: 0, skipped: false, over: false };
+    var result = { dmgToPlayer: 0, enemyBlock: 0, skipped: false, over: false, hits: [], attacked: false };
     // 弃掉手牌
     while (c.hand.length) c.discard.push(c.hand.pop());
     // 玩家 debuff 衰减
@@ -515,6 +517,7 @@
         var through = dmg - absorbed;
         st.hp -= through;
         result.dmgToPlayer += through;
+        result.hits.push(through);
         // 剩饭护体：反弹
         c.powers.forEach(function (p) {
           if (p.id === 'leftover_shield') {
@@ -527,6 +530,7 @@
       }
       switch (mv.type) {
         case 'attack': {
+          result.attacked = true;
           var times = mv.times || 1;
           for (var i = 0; i < times; i++) enemyHit(mv.value);
           if (mv.weak) c.playerWeak += mv.weak;

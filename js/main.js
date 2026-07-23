@@ -113,8 +113,9 @@
   };
 
   /* ---------- 战斗 ---------- */
-  function afterCombat() {
+  function afterCombat(extraMs) {
     if (!S.run.combat.over) return;
+    var extra = extraMs || 0;
     if (S.run.combat.won) {
       Sfx.play('win');
       setTimeout(function () {
@@ -123,41 +124,121 @@
         syncSave();
         S.screen = 'reward';
         render();
-      }, 600);
+      }, 600 + extra);
     } else {
       Sfx.play('lose');
-      setTimeout(function () { gameOver(); }, 800);
+      setTimeout(function () { gameOver(); }, 800 + extra);
     }
   }
 
   Game.playCard = function (i) {
     var c = S.run.combat;
     if (!c || c.over) return;
+    // 出牌前抓取手牌元素（飞行起点 / 稀有金边）
+    var cardEl = document.querySelectorAll('.hand .card')[i];
+    var fromRect = cardEl ? cardEl.getBoundingClientRect() : null;
+    var inst = c.hand[i];
+    var def0 = inst ? Engine.cardDef(inst) : null;
     var r = S.engine.playCard(i);
     if (!r.ok) return;
     Sfx.play('card');
-    render();
-    if (r.dmgToEnemy > 0) { UI.floater('enemy-img', '-' + r.dmgToEnemy, 'dmg'); UI.shake('enemy-img'); Sfx.play('hit'); }
-    if (r.blockGained > 0) { UI.floater('player-img', '+' + r.blockGained + ' 格挡', 'block'); Sfx.play('block'); }
-    if (r.dmgToPlayer > 0) { UI.floater('player-img', '-' + r.dmgToPlayer, 'dmg'); UI.shake('player-img'); }
-    if (r.card.effects.some(function (ef) { return ef.op === 'heal'; })) Sfx.play('heal');
-    if (c.easterEgg) {
-      UI.floater('enemy-img', c.easterEgg, 'text');
-      c.easterEgg = null;
+    // 稀有牌：先金边闪光（元素还活在旧 DOM 里），闪光后再重绘
+    var preMs = 0;
+    if (def0 && def0.rarity === 'rare' && cardEl) {
+      UI.goldFlash(cardEl);
+      preMs = 380;
     }
-    afterCombat();
+    setTimeout(function () {
+      // 攻击牌：克隆体飞向敌人
+      var flyMs = 0;
+      if (def0 && def0.type === 'attack' && r.hits.length && fromRect) {
+        flyMs = 260;
+        UI.cardFly(fromRect, 'enemy-img', 260, null);
+      }
+      render();
+      // 命中帧：敌人抖动+闪白，伤害数字按节奏连发（大数字金色放大）
+      r.hits.forEach(function (h, idx) {
+        setTimeout(function () {
+          UI.hitFlash('enemy-img');
+          var p = UI.targetPos('enemy-img');
+          if (p) UI.spawnFloatText(p.x, p.y, '-' + h, h >= 15 ? 'dmg big' : 'dmg');
+          Sfx.play('hit');
+        }, flyMs + idx * 180);
+      });
+      var midMs = flyMs + Math.max(0, r.hits.length - 1) * 180;
+      // 格挡：蓝字 + 盾脉冲
+      if (r.blockGained > 0) {
+        setTimeout(function () {
+          UI.floater('player-img', '+' + r.blockGained + ' 格挡', 'block');
+          var p = document.getElementById('player-img');
+          if (p) { p.classList.add('blockpulse'); setTimeout(function () { p.classList.remove('blockpulse'); }, 500); }
+          Sfx.play('block');
+        }, Math.floor(midMs / 2));
+      }
+      // 回血：绿字上飘
+      if (r.healGained > 0) {
+        setTimeout(function () {
+          UI.floater('player-img', '+' + r.healGained, 'heal');
+          Sfx.play('heal');
+        }, Math.floor(midMs / 2));
+      }
+      // 自伤
+      if (r.dmgToPlayer > 0) {
+        setTimeout(function () {
+          UI.floater('player-img', '-' + r.dmgToPlayer, 'dmg');
+          UI.hitFlash('player-img');
+        }, Math.floor(midMs / 2));
+      }
+      if (c.easterEgg) {
+        var egg = c.easterEgg;
+        c.easterEgg = null;
+        setTimeout(function () { UI.floater('enemy-img', egg, 'text'); }, flyMs);
+      }
+      var endMs = midMs + (r.hits.length ? 180 : 0);
+      if (c.over && c.won) setTimeout(function () { UI.deathAnim('enemy-img'); }, endMs);
+      afterCombat(endMs);
+    }, preMs);
   };
 
   Game.endTurn = function () {
     var c = S.run.combat;
     if (!c || c.over) return;
+    var edef = D.enemies[c.enemy.id];
+    var phaseBefore = c.enemy.phase;
     var r = S.engine.endTurn();
     Sfx.play('draw');
+    S.dealAnim = true;           // 新手牌入场动画
     render();
-    if (r.dmgToPlayer > 0) { UI.floater('player-img', '-' + r.dmgToPlayer, 'dmg'); UI.shake('player-img'); Sfx.play('hit'); }
+    S.dealAnim = false;
+    // 敌人前冲 → 玩家受击帧（抖动+红闪+红字，按节奏连发）
+    if (r.attacked) UI.lunge('enemy-img');
+    var startMs = r.attacked ? 220 : 0;
+    r.hits.forEach(function (h, idx) {
+      setTimeout(function () {
+        UI.hitFlash('player-img');
+        UI.edgeFlash();
+        var p = UI.targetPos('player-img');
+        if (p) UI.spawnFloatText(p.x, p.y, '-' + h, h >= 15 ? 'dmg big' : 'dmg');
+        Sfx.play('hit');
+      }, startMs + idx * 200);
+    });
     if (r.skipped) UI.floater('enemy-img', '跳过了行动！', 'text');
     if (r.enemyBlock > 0) UI.floater('enemy-img', '+' + r.enemyBlock + ' 格挡', 'block');
-    afterCombat();
+    var endMs = startMs + Math.max(0, r.hits.length - 1) * 200 + (r.hits.length ? 200 : 0);
+    // BOSS 阶段切换：全屏震动 + 红闪 + 阶段名大字
+    var phaseChanged = edef.phases && c.enemy.phase !== phaseBefore;
+    if (phaseChanged) {
+      var ph = edef.phases[c.enemy.phase];
+      setTimeout(function () {
+        UI.appShake();
+        UI.edgeFlash();
+        UI.bigText(ph.phaseName || '第二阶段');
+        Sfx.play('hit');
+      }, endMs + 150);
+      endMs += 700;
+    }
+    if (c.over && c.won) setTimeout(function () { UI.deathAnim('enemy-img'); }, endMs);
+    afterCombat(endMs);
   };
 
   /* ---------- 奖励 ---------- */
