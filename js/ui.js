@@ -36,6 +36,12 @@
   }
 
   // 单张卡牌 HTML。inst: {uid,id,up} 或纯 id 字符串
+  // 结构按《卡牌组件详细规范》：费用水晶/类型色标题条/插画窗/类型行/效果文本/升级+角标
+  var TYPE_META = {
+    attack: { name: '攻击卡', icon: 'intent_attack' },
+    skill: { name: '技能卡', icon: 'buff' },
+    power: { name: '能力卡', icon: 'block' }
+  };
   function cardHtml(inst, opts) {
     opts = opts || {};
     if (typeof inst === 'string') inst = { id: inst, up: false };
@@ -43,32 +49,34 @@
     var cost = def.cost;
     if (opts.costFn) cost = opts.costFn(def, cost);
     var cls = 'card ' + def.type + (inst.up ? ' upgraded' : '') + (opts.extraCls || '');
-    var typeName = def.type === 'attack' ? '攻击' : def.type === 'skill' ? '技能' : '能力';
+    var meta = TYPE_META[def.type] || TYPE_META.attack;
     var artHtml = def.art
       ? '<div class="cart"><img class="' + (def.artFit === 'contain' ? 'fit-contain' : 'fit-cover') +
         '" src="' + def.art + '" alt=""></div>'
       : '';
     return '<div class="' + cls + '" ' + (opts.extraAttr || '') + (opts.onclick ? 'onclick="' + opts.onclick + '"' : '') + '>' +
       '<div class="cost">' + cost + '</div>' +
-      '<div class="ctitle">' + def.name + (inst.up ? '+' : '') + '</div>' +
+      '<div class="ctitle">' + def.name + '</div>' +
       artHtml +
-      '<div class="ctype">' + typeName + ' · ' + rarityName(def.rarity) + (def.exhaust ? ' · 消耗' : '') + '</div>' +
+      '<div class="ctype">' + ico(meta.icon) + '<span>' + meta.name + '</span>' +
+        '<em>' + rarityName(def.rarity) + (def.exhaust ? ' · 消耗' : '') + '</em></div>' +
       '<div class="cdesc">' + def.desc + '</div>' +
+      (inst.up ? '<div class="upbadge">+</div>' : '') +
       '</div>';
   }
 
   function rarityName(r) { return r === 'common' ? '普通' : r === 'uncommon' ? '罕见' : '稀有'; }
 
-  /* ---------- 标题 ---------- */
+  /* ---------- 标题（横版主视觉 + 右侧竖排按钮） ---------- */
   function renderTitle(S) {
     var sv = S.save;
-    return '<div class="screen title-bg" id="screen-title">' +
-      '<div class="title-menu">' +
-      '<button class="primary" onclick="Game.toChars()">开始摸鱼</button>' +
-      '<button class="yellow" onclick="Game.showCodex()">图鉴</button>' +
-      '<button class="yellow" onclick="Game.toHistory()">战绩</button>' +
-      '<button onclick="Game.toSave()">存档</button>' +
-      '<button onclick="Game.toggleSfx()">音效：' + (g.GameSfx.enabled ? '开' : '关') + '</button>' +
+    return '<div class="screen title-bg2" id="screen-title">' +
+      '<div class="title-menu2">' +
+      '<button class="tbtn primary" onclick="Game.toChars()">▶ 开始摸鱼</button>' +
+      '<button class="tbtn" onclick="Game.showCodex()">📖 图鉴</button>' +
+      '<button class="tbtn" onclick="Game.toHistory()">🏆 战绩</button>' +
+      '<button class="tbtn" onclick="Game.toSave()">💾 存档</button>' +
+      '<button class="tbtn" onclick="Game.toggleSfx()">🔊 音效：' + (g.GameSfx.enabled ? '开' : '关') + '</button>' +
       '</div>' +
       '<div class="stats">最高到达：第 ' + sv.maxFloor + ' 层 · 通关 ' + sv.wins + ' 次 · 累计摸鱼 ' + sv.runs + ' 局</div>' +
       '</div>';
@@ -90,8 +98,8 @@
         '<span class="h-result">' + result + '</span>' +
         '<span class="h-detail">牌组 ' + h.deck + ' · 遗物 ' + h.relics + '</span>' +
         '</div>';
-    }).join('') || '<div class="event-text">还没有战绩，去摸一局吧！</div>';
-    return '<div class="screen" id="screen-history">' +
+    }).join('') || '<div class="event-text"><img class="empty-deco" src="assets/cardart/bubble_sockdog.png" alt=""><br>还没有战绩，去摸一局吧！</div>';
+    return '<div class="screen dark-page" id="screen-history">' +
       '<div class="center-wrap"><div class="panel">' +
       '<h2>📜 摸鱼战绩簿</h2>' +
       '<div class="h-list">' + list + '</div>' +
@@ -101,9 +109,10 @@
 
   /* ---------- 存档导入/导出 ---------- */
   function renderSave(S) {
-    return '<div class="screen" id="screen-save">' +
+    return '<div class="screen dark-page" id="screen-save">' +
       '<div class="center-wrap"><div class="panel">' +
       '<h2>💾 存档</h2>' +
+      '<img class="empty-deco" src="assets/cardart/bubble_speeddog.png" alt="">' +
       '<div class="event-text">导出存档码可转移到其他设备；导入他人存档码会覆盖当前进度。</div>' +
       '<h3>导出存档码</h3>' +
       '<textarea id="save-export" readonly>' + (S.saveCode || '') + '</textarea>' +
@@ -137,38 +146,60 @@
       '</div>';
   }
 
-  /* ---------- 地图（电梯爬楼 redesign） ---------- */
-  var NODE_ICONS = { monster: '👾', elite: '💀', event: '❓', shop: '🏪', rest: '🍵', boss: '👑' };
+  /* ---------- 地图（横向步骤卡片流 redesign） ---------- */
+  function nodeArt(nd) {
+    if (nd.enemyId) return enemyArt(nd.enemyId);
+    if (nd.type === 'shop') return eventArt('shop_event');
+    if (nd.type === 'rest') return 'assets/cardart/chicken_soup.png';
+    return null; // 事件：大红问号
+  }
+
   function renderMap(S) {
     var run = S.run;
-    // 电梯刻度尺：10F 在上，1F 在下；已通关打勾，当前层高亮
-    var floors = '';
+    // 电梯刻度尺：logo 条 + 10F→1F + 沙发狗
+    var floors = '<div class="lift-logo">摸鱼<br>大作战</div>';
     for (var f = D.TOTAL_ACTS; f >= 1; f--) {
       var fc = 'lift-btn';
       if (f === run.act) fc += ' current';
       else if (f < run.act) fc += ' cleared';
-      floors += '<div class="' + fc + '">' + f + 'F' + (f < run.act ? ' ✓' : '') + '</div>';
+      else fc += ' todo';
+      floors += '<div class="' + fc + '">' + f + 'F' +
+        (f < run.act ? ' ✓' : f > run.act ? ' 🔒' : '') + '</div>';
     }
-    var steps = run.map.steps.map(function (opts, i) {
-      var nodes = opts.map(function (nd, j) {
-        var cls = 'map-node t-' + nd.type;
-        var onclick = '';
-        if (i === run.step) { cls += ' current'; onclick = ' onclick="Game.pickNode(' + j + ')"'; }
-        else if (i < run.step) cls += ' past';
-        else cls += ' future';
-        if (run.path && run.path[i] === j) cls += ' chosen';
-        return '<div class="' + cls + '" id="node-' + i + '-' + j + '"' + onclick + '>' +
-          '<i>' + (NODE_ICONS[nd.type] || '') + '</i><span>' + D.NODE_NAMES[nd.type] + '</span></div>';
+    floors += '<img class="lift-dog" src="assets/v2/ui/sofa_dog.png" alt="">';
+    // 横向步骤卡片流
+    var cols = run.map.steps.map(function (opts, i) {
+      var cards = opts.map(function (nd, j) {
+        var state, onclick = '';
+        if (i < run.step) state = (run.path && run.path[i] === j) ? 'done' : 'locked';
+        else if (i === run.step) { state = (S.selectedNode === j) ? 'sel' : 'open'; onclick = ' onclick="Game.selectNode(' + j + ')"'; }
+        else state = 'locked';
+        var art = nodeArt(nd);
+        var inner = art ? '<img class="nart" src="' + art + '" alt="">'
+          : '<div class="nart nq">?</div>';
+        var badge = state === 'done' ? '<div class="nbadge okb">✓</div>'
+          : state === 'locked' ? '<div class="nbadge lockb">🔒</div>' : '';
+        var label = nd.type === 'boss' ? 'BOSS' : D.NODE_NAMES[nd.type];
+        return '<div class="ncard t-' + nd.type + ' ' + state + '"' + onclick + '>' + badge + inner +
+          '<div class="nlabel">' + label + '</div></div>';
       }).join('');
-      return '<div class="map-step" id="step-' + i + '">' + nodes + '</div>';
+      return '<div class="step-col">' + cards + '</div>';
     }).join('');
+    // 底部进度圆点
+    var dots = run.map.steps.map(function (_, i) {
+      return '<div class="fdot' + (i < run.step ? ' done' : i === run.step ? ' cur' : '') + '"></div>';
+    }).join('');
+    var canGo = S.selectedNode != null;
     return '<div class="screen map-v2" id="screen-map" style="background-image:url(' + bannerArt(run.act) + ')">' +
       topbarHtml(S) +
       '<div class="map-v2-body">' +
         '<div class="lift">' + floors + '</div>' +
-        '<div class="map-steps" id="map-steps"><svg id="map-links"></svg>' + steps + '</div>' +
+        '<div class="map-flow">' + cols + '</div>' +
       '</div>' +
-      '<div class="map-hint">选择一个节点前进，打败第 ' + run.act + ' 层的 BOSS！</div>' +
+      '<div class="map-bottom">' +
+        '<div class="fdots">' + dots + '</div>' +
+        '<button class="primary go-btn" ' + (canGo ? '' : 'disabled') + ' onclick="Game.confirmNode()">前进 ⚡</button>' +
+      '</div>' +
       '</div>';
   }
 
@@ -279,7 +310,10 @@
       });
     }).join('');
 
-    return '<div class="screen" id="screen-combat">' + topbarHtml(S) +
+    return '<div class="screen combat-bg" id="screen-combat" style="background-image:url(' + bannerArt(run.act) + ')">' + topbarHtml(S) +
+      '<div class="intent-legend">意图：' +
+        ico('intent_attack') + '攻击 ' + ico('defend') + '防御 ' + ico('debuff') + '减益 ' +
+        ico('charge') + '蓄力 ' + ico('heal') + '回血 ' + ico('buff') + '强化</div>' +
       '<div class="combat-area">' +
         '<div class="player-zone">' +
           '<img class="player-img v2" id="player-img" src="' + (ch.avatar || imgSrc(ch.img)) + '" alt="' + ch.name + '">' +
@@ -373,37 +407,45 @@
       '</div></div></div>';
   }
 
-  /* ---------- 休息 ---------- */
-  function renderRest(S) {
-    var amt = Math.floor(S.run.maxHp * 0.3) + (S.run.relics.indexOf('bowl') >= 0 ? 10 : 0);
-    return '<div class="screen" id="screen-rest">' + topbarHtml(S) +
-      '<div class="center-wrap"><div class="panel">' +
-      '<h2>🍵 茶水间</h2>' +
-      '<div class="event-text">难得的摸鱼时光。要休息一下，还是研究一下牌技？</div>' +
-      '<div class="rest-opts">' +
-      '<button class="primary" onclick="Game.restHeal()">泡杯茶（回复 ' + amt + ' 点精力）</button>' +
-      '<button class="yellow" onclick="Game.restUpgradeMode()">研究攻略（升级 1 张牌）</button>' +
-      '</div></div></div></div>';
-  }
-
-  /* ---------- 事件 ---------- */
+  /* ---------- 事件（左右双栏 redesign） ---------- */
   function renderEvent(S) {
     var ev = D.events[S.eventId];
     var body;
     if (S.eventResult) {
       body = '<div class="event-result">' + S.eventResult + '</div>' +
-        '<button class="primary" onclick="Game.eventContinue()">继续</button>';
+        '<button class="primary ev-opt" onclick="Game.eventContinue()">继续</button>';
     } else {
-      body = '<div class="event-opts">' + ev.options.map(function (opt, i) {
+      body = ev.options.map(function (opt, i) {
         var disabled = opt.gold && S.run.gold < opt.gold ? ' disabled' : '';
-        return '<button' + disabled + ' onclick="Game.eventOpt(' + i + ')">' + opt.text + '</button>';
-      }).join('') + '</div>';
+        return '<button class="ev-opt"' + disabled + ' onclick="Game.eventOpt(' + i + ')">' + opt.text + '</button>';
+      }).join('');
     }
     return '<div class="screen" id="screen-event">' + topbarHtml(S) +
-      '<div class="center-wrap"><div class="panel">' +
+      '<div class="center-wrap"><div class="panel ev-panel">' +
       '<h2>' + ev.name + '</h2>' +
-      '<img class="event-img v2" src="' + eventArt(S.eventId) + '">' +
-      '<div class="event-text">' + ev.text + '</div>' + body +
+      '<div class="ev-cols">' +
+        '<img class="ev-art" src="' + eventArt(S.eventId) + '">' +
+        '<div class="ev-right">' +
+          '<div class="event-text">' + ev.text + '</div>' + body +
+        '</div>' +
+      '</div>' +
+      '</div></div></div>';
+  }
+
+  /* ---------- 休息（左右双栏） ---------- */
+  function renderRest(S) {
+    var amt = Math.floor(S.run.maxHp * 0.3) + (S.run.relics.indexOf('bowl') >= 0 ? 10 : 0);
+    return '<div class="screen" id="screen-rest">' + topbarHtml(S) +
+      '<div class="center-wrap"><div class="panel ev-panel">' +
+      '<h2>🍵 茶水间</h2>' +
+      '<div class="ev-cols">' +
+        '<img class="ev-art" src="assets/cardart/chicken_soup.png">' +
+        '<div class="ev-right">' +
+          '<div class="event-text">难得的摸鱼时光。要休息一下，还是研究一下牌技？</div>' +
+          '<button class="ev-opt primary" onclick="Game.restHeal()">泡杯茶（回复 ' + amt + ' 点精力）</button>' +
+          '<button class="ev-opt yellow" onclick="Game.restUpgradeMode()">研究攻略（升级 1 张牌）</button>' +
+        '</div>' +
+      '</div>' +
       '</div></div></div>';
   }
 
@@ -456,7 +498,8 @@
     if (tab === 'cards') {
       body = Object.keys(D.cards).map(function (cid) {
         if (seen.cards[cid]) return cardHtml(cid);
-        return '<div class="card"><div class="ctitle">？？？</div><div class="cdesc">尚未见过</div></div>';
+        // 未见过的牌显示獭罗牌卡背（闲置素材归位）
+        return '<div class="card unseen-card"><img src="assets/cardart/tarot_4.png" alt=""></div>';
       }).join('');
     } else if (tab === 'relics') {
       body = Object.keys(D.relics).map(function (rid) {
@@ -478,7 +521,7 @@
     var back = S.run && !S.run.over && S.screenBeforeCodex
       ? '<button onclick="Game.closeCodex()">返回游戏</button>'
       : '<button onclick="Game.toTitle()">返回</button>';
-    return '<div class="screen" id="screen-codex">' +
+    return '<div class="screen dark-page" id="screen-codex">' +
       '<div class="center-wrap"><div class="panel">' +
       '<h2>📖 摸鱼图鉴</h2>' +
       '<div class="codex-tabs">' +
@@ -486,7 +529,8 @@
       '<button class="' + (tab === 'relics' ? 'primary' : '') + '" onclick="Game.codexTab(\'relics\')">遗物</button>' +
       '<button class="' + (tab === 'enemies' ? 'primary' : '') + '" onclick="Game.codexTab(\'enemies\')">敌人</button>' +
       '</div>' +
-      '<div class="codex-body">' + body + '</div>' + back +
+      '<div class="codex-body">' + body + '</div>' +
+      '<div class="codex-tip">⭐ 小贴士：合理搭配卡牌，才能在职场中立于不败之地！</div>' + back +
       '</div></div></div>';
   }
 
@@ -511,7 +555,6 @@
       default: html = '<div class="screen">未知界面</div>';
     }
     el().innerHTML = html;
-    if (S.screen === 'map') drawMapLinks();
   }
 
   /* ---------- 打击感 FX 系统 ---------- */

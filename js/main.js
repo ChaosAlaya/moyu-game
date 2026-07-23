@@ -90,6 +90,17 @@
     render();
   };
 
+  Game.selectNode = function (idx) {
+    S.selectedNode = idx;
+    render();
+  };
+  Game.confirmNode = function () {
+    if (S.selectedNode == null) return;
+    var idx = S.selectedNode;
+    S.selectedNode = null;
+    Game.pickNode(idx);
+  };
+
   Game.pickNode = function (idx) {
     var node = S.engine.enterNode(idx);
     S.node = node;

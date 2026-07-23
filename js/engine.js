@@ -98,23 +98,32 @@
   // 每层 STEPS_PER_ACT 步，末步固定 BOSS，其余每步 2~3 个节点选项
   Engine.prototype.genMap = function (act) {
     var steps = [];
+    var pool = D.acts[act - 1].pool;
     for (var i = 0; i < D.STEPS_PER_ACT; i++) {
       if (i === D.STEPS_PER_ACT - 1) {
-        steps.push([{ type: 'boss' }]);
+        steps.push([{ type: 'boss', enemyId: D.acts[act - 1].boss }]);
         continue;
       }
       var n = 2 + this.rng.int(2); // 2~3 个选项
       var opts = [];
       for (var j = 0; j < n; j++) {
-        opts.push({ type: this._rollNodeType(i) });
+        opts.push(this._makeNode(this._rollNodeType(i), pool));
       }
       // 避免三个选项完全相同的极端情况
       if (n === 3 && opts[0].type === opts[1].type && opts[1].type === opts[2].type) {
-        opts[2] = { type: this._rollNodeType(i, opts[0].type) };
+        opts[2] = this._makeNode(this._rollNodeType(i, opts[0].type), pool);
       }
       steps.push(opts);
     }
     return { act: act, steps: steps };
+  };
+
+  // 生成节点；小怪/精英预抽敌人（地图卡片需要显示对应敌人图）
+  Engine.prototype._makeNode = function (type, pool) {
+    var nd = { type: type };
+    if (type === 'monster') nd.enemyId = this.rng.pick(pool);
+    else if (type === 'elite') nd.enemyId = this.rng.pick(D.elites);
+    return nd;
   };
 
   Engine.prototype._rollNodeType = function (stepIdx, exclude) {
@@ -143,9 +152,9 @@
     var actCfg = D.acts[st.act - 1];
     var node = { type: type };
     if (type === 'monster') {
-      node.enemyId = this.rng.pick(actCfg.pool);
+      node.enemyId = opts[nodeIdx].enemyId || this.rng.pick(actCfg.pool);
     } else if (type === 'elite') {
-      node.enemyId = this.rng.pick(D.elites);
+      node.enemyId = opts[nodeIdx].enemyId || this.rng.pick(D.elites);
     } else if (type === 'boss') {
       node.enemyId = actCfg.boss;
     } else if (type === 'event') {
