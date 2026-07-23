@@ -326,10 +326,10 @@
     },
     money: {
       name: '钞能力', cost: 2, type: 'attack', rarity: 'uncommon', char: 'shuanglaoya',
-      desc: '造成 12 点伤害；若金币 ≥ 50，再 +8。',
-      effects: [{ op: 'goldDamage', value: 12, gte: 50, bonus: 8 }],
-      up: { desc: '造成 15 点伤害；若金币 ≥ 50，再 +10。',
-        effects: [{ op: 'goldDamage', value: 15, gte: 50, bonus: 10 }] }
+      desc: '造成 12 点伤害；若金币 ≥ 80，再 +8。',
+      effects: [{ op: 'goldDamage', value: 12, gte: 80, bonus: 8 }],
+      up: { desc: '造成 15 点伤害；若金币 ≥ 80，再 +10。',
+        effects: [{ op: 'goldDamage', value: 15, gte: 80, bonus: 10 }] }
     },
     shades: {
       name: '墨镜威吓', cost: 1, type: 'skill', rarity: 'common', char: 'shuanglaoya',
@@ -778,7 +778,7 @@
       ]
     },
     boss_sec: {
-      name: '董事长秘书', hp: 190, act: 9, boss: true, img: 'taer',
+      name: '秘书A先生', hp: 190, act: 9, boss: true, img: 'taer',
       moves: [
         { name: '传达圣旨', type: 'attack', value: 22, every: 3 },
         { name: '日程碾压', type: 'attack', value: 16, w: 3 },
@@ -786,7 +786,7 @@
       ]
     },
     boss3: {
-      name: '老板', hp: 200, act: 10, boss: true, img: 'kenni',
+      name: '摸鱼强总', hp: 200, act: 10, boss: true, img: 'kenni',
       phases: [
         {
           until: 0.5,

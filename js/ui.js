@@ -17,18 +17,26 @@
   function ico(name) { return '<img class="ico" src="' + iconSrc(name) + '" alt="">'; }
 
   /* ---------- 通用片段 ---------- */
+  // 已装备圣物判定（与引擎 hasRelic 口径一致；旧内存档无 equippedRelics 时回退为全部拥有）
+  function runHasRelic(run, id) {
+    var eq = run.equippedRelics || run.relics;
+    return eq.indexOf(id) >= 0;
+  }
+
   function topbarHtml(S) {
     var run = S.run;
-    var relics = run.relics.map(function (rid) {
+    var equipped = run.equippedRelics || run.relics;
+    var relics = equipped.map(function (rid) {
       var r = D.relics[rid];
-      return '<div class="relic-icon" title="' + r.name + '：' + r.desc + '">' +
-        '<img src="' + relicArt(rid) + '" alt=""></div>';
+      return '<div class="relic-icon"><img src="' + relicArt(rid) + '" alt="">' +
+        '<span class="tip"><b>' + r.name + '</b>' + r.desc + '</span></div>';
     }).join('');
     return '<div class="topbar">' +
       '<span class="floor">' + D.acts[run.act - 1].name + ' · 第 ' + (run.step + 1) + '/' + D.STEPS_PER_ACT + ' 步</span>' +
       '<span class="hp-mini">精力 ' + run.hp + '/' + run.maxHp + '</span>' +
       '<span class="gold">' + ico('gold') + ' ' + run.gold + '</span>' +
-      '<div class="relics">' + relics + '</div>' +
+      '<div class="relics" onclick="Game.showRelics()" title="点击管理圣物装备">' + relics +
+        '<span class="relic-count">' + equipped.length + '/' + g.GameEngine.MAX_EQUIPPED_RELICS + '</span></div>' +
       '<div class="spacer"></div>' +
       '<button onclick="Game.showDeck(\'deck\')">牌组 ' + run.deck.length + '</button>' +
       '<button onclick="Game.showCodex()">图鉴</button>' +
@@ -63,6 +71,7 @@
         '<em>' + rarityName(def.rarity) + (def.exhaust ? ' · 消耗' : '') + '</em></div>' +
       '<div class="cdesc">' + def.desc + '</div>' +
       (inst.up ? '<div class="upbadge">+</div>' : '') +
+      (opts.extraHtml || '') +
       '</div>';
   }
 
@@ -277,7 +286,7 @@
     var text = mv.name + '：' + moveDesc(mv);
     // 肯尼的镜片：tooltip 里给精确结算数值
     var tip = text;
-    if (S.run.relics.indexOf('glasses') >= 0 && mv.type === 'attack') {
+    if (runHasRelic(S.run, 'glasses') && mv.type === 'attack') {
       var v = mv.value + e.strength + (e.dmgBonus || 0);
       if (e.weak > 0) v = Math.floor(v * 0.75);
       if (c.playerVuln > 0) v = Math.floor(v * 1.5);
@@ -316,7 +325,7 @@
       return { cls: 'str', txt: (names[p.id] || p.id) + ' ' + p.value };
     })));
 
-    var hasGamepad = run.relics.indexOf('gamepad') >= 0;
+    var hasGamepad = runHasRelic(run, 'gamepad');
     var hand = c.hand.map(function (inst, i) {
       var def = Engine.cardDef(inst);
       var cost = def.cost;
@@ -326,10 +335,22 @@
       var dealAttr = S.dealAnim
         ? ' style="animation-delay:' + (i * 45) + 'ms"'
         : '';
+      // RUA!：伤害随打出的攻击牌数成长，卡面角标显示当前实际伤害（含力量/圣物加成）
+      var extraHtml = '';
+      for (var ei = 0; ei < def.effects.length; ei++) {
+        var ef = def.effects[ei];
+        if (ef.op === 'special' && ef.kind === 'rua') {
+          var ruaDmg = ef.base + ef.per * c.attacksPlayed + c.playerStrength +
+            (runHasRelic(run, 'keyboard_rel') ? 1 : 0) +
+            (runHasRelic(run, 'sword_tassel') && (edef.elite || edef.boss) ? 2 : 0);
+          extraHtml = '<div class="dmg-badge">' + ico('intent_attack') + ruaDmg + '</div>';
+        }
+      }
       return cardHtml(inst, {
         extraCls: (playable ? '' : ' unplayable') + (S.dealAnim ? ' deal-in' : ''),
         onclick: playable ? 'Game.playCard(' + i + ')' : '',
-        extraAttr: dealAttr
+        extraAttr: dealAttr,
+        extraHtml: extraHtml
       });
     }).join('');
 
@@ -339,17 +360,21 @@
         ico('charge') + '蓄力 ' + ico('heal') + '回血 ' + ico('buff') + '强化</div>' +
       '<div class="combat-area">' +
         '<div class="player-zone">' +
-          '<img class="player-img v2" id="player-img" src="' + (ch.avatar || imgSrc(ch.img)) + '" alt="' + ch.name + '">' +
-          '<div class="enemy-name">' + ch.name + '</div>' +
-          '<div class="hpbar"><div class="fill" style="width:' + pHpPct + '%"></div>' +
-            '<div class="txt">' + run.hp + '/' + run.maxHp + '</div></div>' +
-          (c.playerBlock > 0 ? '<div class="block-badge">' + ico('block') + ' 格挡 ' + c.playerBlock + '</div>' : '') +
-          '<div class="status-row">' + pStatus + '</div>' +
-          '<div class="energy-orb" title="能量">' + ico('energy') + '<span>' + c.energy + '/' + c.maxEnergy + '</span></div>' +
+          '<div class="pstat">' +
+            '<div class="pname">' + ch.name + '</div>' +
+            '<div class="hpbar"><div class="fill" style="width:' + pHpPct + '%"></div>' +
+              '<div class="txt">' + run.hp + '/' + run.maxHp + '</div></div>' +
+            '<div class="block-badge">' + ico('block') + ' 格挡 ' + c.playerBlock + '</div>' +
+            '<div class="status-row">' + pStatus + '</div>' +
+            '<div class="energy-orb" title="能量">' + ico('energy') + '<span>' + c.energy + '/' + c.maxEnergy + '</span></div>' +
+          '</div>' +
+          '<div class="pstage">' +
+            '<img class="player-img full" id="player-img" src="' + imgSrc(ch.img) + '" alt="' + ch.name + '">' +
+            '<div class="stage-ellipse"></div>' +
+          '</div>' +
           '<div class="pile draw" onclick="Game.showDeck(\'draw\')" title="查看抽牌堆"><img class="cardback" src="assets/v2/ui/cardback.jpg" alt="">牌堆 ' + c.drawPile.length + '</div>' +
           '<div class="pile discard" onclick="Game.showDeck(\'discard\')" title="查看弃牌堆">弃牌 ' + c.discard.length + '</div>' +
           (c.exhausted.length ? '<div class="pile exhaust">消耗 ' + c.exhausted.length + '</div>' : '') +
-          '<button class="endturn primary" onclick="Game.endTurn()">结束回合</button>' +
         '</div>' +
         '<div class="enemy-zone">' +
           intentHtml(S) +
@@ -361,7 +386,8 @@
           '<div class="status-row">' + eStatus + '</div>' +
         '</div>' +
       '</div>' +
-      '<div class="hand">' + hand + '</div>' +
+      '<div class="hand' + (S.animating ? ' anim-lock' : '') + '">' + hand +
+        '<button class="endturn primary' + (S.animating ? ' anim-lock' : '') + '" onclick="Game.endTurn()">结束回合</button></div>' +
       '</div>';
   }
 
@@ -375,7 +401,8 @@
       '<div class="center-wrap"><div class="panel">' +
       '<h2>战斗胜利！</h2>' +
       '<div class="reward-gold">' + ico('gold') + ' +' + rw.gold + ' 金币</div>' +
-      (rw.relic ? '<div class="reward-relic">🏺 获得圣物「' + D.relics[rw.relic].name + '」：' + D.relics[rw.relic].desc + '</div>' : '') +
+      (rw.relic ? '<div class="reward-relic">🏺 获得圣物「' + D.relics[rw.relic].name + '」：' + D.relics[rw.relic].desc +
+        (runHasRelic(S.run, rw.relic) ? '' : '<br><em>装备栏已满，已放入背包——点击顶栏圣物图标调整装备</em>') + '</div>' : '') +
       '<div style="font-weight:900">选一张牌加入牌组（或跳过）：</div>' +
       '<div class="reward-cards">' + cardsHtml + '</div>' +
       '<button onclick="Game.rewardSkip()">跳过</button>' +
@@ -457,7 +484,7 @@
 
   /* ---------- 休息（左右双栏） ---------- */
   function renderRest(S) {
-    var amt = Math.floor(S.run.maxHp * 0.3) + (S.run.relics.indexOf('bowl') >= 0 ? 10 : 0);
+    var amt = Math.floor(S.run.maxHp * 0.3) + (runHasRelic(S.run, 'bowl') ? 10 : 0);
     return '<div class="screen" id="screen-rest">' + topbarHtml(S) +
       '<div class="center-wrap"><div class="panel ev-panel">' +
       '<h2>🍵 茶水间</h2>' +
@@ -587,6 +614,33 @@
       '<button onclick="Game.closeDeck()">关闭</button></div></div>';
   }
 
+  /* ---------- 圣物装备弹层（最多同时装备 4 件，只有装备的生效） ---------- */
+  function relicViewHtml(S) {
+    var run = S.run;
+    var equipped = run.equippedRelics || [];
+    var inCombat = S.screen === 'combat';
+    function row(rid, isEq) {
+      var r = D.relics[rid];
+      return '<div class="relic-row' + (isEq ? ' equipped' : '') + '"' +
+        (inCombat ? '' : ' onclick="Game.toggleRelic(\'' + rid + '\')"') + '>' +
+        '<div class="relic-icon big"><img src="' + relicArt(rid) + '" alt=""></div>' +
+        '<div class="relic-info"><b>' + r.name + '</b><span>' + r.desc + '</span></div>' +
+        '<div class="relic-state">' + (isEq ? '已装备 ✓' : '背包') + '</div></div>';
+    }
+    var eqRows = run.relics.filter(function (r) { return equipped.indexOf(r) >= 0; })
+      .map(function (r) { return row(r, true); }).join('');
+    var bagRows = run.relics.filter(function (r) { return equipped.indexOf(r) < 0; })
+      .map(function (r) { return row(r, false); }).join('');
+    var body = '<h2>圣物装备（' + equipped.length + '/' + g.GameEngine.MAX_EQUIPPED_RELICS + '）</h2>' +
+      (inCombat
+        ? '<div class="event-text">战斗中无法调整装备</div>'
+        : '<div class="event-text">点击圣物装备 / 卸下，最多同时装备 ' + g.GameEngine.MAX_EQUIPPED_RELICS + ' 件，只有装备的圣物生效。</div>') +
+      (run.relics.length ? eqRows + bagRows : '<div class="event-text">还没有圣物，去精英和商店碰碰运气吧</div>');
+    return '<div class="dv-backdrop" onclick="Game.closeRelics()">' +
+      '<div class="dv-panel" onclick="event.stopPropagation()">' + body +
+      '<button onclick="Game.closeRelics()">关闭</button></div></div>';
+  }
+
   /* ---------- 主渲染 ---------- */
   var lastScreen = null;
   function render() {
@@ -608,7 +662,7 @@
       case 'save': html = renderSave(S); break;
       default: html = '<div class="screen">未知界面</div>';
     }
-    el().innerHTML = html + (S.deckView ? deckViewHtml(S) : '');
+    el().innerHTML = html + (S.deckView ? deckViewHtml(S) : '') + (S.relicView ? relicViewHtml(S) : '');
     // 界面切换时统一清理动画临时元素，防止飘字跨屏残留（同屏重绘保留进行中的动画）
     if (S.screen !== lastScreen) {
       var fx = document.getElementById('fx');

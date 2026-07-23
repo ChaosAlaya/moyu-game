@@ -95,7 +95,7 @@ button.yellow { background: var(--yellow); }
 }
 #screen-combat .topbar, #screen-combat .combat-area, #screen-combat .hand { position: relative; z-index: 1; }
 .intent-legend {
-  position: absolute; right: 14px; top: 56px; z-index: 2;
+  position: absolute; left: 14px; top: 56px; z-index: 2;
   background: rgba(20, 16, 12, .85); color: #f2e6d0;
   border: 2px solid var(--ink); border-radius: 10px;
   font-size: 12px; font-weight: 700; padding: 4px 10px;
@@ -310,7 +310,7 @@ button.yellow { background: var(--yellow); }
 /* ---------- 战斗 ---------- */
 #screen-combat { justify-content: flex-end; }
 .combat-area { flex: 1; width: 100%; position: relative; display: flex; }
-.enemy-zone { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: flex-start; padding-top: 26px; position: relative; }
+.enemy-zone { position: absolute; right: 10%; top: 8px; width: 470px; display: flex; flex-direction: column; align-items: center; justify-content: flex-start; }
 .intent {
   background: #fff; border: 3px solid var(--ink); border-radius: 12px;
   padding: 6px 16px; font-weight: 900; font-size: 17px; margin-bottom: 8px;
@@ -359,10 +359,7 @@ button.yellow { background: var(--yellow); }
 .status.vuln { background: #FFD9DE; }
 .status.str { background: var(--yellow); }
 
-.player-zone {
-  width: 340px; display: flex; flex-direction: column; align-items: center;
-  justify-content: flex-end; padding-bottom: 100px; position: relative;
-}
+.player-zone { width: 480px; }
 .player-img { height: 185px; filter: drop-shadow(3px 3px 0 rgba(0,0,0,.2)); }
 .player-img.hurt { animation: shake .35s; }
 .enemy-img.hurt { animation: shake .35s; }
@@ -401,13 +398,19 @@ button.yellow { background: var(--yellow); }
 .dv-panel h2 { color: var(--red); font-size: 24px; }
 .dv-group { width: 100%; }
 .dv-group h3 { font-size: 16px; margin-bottom: 8px; color: var(--ink); opacity: .8; }
-.pile.draw { right: 16px; bottom: 154px; display: flex; align-items: center; gap: 6px; }
+.pile.draw { left: 14px; bottom: 92px; display: flex; align-items: center; gap: 6px; }
 .pile .cardback {
   height: 34px; width: auto; border: 2px solid var(--ink); border-radius: 4px;
 }
-.pile.discard { right: 16px; bottom: 78px; }
-.pile.exhaust { right: 16px; bottom: 116px; }
-.endturn { position: absolute; right: 16px; bottom: 16px; }
+.pile.discard { left: 14px; bottom: 16px; }
+.pile.exhaust { left: 14px; bottom: 54px; }
+/* 结束回合：手牌正上方居中，出牌后顺手点 */
+/* endturn-row 已废弃：结束回合按钮在手牌行尾 */
+.endturn { font-size: 17px; padding: 8px 34px; }
+
+/* 动画编排期间的输入锁：手牌与结束回合不可点击 */
+.hand.anim-lock, .endturn.anim-lock { pointer-events: none; }
+.endturn.anim-lock { opacity: .5; }
 
 /* 手牌 */
 .hand {
@@ -776,4 +779,73 @@ button.yellow { background: var(--yellow); }
   border: 3px solid var(--ink); border-radius: 10px;
   font-family: inherit; font-size: 14px; padding: 8px; resize: none;
   background: #fff;
+}
+
+/* ---------- 圣物装备系统（顶栏提示 + 管理弹层） ---------- */
+.topbar .relics { cursor: pointer; align-items: center; }
+.topbar .relic-icon { overflow: visible; }
+.relic-icon .tip {
+  display: none; position: absolute; top: 115%; left: 50%; transform: translateX(-50%);
+  width: 180px; background: #fff; border: 2px solid var(--ink); border-radius: 8px;
+  padding: 6px 8px; font-size: 12px; line-height: 1.5; color: var(--ink);
+  z-index: 60; box-shadow: 3px 3px 0 var(--ink); text-align: left; white-space: normal;
+}
+.relic-icon .tip b { display: block; margin-bottom: 2px; color: var(--red); }
+.relic-icon:hover .tip { display: block; }
+.relic-count { font-size: 12px; font-weight: 900; margin-left: 4px; color: var(--ink); }
+
+.relic-row {
+  display: flex; align-items: center; gap: 12px; width: 440px; max-width: 82vw;
+  background: var(--cream); border: 3px solid var(--ink); border-radius: 12px;
+  padding: 8px 12px; cursor: pointer; text-align: left;
+}
+.relic-row.equipped { background: #FFF3C4; box-shadow: 3px 3px 0 var(--ink); }
+.relic-row .relic-info { flex: 1; display: flex; flex-direction: column; gap: 2px; font-size: 13px; line-height: 1.4; }
+.relic-row .relic-info b { color: var(--red); }
+.relic-row .relic-state { font-size: 12px; font-weight: 900; opacity: .7; flex-shrink: 0; }
+
+/* ---------- 卡牌伤害角标（RUA! 等成长牌显示当前实际伤害） ---------- */
+.card .dmg-badge {
+  position: absolute; top: -10px; right: -10px; z-index: 3;
+  display: flex; align-items: center; gap: 3px;
+  background: var(--red); color: #fff; border: 3px solid var(--ink); border-radius: 999px;
+  font-weight: 900; font-size: 15px; padding: 3px 9px;
+}
+.card .dmg-badge .ico { width: 13px; height: 13px; }
+
+/* ---------- 战斗布局 方案A·对角线对位 ---------- */
+/* 主角：状态栏竖排最左缘，立绘站金色舞台 */
+.pstat {
+  position: absolute; left: max(10px, calc(29% - 300px)); top: 44%; transform: translateY(-50%); z-index: 3;
+  display: flex; flex-direction: column; align-items: flex-start; gap: 7px; width: 170px;
+}
+.pname {
+  font-size: 17px; font-weight: 900; color: var(--ink);
+  background: #fff; border: 2px solid var(--ink); border-radius: 8px;
+  padding: 2px 10px; box-shadow: 2px 2px 0 var(--ink);
+}
+.pstat .hpbar { width: 170px; margin-top: 0; }
+.pstat .block-badge { margin-top: 0; }
+.pstat .status-row { margin-top: 0; flex-wrap: wrap; }
+.pstat .energy-orb { position: static; height: 44px; min-width: 96px; border-radius: 10px; font-size: 16px; }
+.pstat .energy-orb .ico { height: 20px; }
+.pstage {
+  position: absolute; left: 29%; bottom: 60px; transform: translateX(-50%); z-index: 1;
+  display: flex; flex-direction: column; align-items: center;
+}
+.pstage .player-img.v2 { height: 215px; width: 215px; position: relative; z-index: 1; }
+.stage-ellipse {
+  width: 265px; height: 62px; border-radius: 50%; margin-top: -24px;
+  background: radial-gradient(ellipse at center, #FFD84D 0%, #F0B53E 70%, #DE9B2F 100%);
+  border: 3px solid var(--ink); box-shadow: 3px 3px 0 rgba(0,0,0,.3);
+}
+/* 结束回合：手牌行尾大按钮，紧跟最后一张手牌 */
+.hand .endturn { align-self: center; margin-left: 36px; flex-shrink: 0; }
+.endturn { font-size: 20px; padding: 14px 38px; border-radius: 14px; }
+
+/* 主角全身立绘：无框无底色，站在金色舞台上 */
+.pstage .player-img.full {
+  height: 290px; width: auto; border: none; border-radius: 0;
+  background: none; box-shadow: none;
+  filter: drop-shadow(4px 4px 0 rgba(0,0,0,.25));
 }

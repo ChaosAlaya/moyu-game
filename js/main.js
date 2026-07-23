@@ -45,7 +45,8 @@
       node: null, reward: null, shop: null,
       eventId: null, eventResult: null,
       selecting: null, screenBeforeCodex: null, codexTab: 'cards',
-      newUnlocks: []
+      newUnlocks: [],
+      animating: false        // 战斗动画编排期间锁输入
     }
   };
 
@@ -83,6 +84,7 @@
     S.engine.newRun(cid);
     S.run = S.engine.state;
     S.newUnlocks = [];
+    S.animating = false; // 新开一局时复位动画锁，防死锁带入新 run
     S.save.runs++;
     persist();
     syncSave(); // 初始牌组进图鉴
@@ -130,6 +132,8 @@
     if (S.run.combat.won) {
       Sfx.play('win');
       setTimeout(function () {
+        // 玩家可能已在延迟期间回了标题，避免突然弹出奖励屏
+        if (S.screen !== 'combat') return;
         S.reward = S.engine.genReward();
         S.engine.takeReward(S.reward);
         syncSave();
@@ -138,13 +142,16 @@
       }, 600 + extra);
     } else {
       Sfx.play('lose');
-      setTimeout(function () { gameOver(); }, 800 + extra);
+      setTimeout(function () {
+        if (S.screen !== 'combat') return; // 同上：已离开战斗则不弹结算
+        gameOver();
+      }, 800 + extra);
     }
   }
 
   Game.playCard = function (i) {
     var c = S.run.combat;
-    if (!c || c.over) return;
+    if (!c || c.over || S.animating) return; // 动画编排期间锁输入
     // 出牌前抓取手牌元素（飞行起点 / 稀有金边）
     var cardEl = document.querySelectorAll('.hand .card')[i];
     var fromRect = cardEl ? cardEl.getBoundingClientRect() : null;
@@ -152,6 +159,7 @@
     var def0 = inst ? Engine.cardDef(inst) : null;
     var r = S.engine.playCard(i);
     if (!r.ok) return;
+    S.animating = true; // 手牌已 splice，动画结束前禁止再点牌/结束回合
     Sfx.play('card');
     // 稀有牌：金边闪光 + rare 金边框序列（盖出牌位置），闪光后再重绘
     var preMs = 0;
@@ -219,32 +227,65 @@
         UI.deathAnim('enemy-img');
         UI.playFxFrames('enemy-img', 'death', { size: 380, fps: 11 });
       }, endMs);
+      // 玩家阵亡（自伤牌）：暴击爆裂 + 全屏震动 + 红闪 + 立绘消散
+      if (c.over && !c.won) setTimeout(function () {
+        UI.playFxFrames('player-img', 'crit', { size: 380, fps: 11 });
+        UI.appShake();
+        UI.edgeFlash();
+        UI.deathAnim('player-img');
+      }, endMs);
+      // 动画编排的最后一段结束后解锁（战斗已结束时 c.over 会自然拦截输入）
+      setTimeout(function () { S.animating = false; if (S.screen === 'combat') render(); }, endMs);
       afterCombat(endMs);
     }, preMs);
   };
 
   Game.endTurn = function () {
     var c = S.run.combat;
-    if (!c || c.over) return;
+    if (!c || c.over || S.animating) return; // 动画编排期间锁输入
     var edef = D.enemies[c.enemy.id];
     var phaseBefore = c.enemy.phase;
     var r = S.engine.endTurn();
+    S.animating = true; // 敌人行动动画期间禁止出牌/重复结束回合
     Sfx.play('draw');
     S.dealAnim = true;           // 新手牌入场动画
     render();
     S.dealAnim = false;
-    // 敌人前冲 → 玩家受击帧（抖动+红闪+红字，按节奏连发）
+    // 敌人前冲 → 玩家受击帧（序列帧+冲击波+震屏+红闪，按节奏连发；格挡吸收有盾光表现）
     if (r.attacked) UI.lunge('enemy-img');
     var startMs = r.attacked ? 220 : 0;
+    if (r.scarf) setTimeout(function () {
+      UI.playFxFrames('player-img', 'block', { size: 260, fps: 12 });
+      UI.floater('player-img', '红围巾挡下了攻击！', 'block');
+    }, startMs);
     r.hits.forEach(function (h, idx) {
       setTimeout(function () {
+        var absorbed = (r.absorbed && r.absorbed[idx]) || 0;
+        var p = UI.targetPos('player-img');
+        if (h <= 0 && absorbed > 0) {
+          // 完全格挡：盾光罩 + 蓝字，不红屏不震屏
+          UI.playFxFrames('player-img', 'block', { size: 260, fps: 12 });
+          if (p) UI.spawnFloatText(p.x, p.y, '格挡 ' + absorbed, 'block');
+          Sfx.play('block');
+          return;
+        }
+        var big = h >= 15;
         UI.hitFlash('player-img');
         UI.edgeFlash();
-        var p = UI.targetPos('player-img');
-        if (p) UI.spawnFloatText(p.x, p.y, '-' + h, h >= 15 ? 'dmg big' : 'dmg');
+        UI.shockRing('player-img');
+        if (big) UI.appShake(); else UI.miniShake();
+        var seq = big ? 'crit' : (r.hits.length > 1 ? 'combo' : 'hit');
+        UI.playFxFrames('player-img', seq, { size: big ? 340 : (r.hits.length > 1 ? 210 : 280), fps: 13 });
+        if (p) UI.spawnFloatText(p.x, p.y, '-' + h, big ? 'dmg big' : 'dmg');
+        if (absorbed > 0 && p) UI.spawnFloatText(p.x, p.y - 30, '格挡 ' + absorbed, 'block');
         Sfx.play('hit');
       }, startMs + idx * 200);
     });
+    // 剩饭护体反弹：敌人头顶飘字
+    if (r.reflected > 0) setTimeout(function () {
+      UI.hitFlash('enemy-img');
+      UI.floater('enemy-img', '反弹 -' + r.reflected, 'dmg');
+    }, startMs);
     if (r.skipped) UI.floater('enemy-img', '跳过了行动！', 'text');
     if (r.enemyBlock > 0) UI.floater('enemy-img', '+' + r.enemyBlock + ' 格挡', 'block');
     var endMs = startMs + Math.max(0, r.hits.length - 1) * 200 + (r.hits.length ? 200 : 0);
@@ -265,6 +306,15 @@
       UI.deathAnim('enemy-img');
       UI.playFxFrames('enemy-img', 'death', { size: 380, fps: 11 });
     }, endMs);
+    // 玩家阵亡：暴击爆裂 + 全屏震动 + 红闪 + 立绘消散
+    if (c.over && !c.won) setTimeout(function () {
+      UI.playFxFrames('player-img', 'crit', { size: 380, fps: 11 });
+      UI.appShake();
+      UI.edgeFlash();
+      UI.deathAnim('player-img');
+    }, endMs);
+    // 敌人行动（含 BOSS 阶段切换）播完后解锁
+    setTimeout(function () { S.animating = false; if (S.screen === 'combat') render(); }, endMs);
     afterCombat(endMs);
   };
 
@@ -416,6 +466,16 @@
   /* ---------- 存档码导入/导出 ---------- */
   Game.showDeck = function (mode) { S.deckView = mode; render(); };
   Game.closeDeck = function () { S.deckView = null; render(); };
+
+  /* ---------- 圣物装备（最多 4 件，战斗中不可调整） ---------- */
+  Game.showRelics = function () { if (S.run) { S.relicView = true; render(); } };
+  Game.closeRelics = function () { S.relicView = null; render(); };
+  Game.toggleRelic = function (rid) {
+    if (!S.run || S.screen === 'combat' || S.animating) return;
+    if (S.run.equippedRelics.indexOf(rid) >= 0) S.engine.unequipRelic(rid);
+    else if (!S.engine.equipRelic(rid)) { UI.toast('最多同时装备 4 件圣物'); return; }
+    render();
+  };
 
   Game.toSave = function () {
     // 打包本游戏所有 localStorage key

@@ -189,7 +189,7 @@ section('b) 全部敌人各模拟一场');
     const c = engine.state.combat;
     const expectDraw = 5 + (chId === 'xiaoq' ? 2 : 0) + (chId === 'jihuang' ? 1 : 0);
     ok(c.hand.length === expectDraw, `${chId} 首回合抽牌数 = ${expectDraw}（实际 ${c.hand.length}）`);
-    ok(c.energy === 3, '首回合能量 3');
+    ok(c.energy === 4, '首回合能量 4');
     if (chId === 'shuanglaoya') {
       ok(engine.state.gold === goldBefore + 10, '爽老鸭战斗开始 +10 金币');
     }
@@ -258,16 +258,16 @@ section('b2) 新机制数值断言');
   engine.startCombat('punchclock');
   const st = engine.state, c = st.combat;
   c.enemy.hp = 300; c.enemy.maxHp = 300;
-  st.gold = 60;
+  st.gold = 80;
   c.hand.unshift({ uid: 1, id: 'money', up: false });
   let hb = c.enemy.hp;
   engine.playCard(0);
-  ok(c.enemy.hp === hb - 20, `钞能力 金币≥50 打 20（实际 ${hb - c.enemy.hp}）`);
-  st.gold = 10; c.energy = 3;
+  ok(c.enemy.hp === hb - 20, `钞能力 金币≥80 打 20（实际 ${hb - c.enemy.hp}）`);
+  st.gold = 79; c.energy = 3;
   c.hand.unshift({ uid: 2, id: 'money', up: false });
   hb = c.enemy.hp;
   engine.playCard(0);
-  ok(c.enemy.hp === hb - 12, `钞能力 金币<50 打 12（实际 ${hb - c.enemy.hp}）`);
+  ok(c.enemy.hp === hb - 12, `钞能力 金币<80 打 12（实际 ${hb - c.enemy.hp}）`);
 }
 
 // 特殊卡：獭罗牌占卜 / 爽到 / 严谨计算
@@ -298,17 +298,19 @@ section('b2) 新机制数值断言');
 {
   const engine = new Engine(7);
   engine.newRun('xiaoq');
+  // 机制测试直接装备全部相关圣物（绕过 4 件上限，仅验证数值 hook）
   engine.state.relics.push('keyboard_rel', 'mousepad', 'noodle_god', 'badge', 'cyberdesk', 'tarot_rel', 'sword_tassel', 'sword_hilt');
+  engine.state.equippedRelics.push('keyboard_rel', 'mousepad', 'noodle_god', 'badge', 'cyberdesk', 'tarot_rel', 'sword_tassel', 'sword_hilt');
   engine.startCombat('boss1'); // BOSS 触发剑穗
   const st = engine.state, c = st.combat;
   ok(c.playerStrength === 3, '徽章+1、剑柄+2 → 开战力量 3');
-  ok(c.energy === 4, '獭罗牌：首回合能量 4');
+  ok(c.energy === 5, '獭罗牌：首回合能量 5');
   c.enemy.hp = 500; c.enemy.maxHp = 500;
   // 键盘+1、剑穗+2、力量+3 → 6+1+2+3 = 12
   let hb = c.enemy.hp;
   c.hand.unshift({ uid: 1, id: 'strike_moyu', up: false });
   const r = engine.playCard(0);
-  ok(r.ok && c.energy === 4 - 0, '赛博工位：首张攻击牌 0 费');
+  ok(r.ok && c.energy === 5 - 0, '赛博工位：首张攻击牌 0 费');
   ok(c.enemy.hp === hb - 12, `键盘+剑穗+力量 → 打 12（实际 ${hb - c.enemy.hp}）`);
   // 鼠标垫：摸鱼 5+2=7
   c.hand.unshift({ uid: 2, id: 'defend_moyu', up: false });
@@ -326,8 +328,60 @@ section('b2) 新机制数值断言');
   const engine = new Engine(8);
   engine.newRun('shengfan');
   engine.state.relics.push('pegboard');
+  engine.state.equippedRelics.push('pegboard');
   engine.startCombat('group_at');
   ok(engine.state.combat.hand.length === 6, '洞洞板：剩饭首回合抽 6');
+}
+
+// 圣物装备系统：最多 4 件，背包里的不生效
+{
+  const engine = new Engine(9);
+  engine.newRun('xiaoq');
+  const st = engine.state;
+  engine.addRelic('keyboard_rel');
+  engine.addRelic('mousepad');
+  engine.addRelic('noodle_god');
+  engine.addRelic('badge');
+  ok(st.equippedRelics.length === 4, 'addRelic：前 4 件自动装备');
+  engine.addRelic('gamepad');
+  ok(st.relics.length === 5 && st.equippedRelics.length === 4, 'addRelic：第 5 件进背包');
+  ok(engine.hasRelic('keyboard_rel') && !engine.hasRelic('gamepad'), 'hasRelic：只有已装备的生效');
+  ok(!engine.equipRelic('gamepad'), 'equipRelic：装备栏满时失败');
+  ok(engine.unequipRelic('badge') && engine.equipRelic('gamepad'), '卸下后可换装');
+  ok(!engine.hasRelic('badge') && engine.hasRelic('gamepad'), '换装后生效口径正确');
+  ok(!engine.addRelic('gamepad') && st.relics.filter(r => r === 'gamepad').length === 1, 'addRelic：重复获得被拒绝');
+}
+
+// 受击数据：逐段格挡吸收 / 红围巾 / 剩饭护体反弹（供 UI 受击特效使用）
+{
+  const engine = new Engine(12);
+  engine.newRun('xiaoq');
+  engine.startCombat('group_at');
+  const c = engine.state.combat;
+  c.enemy.intent = { name: 'a', type: 'attack', value: 8, times: 2 };
+  c.playerBlock = 5;
+  const r = engine.endTurn();
+  ok(r.hits.length === 2 && r.absorbed.length === 2, 'endTurn 返回逐段吸收数组');
+  ok(r.absorbed[0] === 5 && r.hits[0] === 3, `首段格挡吸收 5 穿透 3（实际 ${r.absorbed[0]}/${r.hits[0]}）`);
+  ok(r.absorbed[1] === 0 && r.hits[1] === 8, '格挡耗尽后次段全额穿透');
+  // 红围巾：首次攻击归 0 并标记
+  const e2 = new Engine(14);
+  e2.newRun('xiaoq');
+  e2.state.relics.push('scarf_relic');
+  e2.state.equippedRelics.push('scarf_relic');
+  e2.startCombat('group_at');
+  e2.state.combat.enemy.intent = { name: 'a', type: 'attack', value: 7 };
+  const r2 = e2.endTurn();
+  ok(r2.scarf === true && r2.hits[0] === 0, '红围巾：首次攻击伤害归 0 且标记 scarf');
+  // 剩饭护体：反弹并记录总量
+  const e3 = new Engine(15);
+  e3.newRun('shengfan');
+  e3.startCombat('group_at');
+  e3.state.combat.powers.push({ id: 'leftover_shield', value: 3 });
+  const eb = e3.state.combat.enemy.hp;
+  e3.state.combat.enemy.intent = { name: 'a', type: 'attack', value: 6 };
+  const r3 = e3.endTurn();
+  ok(r3.reflected === 3 && e3.state.combat.enemy.hp === eb - 3, '剩饭护体：反弹 3 点');
 }
 
 // 精英随层缩放
@@ -341,7 +395,27 @@ section('b2) 新机制数值断言');
   ok(e.dmgBonus === 4, '第 5 层精英攻击加成 +4');
 }
 
-// BOSS 阶段切换（老板半血进入"都给我加班"）
+// 精英 dmgBonus 实际结算进伤害（且随 act 增长）
+{
+  const dmgs = [];
+  [1, 3, 5].forEach(act => {
+    const engine = new Engine(100 + act);
+    engine.newRun('xiaoq');
+    engine.state.act = act;
+    engine.startCombat('overtime');
+    const st = engine.state, c = st.combat;
+    c.enemy.intent = { type: 'attack', name: '测试攻击', value: 6 };
+    const hpB = st.hp;
+    const r = engine.endTurn();
+    const expect = 6 + (act - 1); // 基础 6 + dmgBonus(act-1)
+    dmgs.push(r.dmgToPlayer);
+    ok(r.dmgToPlayer === expect && st.hp === hpB - expect,
+      `第 ${act} 层精英 6 攻实际造成 ${expect} 伤害（实际 ${r.dmgToPlayer}）`);
+  });
+  ok(dmgs[1] > dmgs[0] && dmgs[2] > dmgs[1], `精英伤害随层数递增（${dmgs.join('→')}）`);
+}
+
+// BOSS 阶段切换（摸鱼强总半血进入"都给我加班"）
 {
   const engine = new Engine(13);
   engine.newRun('xiaoq');
@@ -349,7 +423,7 @@ section('b2) 新机制数值断言');
   const c = engine.state.combat;
   c.enemy.hp = 90; // 低于 50%
   engine._checkPhase(c.enemy);
-  ok(c.enemy.phase === 1, '老板半血进入第二阶段');
+  ok(c.enemy.phase === 1, '摸鱼强总半血进入第二阶段');
   engine._chooseIntent(c.enemy);
   ok(c.enemy.intent && c.enemy.intent.name !== '战略部署', '第二阶段使用新招式');
 }
@@ -382,7 +456,7 @@ section('b3) v2 资源 / 存档码 / 战绩簿');
   const v2 = (p) => fs.existsSync(path.join(root, p));
   let missing = 0;
   for (const eid in D.enemies) if (!v2(`assets/v2/enemy/${eid}.jpg`)) { missing++; console.error('  ✗ 缺敌人图', eid); }
-  ok(v2('assets/v2/enemy/boss3_p2.jpg'), '老板第二阶段图存在');
+  ok(v2('assets/v2/enemy/boss3_p2.jpg'), '摸鱼强总第二阶段图存在');
   for (const rid in D.relics) if (!v2(`assets/v2/relic/${rid}.jpg`)) { missing++; console.error('  ✗ 缺圣物图', rid); }
   for (const evid in D.events) if (!v2(`assets/v2/event/${evid}.jpg`)) { missing++; console.error('  ✗ 缺事件图', evid); }
   for (let a = 1; a <= 10; a++) if (!v2(`assets/v2/banner/act${a}.jpg`)) { missing++; console.error('  ✗ 缺横幅', a); }
@@ -429,19 +503,21 @@ section('b3) v2 资源 / 存档码 / 战绩簿');
   const engine = new Engine(19);
   engine.newRun('xiaoq');
   engine.state.relics.push('coffee_can');
+  engine.state.equippedRelics.push('coffee_can');
   engine.startCombat('group_at');
   const c = engine.state.combat;
-  ok(c.maxEnergy === 4, '红罐咖啡：maxEnergy=4');
-  ok(c.energy === 4, '红罐咖啡：首回合 energy=4');
+  ok(c.maxEnergy === 5, '红罐咖啡：maxEnergy=5');
+  ok(c.energy === 5, '红罐咖啡：首回合 energy=5');
   c.hand.length = 0;
   engine.endTurn();
-  ok(c.over || c.energy === 4, '红罐咖啡：次回合 energy=4');
-  // 与獭罗牌叠加：首回合 4+1=5
+  ok(c.over || c.energy === 5, '红罐咖啡：次回合 energy=5');
+  // 与獭罗牌叠加：首回合 5+1=6
   const e2 = new Engine(20);
   e2.newRun('xiaoq');
   e2.state.relics.push('coffee_can', 'tarot_rel');
+  e2.state.equippedRelics.push('coffee_can', 'tarot_rel');
   e2.startCombat('group_at');
-  ok(e2.state.combat.maxEnergy === 4 && e2.state.combat.energy === 5, '咖啡+獭罗牌：首回合 5 能量不冲突');
+  ok(e2.state.combat.maxEnergy === 5 && e2.state.combat.energy === 6, '咖啡+獭罗牌：首回合 6 能量不冲突');
   // 圣物图存在
   ok(fs.existsSync(path.join(root, 'assets/v2/relic/coffee_can.jpg')), '红罐咖啡圣物图存在');
 }
@@ -458,12 +534,31 @@ section('b3) v2 资源 / 存档码 / 战绩簿');
   ok(Array.isArray(r.hits) && r.hits.length === 3, `多段攻击 hits[] 长度 3（实际 ${r.hits.length}）`);
   ok(r.hits.every(h => h === 2) && r.dmgToEnemy === 6, '多段每段数值正确');
   c.hand.unshift({ uid: 2, id: 'chicken', up: false });
+  engine.state.hp = engine.state.maxHp - 10; // 先扣血避免回复被截断
   const r2 = engine.playCard(0);
   ok(r2.healGained === 5, 'healGained 记录回血量');
   c.hand.length = 0;
   const r3 = engine.endTurn();
   ok(Array.isArray(r3.hits), 'endTurn 返回 hits[]');
   if (r3.dmgToPlayer > 0) ok(r3.attacked === true, '受击时 attacked 标记');
+}
+
+// 回血飘字只记实际回复量（满血/截断不虚报）
+{
+  const engine = new Engine(29);
+  engine.newRun('xiaoq');
+  engine.startCombat('punchclock');
+  const st = engine.state, c = st.combat;
+  c.enemy.hp = 300; c.enemy.maxHp = 300;
+  // 满血：香香鸡回 5 全被截断
+  c.hand.unshift({ uid: 1, id: 'chicken', up: false });
+  const r = engine.playCard(0);
+  ok(r.healGained === 0 && st.hp === st.maxHp, `满血时 healGained=0（实际 ${r.healGained}）`);
+  // 缺 3 点：只实回 3
+  st.hp = st.maxHp - 3;
+  c.hand.unshift({ uid: 2, id: 'chicken', up: false });
+  const r2 = engine.playCard(0);
+  ok(r2.healGained === 3 && st.hp === st.maxHp, `截断后 healGained=3（实际 ${r2.healGained}）`);
 }
 
 /* ---------- c) 地图生成 ---------- */
@@ -494,6 +589,17 @@ section('c) 地图生成（10 层 × 100 次）');
 
 /* ---------- d) 自动完整 run ---------- */
 section('d) 自动完整 run × 20 次（零异常）');
+
+// 模拟真人玩家：每次拿到圣物后按战斗价值重排装备栏（战斗向优先，功能向殿后）
+const RELIC_PRIORITY = ['coffee_can', 'badge', 'keyboard_rel', 'sword_tassel', 'sword_hilt',
+  'doll', 'mousepad', 'pegboard', 'cyberdesk', 'gamepad', 'tarot_rel', 'noodle_god',
+  'chicken_bucket', 'scarf_relic', 'ear_charm', 'bowl', 'glasses', 'sunglasses', 'membercard'];
+function autoEquip(st) {
+  const sorted = st.relics.slice().sort(function (a, b) {
+    return RELIC_PRIORITY.indexOf(a) - RELIC_PRIORITY.indexOf(b);
+  });
+  st.equippedRelics = sorted.slice(0, globalThis.GameEngine.MAX_EQUIPPED_RELICS);
+}
 
 function autoRun(engine, quiet) {
   const st = engine.state;
@@ -530,6 +636,7 @@ function autoRun(engine, quiet) {
       if (res.needChoice === 'remove' && st.deck.length > 1) engine.removeCardByUid(st.deck[0].uid);
       engine.advance();
     }
+    autoEquip(st);
     if (!(st.hp >= 0 && st.hp <= st.maxHp)) throw new Error('HP 越界: ' + st.hp);
     if (st.gold < 0) throw new Error('金币为负');
     if (st.deck.length < 1) throw new Error('牌组被删空');

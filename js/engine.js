@@ -77,7 +77,8 @@
       gold: ch.gold,
       deck: deck,
       uidCounter: uid,
-      relics: [],          // relic id 数组
+      relics: [],          // 拥有的圣物 id 数组（背包）
+      equippedRelics: [],  // 已装备的圣物 id（最多 4 件，只有装备的生效）
       act: 1,
       step: 0,             // 当前所处步（0 起）
       map: this.genMap(1),
@@ -92,7 +93,32 @@
   };
 
   Engine.prototype._seeCard = function (inst) { this.state.seen.cards[inst.id] = true; };
-  Engine.prototype.hasRelic = function (id) { return this.state.relics.indexOf(id) >= 0; };
+
+  /* ---------- 圣物装备（最多 4 件，只有装备的生效） ---------- */
+  var MAX_EQUIPPED_RELICS = 4;
+  Engine.prototype.hasRelic = function (id) { return this.state.equippedRelics.indexOf(id) >= 0; };
+  // 获得圣物：进背包；装备栏未满则自动装备
+  Engine.prototype.addRelic = function (id) {
+    var st = this.state;
+    if (st.relics.indexOf(id) >= 0) return false;
+    st.relics.push(id);
+    st.seen.relics[id] = true;
+    if (st.equippedRelics.length < MAX_EQUIPPED_RELICS) st.equippedRelics.push(id);
+    return true;
+  };
+  Engine.prototype.equipRelic = function (id) {
+    var st = this.state;
+    if (st.relics.indexOf(id) < 0 || st.equippedRelics.indexOf(id) >= 0) return false;
+    if (st.equippedRelics.length >= MAX_EQUIPPED_RELICS) return false;
+    st.equippedRelics.push(id);
+    return true;
+  };
+  Engine.prototype.unequipRelic = function (id) {
+    var eq = this.state.equippedRelics, i = eq.indexOf(id);
+    if (i < 0) return false;
+    eq.splice(i, 1);
+    return true;
+  };
 
   /* ---------- 地图生成 ---------- */
   // 每层 STEPS_PER_ACT 步，末步固定 BOSS，其余每步 2~3 个节点选项
@@ -211,7 +237,7 @@
     var combat = {
       enemy: enemy,
       turn: 0,
-      energy: 0, maxEnergy: 3 + (this.hasRelic('coffee_can') ? 1 : 0),
+      energy: 0, maxEnergy: 4 + (this.hasRelic('coffee_can') ? 1 : 0), // 基础能量 4（圣物限装 4 件后的基础强度补偿）
       hand: [], drawPile: drawPile, discard: [], exhausted: [],
       playerBlock: 0, playerWeak: 0, playerVuln: 0,
       playerStrength: 0,
@@ -388,8 +414,10 @@
           // 小面仙人：回复效果 +2
           var hv = ef.value;
           if (self.hasRelic('noodle_god')) hv += 2;
+          var hpBeforeHeal = st.hp;
           st.hp = Math.min(st.maxHp, st.hp + hv);
-          result.healGained += hv;
+          // 只记录实际回复量，避免满血时飘字虚报
+          result.healGained += st.hp - hpBeforeHeal;
           break;
         }
         case 'energy': c.energy += ef.value; break;
@@ -494,7 +522,7 @@
   Engine.prototype.endTurn = function () {
     var st = this.state, c = st.combat;
     if (!c || c.over) return { over: true };
-    var result = { dmgToPlayer: 0, enemyBlock: 0, skipped: false, over: false, hits: [], attacked: false };
+    var result = { dmgToPlayer: 0, enemyBlock: 0, skipped: false, over: false, hits: [], absorbed: [], reflected: 0, scarf: false, attacked: false };
     // 弃掉手牌
     while (c.hand.length) c.discard.push(c.hand.pop());
     // 玩家 debuff 衰减
@@ -511,7 +539,8 @@
       var mv = e.intent;
       var self = this;
       function enemyHit(base) {
-        var dmg = base + e.strength;
+        // 精英随层数成长的攻击加成（dmgBonus）在此结算
+        var dmg = base + e.strength + (e.dmgBonus || 0);
         if (e.weak > 0) dmg = Math.floor(dmg * 0.75);
         if (c.playerVuln > 0) dmg = Math.floor(dmg * 1.5);
         if (dmg < 0) dmg = 0;
@@ -520,6 +549,7 @@
           c.flags.scarfUsed = true;
           c.log.push({ t: 'relic', text: '红围巾挡下了攻击！' });
           dmg = 0;
+          result.scarf = true;
         }
         var absorbed = Math.min(c.playerBlock, dmg);
         c.playerBlock -= absorbed;
@@ -527,6 +557,7 @@
         st.hp -= through;
         result.dmgToPlayer += through;
         result.hits.push(through);
+        result.absorbed.push(absorbed);
         // 剩饭护体：反弹
         c.powers.forEach(function (p) {
           if (p.id === 'leftover_shield') {
@@ -534,6 +565,7 @@
             var ra = Math.min(e.block, ref);
             e.block -= ra;
             e.hp -= (ref - ra);
+            result.reflected += ref;
           }
         });
       }
@@ -610,10 +642,7 @@
   Engine.prototype.takeReward = function (reward) {
     var st = this.state;
     st.gold += reward.gold;
-    if (reward.relic) {
-      st.relics.push(reward.relic);
-      st.seen.relics[reward.relic] = true;
-    }
+    if (reward.relic) this.addRelic(reward.relic);
   };
 
   /* ---------- 商店 ---------- */
@@ -668,8 +697,7 @@
     if (!item || item.sold || st.gold < item.price) return false;
     st.gold -= item.price;
     item.sold = true;
-    st.relics.push(item.id);
-    st.seen.relics[item.id] = true;
+    this.addRelic(item.id);
     return true;
   };
 
@@ -783,8 +811,7 @@
         if (!rp.length) { res.text = '周边卖光了。'; break; }
         st.gold -= opt.gold;
         var rid2 = this.rng.pick(rp);
-        st.relics.push(rid2);
-        st.seen.relics[rid2] = true;
+        this.addRelic(rid2);
         res.text = '获得了圣物「' + D.relics[rid2].name + '」！';
         break;
       }
@@ -898,6 +925,7 @@
     Engine: Engine,
     makeRng: makeRng,
     saveCodec: saveCodec,
-    pushHistory: pushHistory
+    pushHistory: pushHistory,
+    MAX_EQUIPPED_RELICS: MAX_EQUIPPED_RELICS
   };
 })(typeof window !== 'undefined' ? window : globalThis);
