@@ -349,12 +349,24 @@
         }
       }
       return cardHtml(inst, {
-        extraCls: (playable ? '' : ' unplayable') + (S.dealAnim ? ' deal-in' : ''),
-        onclick: playable ? 'Game.playCard(' + i + ')' : '',
+        extraCls: (playable ? '' : ' unplayable') + (S.dealAnim ? ' deal-in' : '') + (S.cardConfirm === i ? ' confirming' : ''),
+        onclick: playable ? 'Game.tapCard(' + i + ')' : '',
         extraAttr: dealAttr,
         extraHtml: extraHtml
       });
     }).join('');
+
+    // 移动端：选中牌确认条（放大预览 + 打出/取消）
+    var confirmBar = '';
+    if (S.touch && S.cardConfirm != null && c.hand[S.cardConfirm]) {
+      var cinst = c.hand[S.cardConfirm];
+      confirmBar = '<div class="confirm-bar">' +
+        '<div class="cb-preview">' + cardHtml(cinst) + '</div>' +
+        '<div class="cb-btns">' +
+          '<button class="primary cb-play" onclick="Game.confirmPlay()">打出</button>' +
+          '<button onclick="Game.cancelCard()">取消</button>' +
+        '</div></div>';
+    }
 
     return '<div class="screen combat-bg" id="screen-combat" style="background-image:url(' + bannerArt(run.act) + ')">' + topbarHtml(S) +
       '<div class="intent-legend">意图：' +
@@ -406,7 +418,7 @@
           (e.block > 0 ? '<div class="block-badge">' + ico('block') + ' 格挡 ' + e.block + '</div>' : '') +
           '<div class="status-row">' + eStatus + '</div>' +
         '</div>' +
-      '</div>' +
+      '</div>' + confirmBar +
       '<div class="hand' + (S.animating ? ' anim-lock' : '') + '">' + hand +
         '<button class="endturn primary' + (S.animating ? ' anim-lock' : '') + '" onclick="Game.endTurn()">结束回合</button></div>' +
       '</div>';

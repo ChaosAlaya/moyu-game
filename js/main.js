@@ -47,7 +47,9 @@
       selecting: null, screenBeforeCodex: null, codexTab: 'cards',
       newUnlocks: [],
       animating: false,       // 战斗动画编排期间锁输入
-      playerPose: 'stage'     // 当前玩家立绘姿势（stage/attack/hit/low）
+      playerPose: 'stage',    // 当前玩家立绘姿势（stage/attack/hit/low）
+      touch: (typeof matchMedia !== 'undefined') && matchMedia('(hover: none)').matches,
+      cardConfirm: null       // 移动端：待确认出牌的手牌下标
     }
   };
 
@@ -174,6 +176,21 @@
     }
   }
 
+  /* ---------- 移动端点按选中→确认出牌 ---------- */
+  Game.tapCard = function (i) {
+    if (!S.touch) { Game.playCard(i); return; } // 桌面保留单击即出
+    if (S.cardConfirm === i) { S.cardConfirm = null; render(); return; }
+    S.cardConfirm = i;
+    render();
+  };
+  Game.confirmPlay = function () {
+    if (S.cardConfirm == null) return;
+    var i = S.cardConfirm;
+    S.cardConfirm = null;
+    Game.playCard(i);
+  };
+  Game.cancelCard = function () { S.cardConfirm = null; render(); };
+
   Game.playCard = function (i) {
     var c = S.run.combat;
     if (!c || c.over || S.animating) return; // 动画编排期间锁输入
@@ -184,6 +201,7 @@
     var def0 = inst ? Engine.cardDef(inst) : null;
     var r = S.engine.playCard(i);
     if (!r.ok) return;
+    S.cardConfirm = null;
     S.animating = true; // 手牌已 splice，动画结束前禁止再点牌/结束回合
     Sfx.play('card');
     // 稀有牌：金边闪光 + rare 金边框序列（盖出牌位置），闪光后再重绘
@@ -280,6 +298,7 @@
     var edef = D.enemies[c.enemy.id];
     var phaseBefore = c.enemy.phase;
     var r = S.engine.endTurn();
+    S.cardConfirm = null;
     S.animating = true; // 敌人行动动画期间禁止出牌/重复结束回合
     Sfx.play('draw');
     S.dealAnim = true;           // 新手牌入场动画
