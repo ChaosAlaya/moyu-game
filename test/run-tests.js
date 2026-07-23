@@ -102,9 +102,9 @@ ok(D.enemies.driver.hp >= 60, `第 10 层小怪 HP 达标（driver ${D.enemies.d
 
 for (const rid in D.relics) {
   const r = D.relics[rid];
-  ok(r.name && r.desc && Number.isInteger(r.price), `遗物 ${rid} 结构完整`);
+  ok(r.name && r.desc && Number.isInteger(r.price), `圣物 ${rid} 结构完整`);
 }
-ok(Object.keys(D.relics).length >= 18, `遗物 >= 18 个（实际 ${Object.keys(D.relics).length}）`);
+ok(Object.keys(D.relics).length >= 18, `圣物 >= 18 个（实际 ${Object.keys(D.relics).length}）`);
 
 const EVENT_EFFECTS = ['leave', 'buyChicken', 'heal10', 'heal12', 'maxHp4', 'randomCard',
   'lose5getRare', 'upgrade2', 'transform1', 'removeCard',
@@ -248,7 +248,7 @@ section('b) 全部敌人各模拟一场');
   ok(c.hand.length === 5 + 2 + 3, '弃牌堆洗牌后可继续抽牌');
 }
 
-/* ---------- b2) 新 op / 新卡 / 新遗物 hook ---------- */
+/* ---------- b2) 新 op / 新卡 / 新圣物 hook ---------- */
 section('b2) 新机制数值断言');
 
 // goldDamage（钞能力）
@@ -294,7 +294,7 @@ section('b2) 新机制数值断言');
   ok(c.enemy.hp === hb - 10, '爽到：敌意图非攻击 → 6+4=10');
 }
 
-// 遗物 hook：键盘 / 鼠标垫 / 小面仙人 / 徽章 / 赛博工位 / 洞洞板 / 獭罗牌 / 黑暗剑穗
+// 圣物 hook：键盘 / 鼠标垫 / 小面仙人 / 徽章 / 赛博工位 / 洞洞板 / 獭罗牌 / 黑暗剑穗
 {
   const engine = new Engine(7);
   engine.newRun('xiaoq');
@@ -365,7 +365,7 @@ section('b2) 新机制数值断言');
   ok(st.deck.length === deckBefore + 1, '核聚变：获得罕见牌');
   const relicBefore = st.relics.length;
   engine.applyEvent('gameexpo', 1);
-  ok(st.relics.length === relicBefore + 1 && st.gold === 20, '核聚变：30 金币买遗物');
+  ok(st.relics.length === relicBefore + 1 && st.gold === 20, '核聚变：30 金币买圣物');
   const r2 = engine.applyEvent('bosspatrol', 0);
   ok(r2.text.includes('走了'), '老板巡视：装忙无事发生');
   const hpB = st.hp;
@@ -383,7 +383,7 @@ section('b3) v2 资源 / 存档码 / 战绩簿');
   let missing = 0;
   for (const eid in D.enemies) if (!v2(`assets/v2/enemy/${eid}.jpg`)) { missing++; console.error('  ✗ 缺敌人图', eid); }
   ok(v2('assets/v2/enemy/boss3_p2.jpg'), '老板第二阶段图存在');
-  for (const rid in D.relics) if (!v2(`assets/v2/relic/${rid}.jpg`)) { missing++; console.error('  ✗ 缺遗物图', rid); }
+  for (const rid in D.relics) if (!v2(`assets/v2/relic/${rid}.jpg`)) { missing++; console.error('  ✗ 缺圣物图', rid); }
   for (const evid in D.events) if (!v2(`assets/v2/event/${evid}.jpg`)) { missing++; console.error('  ✗ 缺事件图', evid); }
   for (let a = 1; a <= 10; a++) if (!v2(`assets/v2/banner/act${a}.jpg`)) { missing++; console.error('  ✗ 缺横幅', a); }
   for (const cid in D.characters) {
@@ -442,8 +442,8 @@ section('b3) v2 资源 / 存档码 / 战绩簿');
   e2.state.relics.push('coffee_can', 'tarot_rel');
   e2.startCombat('group_at');
   ok(e2.state.combat.maxEnergy === 4 && e2.state.combat.energy === 5, '咖啡+獭罗牌：首回合 5 能量不冲突');
-  // 遗物图存在
-  ok(fs.existsSync(path.join(root, 'assets/v2/relic/coffee_can.jpg')), '红罐咖啡遗物图存在');
+  // 圣物图存在
+  ok(fs.existsSync(path.join(root, 'assets/v2/relic/coffee_can.jpg')), '红罐咖啡圣物图存在');
 }
 
 // 逐段伤害 hits[]（打击感动画数据源）

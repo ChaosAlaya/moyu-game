@@ -808,7 +808,7 @@
     }
   };
 
-  /* ---------------- 遗物 ---------------- */
+  /* ---------------- 圣物 ---------------- */
   var relics = {
     scarf_relic: { name: '红围巾', desc: '每场战斗第一次受到的伤害为 0。', price: 150, img: 'xiaoq' },
     glasses: { name: '肯尼的镜片', desc: '敌人意图显示精确数值。', price: 130, img: 'kenni' },
@@ -888,7 +888,7 @@
       text: '公司楼下居然在办核聚变游戏展！排队的人流里全是熟悉的面孔。',
       options: [
         { text: '试玩新游（获得 1 张随机罕见牌）', effect: 'randomUncommon' },
-        { text: '买限定周边（花 30 金币获得随机遗物）', effect: 'buyRelic', gold: 30 }
+        { text: '买限定周边（花 30 金币获得随机圣物）', effect: 'buyRelic', gold: 30 }
       ]
     },
     netbar: {

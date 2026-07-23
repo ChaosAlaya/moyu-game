@@ -171,6 +171,8 @@
       r.hits.forEach(function (h, idx) {
         setTimeout(function () {
           UI.hitFlash('enemy-img');
+          UI.impactFlash('enemy-img');
+          UI.miniShake();
           var p = UI.targetPos('enemy-img');
           if (p) UI.spawnFloatText(p.x, p.y, '-' + h, h >= 15 ? 'dmg big' : 'dmg');
           Sfx.play('hit');

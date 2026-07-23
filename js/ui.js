@@ -97,7 +97,7 @@
         '<span class="h-date">' + date + '</span>' +
         '<span class="h-char">' + chName + '</span>' +
         '<span class="h-result">' + result + '</span>' +
-        '<span class="h-detail">牌组 ' + h.deck + ' · 遗物 ' + h.relics + '</span>' +
+        '<span class="h-detail">牌组 ' + h.deck + ' · 圣物 ' + h.relics + '</span>' +
         '</div>';
     }).join('') || '<div class="event-text"><img class="empty-deco" src="assets/cardart/bubble_sockdog.png" alt=""><br>还没有战绩，去摸一局吧！</div>';
     return '<div class="screen dark-page" id="screen-history">' +
@@ -375,7 +375,7 @@
       '<div class="center-wrap"><div class="panel">' +
       '<h2>战斗胜利！</h2>' +
       '<div class="reward-gold">' + ico('gold') + ' +' + rw.gold + ' 金币</div>' +
-      (rw.relic ? '<div class="reward-relic">🏺 获得遗物「' + D.relics[rw.relic].name + '」：' + D.relics[rw.relic].desc + '</div>' : '') +
+      (rw.relic ? '<div class="reward-relic">🏺 获得圣物「' + D.relics[rw.relic].name + '」：' + D.relics[rw.relic].desc + '</div>' : '') +
       '<div style="font-weight:900">选一张牌加入牌组（或跳过）：</div>' +
       '<div class="reward-cards">' + cardsHtml + '</div>' +
       '<button onclick="Game.rewardSkip()">跳过</button>' +
@@ -395,7 +395,7 @@
       return '<div class="shop-item ware' + (item.sold ? ' sold' : '') + '">' +
         cardHtml(item.id) + inner + '</div>';
     }).join('');
-    // 遗物货架
+    // 圣物货架
     var relicsHtml = shop.relics.map(function (item, i) {
       var r = D.relics[item.id];
       var inner = item.sold
@@ -422,7 +422,7 @@
       '<div class="shop-greet">「香香鸡，香喷喷的香香鸡！客官看看再走吧～」</div>' +
       '<div class="shop-section"><div class="shop-sec-title">— 卡牌货架 —</div>' +
         '<div class="shop-cards-row">' + cardsHtml + '</div></div>' +
-      '<div class="shop-section"><div class="shop-sec-title">— 遗物货架 —</div>' +
+      '<div class="shop-section"><div class="shop-sec-title">— 圣物货架 —</div>' +
         '<div class="shop-relics-row">' + relicsHtml + '</div></div>' +
       '<div class="shop-section"><div class="shop-sec-title">— 服务台 —</div>' +
         '<div class="shop-service">' + removeBtn + '</div></div>' +
@@ -504,7 +504,7 @@
       '<img class="over-img" src="assets/v2/ui/' + (win ? 'over_win' : 'over_lose') + '.jpg">' +
       '<div class="summary">角色：' + D.characters[run.charId].name +
       '<br>到达：第 ' + run.act + ' 层 · 通关层数：' + run.floorsCleared +
-      '<br>剩余金币：' + run.gold + ' · 牌组：' + run.deck.length + ' 张 · 遗物：' + run.relics.length + ' 件</div>' +
+      '<br>剩余金币：' + run.gold + ' · 牌组：' + run.deck.length + ' 张 · 圣物：' + run.relics.length + ' 件</div>' +
       tips.map(function (t) { return '<div class="unlock-tip">' + t + '</div>'; }).join('') +
       '<div style="display:flex;gap:14px">' +
       '<button class="primary" onclick="Game.toChars()">再来一局</button>' +
@@ -549,7 +549,7 @@
       '<h2>📖 摸鱼图鉴</h2>' +
       '<div class="codex-tabs">' +
       '<button class="' + (tab === 'cards' ? 'primary' : '') + '" onclick="Game.codexTab(\'cards\')">卡牌</button>' +
-      '<button class="' + (tab === 'relics' ? 'primary' : '') + '" onclick="Game.codexTab(\'relics\')">遗物</button>' +
+      '<button class="' + (tab === 'relics' ? 'primary' : '') + '" onclick="Game.codexTab(\'relics\')">圣物</button>' +
       '<button class="' + (tab === 'enemies' ? 'primary' : '') + '" onclick="Game.codexTab(\'enemies\')">敌人</button>' +
       '</div>' +
       '<div class="codex-body">' + body + '</div>' +
@@ -648,7 +648,7 @@
     if (p) spawnFloatText(p.x, p.y, text, cls);
   }
 
-  // 卡牌克隆体从 fromRect 飞向目标元素，到达后回调
+  // 卡牌克隆体从 fromRect 飞向目标元素（出发时放大 1.3 倍），到达后回调
   function cardFly(fromRect, targetId, duration, onArrive) {
     var fx = document.getElementById('fx');
     var t = document.getElementById(targetId);
@@ -660,6 +660,7 @@
     c.style.top = fromRect.top + 'px';
     c.style.width = fromRect.width + 'px';
     c.style.height = fromRect.height + 'px';
+    c.style.transform = 'scale(1.3)';
     fx.appendChild(c);
     // 强制 reflow 后启动 transition
     void c.offsetWidth;
@@ -670,6 +671,30 @@
       c.remove();
       if (onArrive) onArrive();
     }, duration || 260);
+  }
+
+  // 命中星环闪光（纯 CSS）
+  function impactFlash(targetId) {
+    var fx = document.getElementById('fx');
+    var t = document.getElementById(targetId);
+    if (!fx || !t) return;
+    var r = t.getBoundingClientRect();
+    var d = document.createElement('div');
+    d.className = 'fx-impact';
+    d.style.left = (r.left + r.width / 2) + 'px';
+    d.style.top = (r.top + r.height / 2) + 'px';
+    fx.appendChild(d);
+    setTimeout(function () { d.remove(); }, 420);
+  }
+
+  // 攻击命中小幅全屏震屏
+  function miniShake() {
+    var app = document.getElementById('app');
+    if (!app) return;
+    app.classList.remove('minishake');
+    void app.offsetWidth;
+    app.classList.add('minishake');
+    setTimeout(function () { app.classList.remove('minishake'); }, 180);
   }
 
   // 命中：抖动 + 闪白（单次短脉冲）
@@ -720,7 +745,7 @@
     d.className = 'fx-big';
     d.textContent = text;
     fx.appendChild(d);
-    setTimeout(function () { d.remove(); }, 1200);
+    setTimeout(function () { d.remove(); }, 1600);
   }
 
   // 敌人死亡消散
@@ -756,6 +781,7 @@
     render: render, floater: floater, shake: shake, toast: toast,
     spawnFloatText: spawnFloatText, targetPos: targetPos, cardFly: cardFly,
     hitFlash: hitFlash, lunge: lunge, edgeFlash: edgeFlash, appShake: appShake,
-    bigText: bigText, deathAnim: deathAnim, goldFlash: goldFlash
+    bigText: bigText, deathAnim: deathAnim, goldFlash: goldFlash,
+    impactFlash: impactFlash, miniShake: miniShake
   };
 })(typeof window !== 'undefined' ? window : globalThis);

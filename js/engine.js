@@ -349,7 +349,7 @@
     var result = { ok: true, card: def, dmgToEnemy: 0, dmgToPlayer: 0, blockGained: 0, healGained: 0, hits: [] };
     var self = this;
 
-    // 遗物伤害加成：键盘（攻击牌每段 +1）、黑暗剑穗（对精英/BOSS +2）
+    // 圣物伤害加成：键盘（攻击牌每段 +1）、黑暗剑穗（对精英/BOSS +2）
     var atkBonus = 0;
     if (def.type === 'attack' && this.hasRelic('keyboard_rel')) atkBonus += 1;
     var edef2 = D.enemies[c.enemy.id];
@@ -515,7 +515,7 @@
         if (e.weak > 0) dmg = Math.floor(dmg * 0.75);
         if (c.playerVuln > 0) dmg = Math.floor(dmg * 1.5);
         if (dmg < 0) dmg = 0;
-        // 红围巾遗物：首次受伤为 0
+        // 红围巾圣物：首次受伤为 0
         if (self.hasRelic('scarf_relic') && !c.flags.scarfUsed) {
           c.flags.scarfUsed = true;
           c.log.push({ t: 'relic', text: '红围巾挡下了攻击！' });
@@ -588,7 +588,7 @@
       choices.push(id);
     }
     choices.forEach(function (id) { st.seen.cards[id] = true; });
-    // 精英/Boss 额外掉遗物
+    // 精英/Boss 额外掉圣物
     var relicId = null;
     if (nodeType === 'elite' || nodeType === 'boss') {
       var pool = Object.keys(D.relics).filter(function (r) {
@@ -785,7 +785,7 @@
         var rid2 = this.rng.pick(rp);
         st.relics.push(rid2);
         st.seen.relics[rid2] = true;
-        res.text = '获得了遗物「' + D.relics[rid2].name + '」！';
+        res.text = '获得了圣物「' + D.relics[rid2].name + '」！';
         break;
       }
       case 'heal6randomCard': {

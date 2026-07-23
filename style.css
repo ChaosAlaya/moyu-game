@@ -160,7 +160,7 @@ button.yellow { background: var(--yellow); }
 
 /* 能量球样式在下方原定义处合并修改 */
 
-/* 遗物图标（v2 方图） */
+/* 圣物图标（v2 方图） */
 .relic-icon img { width: 100%; height: 100%; object-fit: cover; border-radius: 5px; }
 .relic-icon.big { width: 52px; height: 52px; }
 .shop-relic .relic-icon.big img { height: auto; }
@@ -368,8 +368,8 @@ button.yellow { background: var(--yellow); }
 .enemy-img.hurt { animation: shake .35s; }
 @keyframes shake {
   0%,100% { transform: translateX(0); }
-  20% { transform: translateX(-8px); } 40% { transform: translateX(7px); }
-  60% { transform: translateX(-5px); } 80% { transform: translateX(4px); }
+  18% { transform: translateX(-14px) rotate(-2deg); } 38% { transform: translateX(12px) rotate(2deg); }
+  58% { transform: translateX(-9px) rotate(-1deg); } 78% { transform: translateX(6px); }
 }
 .energy-orb {
   position: absolute; left: 14px; bottom: 14px;
@@ -477,20 +477,24 @@ button.yellow { background: var(--yellow); }
 /* 飘字 */
 #fx { position: fixed; inset: 0; pointer-events: none; z-index: 99; }
 .floater {
-  position: absolute; font-size: 28px; font-weight: 900;
-  text-shadow: 2px 2px 0 var(--ink); animation: floatup 1.1s forwards;
+  position: absolute; font-size: 44px; font-weight: 900;
+  text-shadow: 3px 3px 0 var(--ink), 0 0 18px rgba(0,0,0,.35);
+  animation: floatup 1.1s forwards;
 }
 .floater.dmg { color: var(--red); }
-.floater.dmg.big { font-size: 42px; color: var(--yellow); }
+.floater.dmg.big {
+  font-size: 68px; color: var(--yellow);
+  text-shadow: 4px 4px 0 var(--ink), 0 0 26px rgba(245,194,66,.8);
+}
 .floater.heal { color: #2E9E4F; }
-.floater.block { color: #3E7CB1; }
-.floater.text { color: var(--yellow); font-size: 24px; }
+.floater.block { color: #3E7CB1; font-size: 34px; }
+.floater.text { color: var(--yellow); font-size: 30px; }
 @keyframes floatup {
-  0% { opacity: 0; transform: translateY(6px) scale(.3); }
-  18% { opacity: 1; transform: translateY(0) scale(1.2); }
-  30% { transform: translateY(-4px) scale(1); }
-  75% { opacity: 1; transform: translateY(-42px) scale(1); }
-  100% { opacity: 0; transform: translateY(-70px) scale(.95); }
+  0% { opacity: 0; transform: translateY(10px) scale(.2); }
+  16% { opacity: 1; transform: translateY(-2px) scale(1.35); }
+  30% { transform: translateY(-6px) scale(1); }
+  75% { opacity: 1; transform: translateY(-52px) scale(1); }
+  100% { opacity: 0; transform: translateY(-86px) scale(.9); }
 }
 
 /* ---------- 打击感 FX ---------- */
@@ -501,11 +505,40 @@ button.yellow { background: var(--yellow); }
   box-shadow: 0 0 18px rgba(192, 52, 74, .7);
   transition: transform .26s cubic-bezier(.3,.7,.4,1), opacity .26s;
 }
-/* 命中闪白（单次短脉冲） */
+/* 命中闪白（单次短脉冲，加强版） */
 .flashwhite { animation: flashwhite .3s; }
 @keyframes flashwhite {
-  0% { filter: brightness(2.6) saturate(.3); }
+  0% { filter: brightness(3.4) saturate(.2); }
   100% { filter: brightness(1); }
+}
+/* 命中星环闪光（纯 CSS） */
+.fx-impact {
+  position: absolute; width: 120px; height: 120px; margin: -60px 0 0 -60px;
+  pointer-events: none; animation: impact .38s forwards;
+}
+.fx-impact::before {
+  content: ''; position: absolute; inset: 0; border-radius: 50%;
+  border: 6px solid var(--yellow);
+  animation: impactring .38s forwards;
+}
+.fx-impact::after {
+  content: '✦'; position: absolute; inset: 0;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 64px; color: #fff; text-shadow: 0 0 16px var(--yellow);
+}
+@keyframes impact {
+  0% { transform: scale(.4) rotate(0deg); opacity: 1; }
+  100% { transform: scale(1.5) rotate(45deg); opacity: 0; }
+}
+@keyframes impactring {
+  0% { transform: scale(.3); opacity: 1; border-width: 8px; }
+  100% { transform: scale(1.4); opacity: 0; border-width: 1px; }
+}
+/* 攻击命中小幅全屏震屏 */
+.minishake { animation: minishake .16s; }
+@keyframes minishake {
+  0%,100% { transform: translate(0,0); }
+  30% { transform: translate(-5px, 3px); } 65% { transform: translate(4px, -3px); }
 }
 /* 敌人前冲 */
 .lunge { animation: lunge .36s; }
@@ -517,41 +550,43 @@ button.yellow { background: var(--yellow); }
 /* 屏幕边缘红闪 */
 .fx-edge {
   position: absolute; inset: 0; pointer-events: none;
-  box-shadow: inset 0 0 90px 26px rgba(192, 52, 74, .85);
-  animation: edgeflash .45s forwards;
+  box-shadow: inset 0 0 120px 44px rgba(192, 52, 74, .92);
+  animation: edgeflash .5s forwards;
 }
 @keyframes edgeflash {
-  0% { opacity: 0; } 20% { opacity: 1; } 100% { opacity: 0; }
+  0% { opacity: 0; } 22% { opacity: 1; } 100% { opacity: 0; }
 }
-/* 全屏震动（BOSS 阶段切换） */
-.appshake { animation: appshake .42s; }
+/* 全屏震动（BOSS 阶段切换，加长加狠） */
+.appshake { animation: appshake .6s; }
 @keyframes appshake {
   0%,100% { transform: translate(0,0); }
-  15% { transform: translate(-10px, 6px); } 30% { transform: translate(9px, -7px); }
-  45% { transform: translate(-7px, -5px); } 60% { transform: translate(6px, 5px); }
-  75% { transform: translate(-4px, 3px); } 90% { transform: translate(3px, -2px); }
+  12% { transform: translate(-14px, 8px); } 24% { transform: translate(13px, -10px); }
+  36% { transform: translate(-11px, -8px); } 48% { transform: translate(10px, 8px); }
+  60% { transform: translate(-8px, 5px); } 72% { transform: translate(6px, -4px); }
+  84% { transform: translate(-4px, 3px); }
 }
 /* 阶段名大字 */
 .fx-big {
   position: absolute; left: 50%; top: 34%; transform: translate(-50%,-50%);
-  font-size: 64px; font-weight: 900; color: var(--red); white-space: nowrap;
-  text-shadow: 4px 4px 0 var(--ink), 0 0 30px rgba(192,52,74,.8);
-  animation: bigpop 1.2s forwards;
+  font-size: 84px; font-weight: 900; color: var(--red); white-space: nowrap;
+  text-shadow: 5px 5px 0 var(--ink), 0 0 40px rgba(192,52,74,.9);
+  animation: bigpop 1.5s forwards;
 }
 @keyframes bigpop {
-  0% { opacity: 0; transform: translate(-50%,-50%) scale(.2); }
-  22% { opacity: 1; transform: translate(-50%,-50%) scale(1.15); }
-  34% { transform: translate(-50%,-50%) scale(1); }
-  78% { opacity: 1; }
-  100% { opacity: 0; transform: translate(-50%,-50%) scale(1.05); }
+  0% { opacity: 0; transform: translate(-50%,-50%) scale(.15); }
+  18% { opacity: 1; transform: translate(-50%,-50%) scale(1.25); }
+  30% { transform: translate(-50%,-50%) scale(1); }
+  80% { opacity: 1; }
+  100% { opacity: 0; transform: translate(-50%,-50%) scale(1.08); }
 }
-/* 敌人死亡消散 */
+/* 敌人死亡消散（先爆裂闪白再缩没） */
 .dying {
   animation: dying .7s forwards !important;
 }
 @keyframes dying {
-  0% { opacity: 1; transform: scale(1) translateY(0); }
-  100% { opacity: 0; transform: scale(.55) translateY(-40px); }
+  0% { opacity: 1; transform: scale(1) translateY(0); filter: brightness(1); }
+  28% { opacity: 1; transform: scale(1.18) translateY(-6px); filter: brightness(3); }
+  100% { opacity: 0; transform: scale(.4) translateY(-56px); filter: brightness(1); }
 }
 /* 稀有牌金边 */
 .goldflash { animation: goldflash .7s; }
