@@ -924,7 +924,14 @@ button.yellow { background: var(--yellow); }
   .topbar { flex-wrap: wrap; font-size: 12px; gap: 8px; padding: 6px 10px; }
   .topbar .floor { font-size: 14px; }
 
-  /* 标题 */
+  /* 标题：无 logo 场景图铺底 + logo 独立置顶 contain，保证竖屏 logo 完整 */
+  #screen-title.title-bg2 { background-image: url('assets/v2/ui/title_scene.jpg'); background-position: center 40%; }
+  #screen-title.title-bg2::after {
+    content: ''; position: absolute; left: 50%; top: 4%; transform: translateX(-50%);
+    width: 92vw; height: 36vw; pointer-events: none;
+    background: url('assets/v2/ui/title_logo.png') center top / contain no-repeat;
+    z-index: 1;
+  }
   .title-menu2 { right: 50%; transform: translateX(50%); top: auto; bottom: 96px; width: 78%; }
   .tbtn { width: 100%; text-align: center; }
   #screen-title .stats { left: 50%; transform: translateX(-50%); bottom: 20px; width: max-content; max-width: 92vw; }
