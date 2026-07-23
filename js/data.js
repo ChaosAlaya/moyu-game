@@ -326,10 +326,10 @@
     },
     money: {
       name: '钞能力', cost: 2, type: 'attack', rarity: 'uncommon', char: 'shuanglaoya',
-      desc: '造成 12 点伤害；若金币 ≥ 80，再 +8。',
-      effects: [{ op: 'goldDamage', value: 12, gte: 80, bonus: 8 }],
-      up: { desc: '造成 15 点伤害；若金币 ≥ 80，再 +10。',
-        effects: [{ op: 'goldDamage', value: 15, gte: 80, bonus: 10 }] }
+      desc: '造成 12 点伤害；每有 50 金币，伤害再 +1。',
+      effects: [{ op: 'goldDamage', value: 12, per: 50, bonus: 1 }],
+      up: { desc: '造成 15 点伤害；每有 50 金币，伤害再 +1。',
+        effects: [{ op: 'goldDamage', value: 15, per: 50, bonus: 1 }] }
     },
     shades: {
       name: '墨镜威吓', cost: 1, type: 'skill', rarity: 'common', char: 'shuanglaoya',

@@ -40,7 +40,7 @@ for (const id in D.cards) {
     ok(D.EFFECT_OPS.includes(ef.op), `卡牌 ${id} 效果 op "${ef.op}" 合法`);
     if (ef.op === 'special') ok(SPECIAL_KINDS.includes(ef.kind), `卡牌 ${id} special kind "${ef.kind}" 合法`);
     if (ef.op === 'power') ok(!!D.cards[ef.id], `卡牌 ${id} power 引用的牌存在`);
-    if (ef.op === 'goldDamage') ok(Number.isInteger(ef.gte) && Number.isInteger(ef.bonus), `卡牌 ${id} goldDamage 参数完整`);
+    if (ef.op === 'goldDamage') ok((Number.isInteger(ef.per) && Number.isInteger(ef.bonus)) || (Number.isInteger(ef.gte) && Number.isInteger(ef.bonus)), `卡牌 ${id} goldDamage 参数完整`);
   }
   if (c.up) {
     ok(Array.isArray(c.up.effects) && c.up.effects.length > 0, `卡牌 ${id} 升级版有效果`);
@@ -251,23 +251,33 @@ section('b) 全部敌人各模拟一场');
 /* ---------- b2) 新 op / 新卡 / 新圣物 hook ---------- */
 section('b2) 新机制数值断言');
 
-// goldDamage（钞能力）
+// goldDamage（钞能力，每 50 金币 +1）
 {
   const engine = new Engine(5);
   engine.newRun('shuanglaoya');
   engine.startCombat('punchclock');
   const st = engine.state, c = st.combat;
   c.enemy.hp = 300; c.enemy.maxHp = 300;
-  st.gold = 80;
+  st.gold = 120; // floor(120/50)=2 → 12+2=14
   c.hand.unshift({ uid: 1, id: 'money', up: false });
   let hb = c.enemy.hp;
   engine.playCard(0);
-  ok(c.enemy.hp === hb - 20, `钞能力 金币≥80 打 20（实际 ${hb - c.enemy.hp}）`);
-  st.gold = 79; c.energy = 3;
+  ok(c.enemy.hp === hb - 14, `钞能力 金币120 打 14（实际 ${hb - c.enemy.hp}）`);
+  st.gold = 260; c.energy = 3; // floor(260/50)=5 → 12+5=17
   c.hand.unshift({ uid: 2, id: 'money', up: false });
   hb = c.enemy.hp;
   engine.playCard(0);
-  ok(c.enemy.hp === hb - 12, `钞能力 金币<80 打 12（实际 ${hb - c.enemy.hp}）`);
+  ok(c.enemy.hp === hb - 17, `钞能力 金币260 打 17（实际 ${hb - c.enemy.hp}）`);
+  st.gold = 49; c.energy = 3; // floor(49/50)=0 → 12
+  c.hand.unshift({ uid: 3, id: 'money', up: false });
+  hb = c.enemy.hp;
+  engine.playCard(0);
+  ok(c.enemy.hp === hb - 12, `钞能力 金币49 打 12（实际 ${hb - c.enemy.hp}）`);
+  st.gold = 250; c.energy = 3; // 升级版 15+5=20
+  c.hand.unshift({ uid: 4, id: 'money', up: true });
+  hb = c.enemy.hp;
+  engine.playCard(0);
+  ok(c.enemy.hp === hb - 20, `钞能力+ 金币250 打 20（实际 ${hb - c.enemy.hp}）`);
 }
 
 // 特殊卡：獭罗牌占卜 / 爽到 / 严谨计算

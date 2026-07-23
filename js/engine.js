@@ -429,8 +429,10 @@
           break;
         case 'skipEnemy': c.enemy.skipTurns += ef.value; break;
         case 'goldDamage': {
-          // 钞能力：金币达标则追加伤害
-          var gb = ef.value + (st.gold >= ef.gte ? ef.bonus : 0);
+          // 钞能力：每有 per 金币，伤害 +bonus（旧版为阈值 gte 达标追加，保留兼容）
+          var gb = ef.value + (ef.per
+            ? Math.floor(st.gold / ef.per) * (ef.bonus || 1)
+            : (st.gold >= ef.gte ? ef.bonus : 0));
           var gtimes = ef.times || 1;
           for (var gi = 0; gi < gtimes; gi++) dealDamage(gb);
           break;
