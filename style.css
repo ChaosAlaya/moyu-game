@@ -547,14 +547,39 @@ button.yellow { background: var(--yellow); }
   35% { transform: translateX(-42px) scale(1.04); }
   100% { transform: translateX(0); }
 }
-/* 屏幕边缘红闪 */
+/* 屏幕边缘红闪（红屏边框图） */
 .fx-edge {
-  position: absolute; inset: 0; pointer-events: none;
-  box-shadow: inset 0 0 120px 44px rgba(192, 52, 74, .92);
+  position: absolute; inset: 0; width: 100%; height: 100%;
+  object-fit: cover; pointer-events: none;
   animation: edgeflash .5s forwards;
 }
 @keyframes edgeflash {
   0% { opacity: 0; } 22% { opacity: 1; } 100% { opacity: 0; }
+}
+/* 序列帧通用 */
+.fx-seq { position: absolute; pointer-events: none; z-index: 101; }
+/* 冲击波环 */
+.fx-shock {
+  position: absolute; width: 180px; height: 180px; pointer-events: none; z-index: 100;
+  animation: shockring .42s forwards;
+}
+@keyframes shockring {
+  0% { transform: scale(.4); opacity: 1; }
+  100% { transform: scale(1.7); opacity: 0; }
+}
+/* BOSS 阶段过场 */
+.fx-bosscut {
+  position: absolute; inset: 0; width: 100%; height: 100%;
+  object-fit: cover; pointer-events: none; z-index: 105;
+  animation: bosscutin .9s forwards;
+}
+@keyframes bosscutin {
+  0% { opacity: 0; } 15% { opacity: 1; } 80% { opacity: 1; } 100% { opacity: 0; }
+}
+/* 通关礼花 */
+.fx-celebrate {
+  position: absolute; left: 50%; top: 0; transform: translateX(-50%);
+  width: 640px; pointer-events: none; z-index: 0; opacity: .9;
 }
 /* 全屏震动（BOSS 阶段切换，加长加狠） */
 .appshake { animation: appshake .6s; }
@@ -570,7 +595,7 @@ button.yellow { background: var(--yellow); }
   position: absolute; left: 50%; top: 34%; transform: translate(-50%,-50%);
   font-size: 84px; font-weight: 900; color: var(--red); white-space: nowrap;
   text-shadow: 5px 5px 0 var(--ink), 0 0 40px rgba(192,52,74,.9);
-  animation: bigpop 1.5s forwards;
+  animation: bigpop 1.5s forwards; z-index: 110;
 }
 @keyframes bigpop {
   0% { opacity: 0; transform: translate(-50%,-50%) scale(.15); }

@@ -153,11 +153,13 @@
     var r = S.engine.playCard(i);
     if (!r.ok) return;
     Sfx.play('card');
-    // 稀有牌：先金边闪光（元素还活在旧 DOM 里），闪光后再重绘
+    // 稀有牌：金边闪光 + rare 金边框序列（盖出牌位置），闪光后再重绘
     var preMs = 0;
     if (def0 && def0.rarity === 'rare' && cardEl) {
       UI.goldFlash(cardEl);
-      preMs = 380;
+      var fr = fromRect;
+      UI.playFxAt(fr.left + fr.width / 2, fr.top + fr.height / 2, 'rare', { size: 150, fps: 16, loops: 2 });
+      preMs = 550;
     }
     setTimeout(function () {
       // 攻击牌：克隆体飞向敌人
@@ -167,31 +169,36 @@
         UI.cardFly(fromRect, 'enemy-img', 260, null);
       }
       render();
-      // 命中帧：敌人抖动+闪白，伤害数字按节奏连发（大数字金色放大）
+      // 命中帧：敌人抖动+闪白+星环+冲击波，序列帧增强（大伤 crit / 多段 combo / 普通 hit）
       r.hits.forEach(function (h, idx) {
         setTimeout(function () {
           UI.hitFlash('enemy-img');
           UI.impactFlash('enemy-img');
+          UI.shockRing('enemy-img');
           UI.miniShake();
+          var seq = h >= 15 ? 'crit' : (r.hits.length > 1 ? 'combo' : 'hit');
+          UI.playFxFrames('enemy-img', seq, { size: h >= 15 ? 360 : r.hits.length > 1 ? 220 : 300, fps: 13 });
           var p = UI.targetPos('enemy-img');
           if (p) UI.spawnFloatText(p.x, p.y, '-' + h, h >= 15 ? 'dmg big' : 'dmg');
           Sfx.play('hit');
         }, flyMs + idx * 180);
       });
       var midMs = flyMs + Math.max(0, r.hits.length - 1) * 180;
-      // 格挡：蓝字 + 盾脉冲
+      // 格挡：蓝字 + 盾脉冲 + 盾序列帧
       if (r.blockGained > 0) {
         setTimeout(function () {
           UI.floater('player-img', '+' + r.blockGained + ' 格挡', 'block');
+          UI.playFxFrames('player-img', 'block', { size: 260, fps: 12 });
           var p = document.getElementById('player-img');
           if (p) { p.classList.add('blockpulse'); setTimeout(function () { p.classList.remove('blockpulse'); }, 500); }
           Sfx.play('block');
         }, Math.floor(midMs / 2));
       }
-      // 回血：绿字上飘
+      // 回血：绿字上飘 + 绿光序列帧
       if (r.healGained > 0) {
         setTimeout(function () {
           UI.floater('player-img', '+' + r.healGained, 'heal');
+          UI.playFxFrames('player-img', 'heal', { size: 200, fps: 12 });
           Sfx.play('heal');
         }, Math.floor(midMs / 2));
       }
@@ -208,7 +215,10 @@
         setTimeout(function () { UI.floater('enemy-img', egg, 'text'); }, flyMs);
       }
       var endMs = midMs + (r.hits.length ? 180 : 0);
-      if (c.over && c.won) setTimeout(function () { UI.deathAnim('enemy-img'); }, endMs);
+      if (c.over && c.won) setTimeout(function () {
+        UI.deathAnim('enemy-img');
+        UI.playFxFrames('enemy-img', 'death', { size: 380, fps: 11 });
+      }, endMs);
       afterCombat(endMs);
     }, preMs);
   };
@@ -243,14 +253,18 @@
     if (phaseChanged) {
       var ph = edef.phases[c.enemy.phase];
       setTimeout(function () {
+        UI.bossCut();
         UI.appShake();
         UI.edgeFlash();
         UI.bigText(ph.phaseName || '第二阶段');
         Sfx.play('hit');
       }, endMs + 150);
-      endMs += 700;
+      endMs += 900;
     }
-    if (c.over && c.won) setTimeout(function () { UI.deathAnim('enemy-img'); }, endMs);
+    if (c.over && c.won) setTimeout(function () {
+      UI.deathAnim('enemy-img');
+      UI.playFxFrames('enemy-img', 'death', { size: 380, fps: 11 });
+    }, endMs);
     afterCombat(endMs);
   };
 
@@ -493,6 +507,7 @@
     document.addEventListener('click', function (e) {
       if (e.target && e.target.closest && e.target.closest('button')) Sfx.play('click');
     });
+    UI.preloadFx(); // 预加载特效帧，避免首闪
     render();
   }
 })(typeof window !== 'undefined' ? window : globalThis);

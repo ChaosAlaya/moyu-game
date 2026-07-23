@@ -615,6 +615,9 @@
       if (fx) fx.innerHTML = '';
       lastScreen = S.screen;
     }
+    // 通关结算：循环礼花；其他界面停止
+    if (S.screen === 'over' && S.run && S.run.victory) startCelebrate();
+    else stopCelebrate();
   }
 
   /* ---------- 打击感 FX 系统 ---------- */
@@ -717,14 +720,15 @@
     setTimeout(function () { t.classList.remove('lunge'); }, 380);
   }
 
-  // 屏幕边缘红闪（玩家受创）
+  // 屏幕边缘红闪（玩家受创，红屏边框图）
   function edgeFlash() {
     var fx = document.getElementById('fx');
     if (!fx) return;
-    var d = document.createElement('div');
+    var d = document.createElement('img');
     d.className = 'fx-edge';
+    d.src = FX_DIR + 'rededge.png';
     fx.appendChild(d);
-    setTimeout(function () { d.remove(); }, 450);
+    setTimeout(function () { d.remove(); }, 500);
   }
 
   // 全屏震动
@@ -735,6 +739,112 @@
     void app.offsetWidth;
     app.classList.add('appshake');
     setTimeout(function () { app.classList.remove('appshake'); }, 450);
+  }
+
+  /* ---------- 特效序列帧（v2/fx） ---------- */
+  var FX_DIR = 'assets/v2/fx/';
+  var FX_SEQS = { hit: 4, crit: 5, combo: 3, death: 4, block: 2, heal: 3, rare: 4, celebrate: 3 };
+  function frameList(seq) {
+    var list = [];
+    for (var i = 1; i <= FX_SEQS[seq]; i++) {
+      if (seq === 'block' && i === 2) continue; // block_02 弃用（素材有乱入小人）
+      list.push(FX_DIR + seq + '_' + i + '.png');
+    }
+    return list;
+  }
+  function preloadFx() {
+    function load(src, retry) {
+      var im = new Image();
+      im.onerror = function () { if (!retry) load(src + (src.indexOf('?') < 0 ? '?r=1' : ''), true); };
+      im.src = src;
+    }
+    for (var k in FX_SEQS) frameList(k).forEach(function (s) { load(s); });
+    ['shockwave.png', 'rededge.png', 'bosscut_noword.jpg'].forEach(function (f) {
+      load(FX_DIR + f);
+    });
+  }
+
+  // 通用序列帧播放器：在指定坐标播完后自动移除
+  function playFxAt(x, y, seq, opts) {
+    opts = opts || {};
+    var fx = document.getElementById('fx');
+    if (!fx) return;
+    var frames = frameList(seq);
+    if (!frames.length) return;
+    var size = opts.size || 260;
+    var d = document.createElement('img');
+    d.className = 'fx-seq';
+    d.onerror = function () { clearInterval(timer); d.remove(); }; // 坏帧容错
+    d.style.width = size + 'px';
+    d.style.left = (x - size / 2) + 'px';
+    d.style.top = (y - size / 2) + 'px';
+    d.src = frames[0];
+    fx.appendChild(d);
+    var fps = opts.fps || 13, loops = opts.loops || 1;
+    var total = frames.length * loops, idx = 0;
+    var timer = setInterval(function () {
+      idx++;
+      if (idx >= total) {
+        clearInterval(timer); d.remove();
+        if (opts.onDone) opts.onDone();
+        return;
+      }
+      d.src = frames[idx % frames.length];
+    }, 1000 / fps);
+  }
+  function playFxFrames(targetId, seq, opts) {
+    var p = targetPos(targetId);
+    if (!p) return;
+    playFxAt(p.x, p.rect.top + p.rect.height / 2, seq, opts);
+  }
+
+  // 冲击波环（命中震屏中心扩散）
+  function shockRing(targetId) {
+    var fx = document.getElementById('fx');
+    var t = document.getElementById(targetId);
+    if (!fx || !t) return;
+    var r = t.getBoundingClientRect();
+    var d = document.createElement('img');
+    d.className = 'fx-shock';
+    d.src = FX_DIR + 'shockwave.png';
+    d.style.left = (r.left + r.width / 2 - 90) + 'px';
+    d.style.top = (r.top + r.height / 2 - 90) + 'px';
+    fx.appendChild(d);
+    setTimeout(function () { d.remove(); }, 450);
+  }
+
+  // 通关礼花（结算界面循环，切屏自动停止）
+  var celebrateTimer = null;
+  function startCelebrate() {
+    stopCelebrate();
+    var fx = document.getElementById('fx');
+    if (!fx) return;
+    var d = document.createElement('img');
+    d.className = 'fx-celebrate';
+    var frames = frameList('celebrate');
+    d.src = frames[0];
+    fx.appendChild(d);
+    var idx = 0;
+    celebrateTimer = setInterval(function () {
+      idx = (idx + 1) % frames.length;
+      d.src = frames[idx];
+    }, 180);
+  }
+  function stopCelebrate() {
+    if (celebrateTimer) { clearInterval(celebrateTimer); celebrateTimer = null; }
+    var old = document.querySelector('.fx-celebrate');
+    if (old) old.remove();
+  }
+
+  // BOSS 阶段过场全屏图
+  function bossCut() {
+    var fx = document.getElementById('fx');
+    if (!fx) return;
+    var d = document.createElement('img');
+    d.className = 'fx-bosscut';
+    d.src = FX_DIR + 'bosscut_noword.jpg';
+    fx.appendChild(d);
+    setTimeout(function () { d.remove(); }, 900);
   }
 
   // 阶段名大字弹出
@@ -782,6 +892,8 @@
     spawnFloatText: spawnFloatText, targetPos: targetPos, cardFly: cardFly,
     hitFlash: hitFlash, lunge: lunge, edgeFlash: edgeFlash, appShake: appShake,
     bigText: bigText, deathAnim: deathAnim, goldFlash: goldFlash,
-    impactFlash: impactFlash, miniShake: miniShake
+    impactFlash: impactFlash, miniShake: miniShake,
+    preloadFx: preloadFx, playFxAt: playFxAt, playFxFrames: playFxFrames,
+    shockRing: shockRing, bossCut: bossCut
   };
 })(typeof window !== 'undefined' ? window : globalThis);
