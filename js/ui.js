@@ -183,7 +183,10 @@
         return '<div class="ncard t-' + nd.type + ' ' + state + '"' + onclick + '>' + badge + inner +
           '<div class="nlabel">' + label + '</div></div>';
       }).join('');
-      return '<div class="step-col">' + cards + '</div>';
+      return '<div class="step-col">' +
+        '<div class="step-tag' + (i === run.map.steps.length - 1 ? ' boss' : '') + '">' +
+          (i === run.map.steps.length - 1 ? 'BOSS' : '第' + (i + 1) + '步') + '</div>' +
+        cards + '</div>';
     }).join('');
     // 底部进度圆点
     var dots = run.map.steps.map(function (_, i) {
@@ -535,6 +538,7 @@
   }
 
   /* ---------- 主渲染 ---------- */
+  var lastScreen = null;
   function render() {
     var S = g.Game.state;
     var html;
@@ -555,6 +559,12 @@
       default: html = '<div class="screen">未知界面</div>';
     }
     el().innerHTML = html;
+    // 界面切换时统一清理动画临时元素，防止飘字跨屏残留（同屏重绘保留进行中的动画）
+    if (S.screen !== lastScreen) {
+      var fx = document.getElementById('fx');
+      if (fx) fx.innerHTML = '';
+      lastScreen = S.screen;
+    }
   }
 
   /* ---------- 打击感 FX 系统 ---------- */

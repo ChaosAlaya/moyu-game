@@ -239,9 +239,15 @@ button.yellow { background: var(--yellow); }
 /* 横向步骤卡片流 */
 .map-flow {
   flex: 1; display: flex; align-items: center; justify-content: center;
-  gap: 22px; padding: 10px 16px;
+  gap: 38px; padding: 10px 16px;
 }
-.step-col { display: flex; flex-direction: column; gap: 14px; justify-content: center; }
+.step-col { display: flex; flex-direction: column; gap: 14px; align-items: center; }
+.step-col .step-tag {
+  background: var(--red); color: #fff; font-weight: 900; font-size: 14px;
+  border: 3px solid var(--ink); border-radius: 999px; padding: 2px 16px;
+  box-shadow: 2px 2px 0 rgba(0,0,0,.5); margin-bottom: -4px;
+}
+.step-col .step-tag.boss { background: #7a1020; }
 .ncard {
   width: 148px; background: #FFF4E6; border: 3px solid var(--ink); border-radius: 14px;
   overflow: hidden; position: relative;
@@ -268,7 +274,7 @@ button.yellow { background: var(--yellow); }
   animation: nodeglow 1.3s infinite;
 }
 .ncard.done { opacity: .75; }
-.ncard.locked { filter: grayscale(.9); opacity: .55; }
+.ncard.locked { filter: grayscale(.85); opacity: .62; }
 .nbadge {
   position: absolute; right: 6px; bottom: 30px; z-index: 2;
   width: 26px; height: 26px; border-radius: 50%;
