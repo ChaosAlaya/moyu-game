@@ -827,7 +827,8 @@
     mousepad: { name: '鼠标垫', desc: '技能牌获得的格挡 +2。', price: 130, img: 'xiaoq' },
     pegboard: { name: '洞洞板', desc: '每场战斗的第一回合多抽 1 张牌。', price: 120, img: 'taer' },
     sword_tassel: { name: '黑暗剑穗', desc: '对精英和 BOSS 造成的伤害 +2。', price: 160, img: 'kenni' },
-    tarot_rel: { name: '獭罗牌', desc: '每场战斗的第一回合能量 +1。', price: 150, img: 'taer' }
+    tarot_rel: { name: '獭罗牌', desc: '每场战斗的第一回合能量 +1。', price: 150, img: 'taer' },
+    coffee_can: { name: '红罐咖啡', desc: '能量上限 +1（每回合 4 点能量）。', price: 220, img: 'jihuang' }
   };
 
   /* ---------------- 事件 ----------------

@@ -202,7 +202,7 @@
     var combat = {
       enemy: enemy,
       turn: 0,
-      energy: 0, maxEnergy: 3,
+      energy: 0, maxEnergy: 3 + (this.hasRelic('coffee_can') ? 1 : 0),
       hand: [], drawPile: drawPile, discard: [], exhausted: [],
       playerBlock: 0, playerWeak: 0, playerVuln: 0,
       playerStrength: 0,

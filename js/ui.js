@@ -137,27 +137,72 @@
       '</div>';
   }
 
-  /* ---------- 地图 ---------- */
+  /* ---------- 地图（电梯爬楼 redesign） ---------- */
   var NODE_ICONS = { monster: '👾', elite: '💀', event: '❓', shop: '🏪', rest: '🍵', boss: '👑' };
   function renderMap(S) {
     var run = S.run;
+    // 电梯刻度尺：10F 在上，1F 在下；已通关打勾，当前层高亮
+    var floors = '';
+    for (var f = D.TOTAL_ACTS; f >= 1; f--) {
+      var fc = 'lift-btn';
+      if (f === run.act) fc += ' current';
+      else if (f < run.act) fc += ' cleared';
+      floors += '<div class="' + fc + '">' + f + 'F' + (f < run.act ? ' ✓' : '') + '</div>';
+    }
     var steps = run.map.steps.map(function (opts, i) {
       var nodes = opts.map(function (nd, j) {
-        var cls = 'map-node ' + nd.type;
+        var cls = 'map-node t-' + nd.type;
         var onclick = '';
         if (i === run.step) { cls += ' current'; onclick = ' onclick="Game.pickNode(' + j + ')"'; }
         else if (i < run.step) cls += ' past';
         else cls += ' future';
-        return '<div class="' + cls + '"' + onclick + '>' +
-          (NODE_ICONS[nd.type] || '') + ' ' + D.NODE_NAMES[nd.type] + '</div>';
+        if (run.path && run.path[i] === j) cls += ' chosen';
+        return '<div class="' + cls + '" id="node-' + i + '-' + j + '"' + onclick + '>' +
+          '<i>' + (NODE_ICONS[nd.type] || '') + '</i><span>' + D.NODE_NAMES[nd.type] + '</span></div>';
       }).join('');
-      return '<div class="map-step"><div class="step-label">第 ' + (i + 1) + ' 步</div>' + nodes + '</div>';
+      return '<div class="map-step" id="step-' + i + '">' + nodes + '</div>';
     }).join('');
-    return '<div class="screen" id="screen-map">' + topbarHtml(S) +
-      '<img class="map-banner" src="' + bannerArt(run.act) + '" alt="' + D.acts[run.act - 1].name + '">' +
-      '<div class="map-body">' + steps +
+    return '<div class="screen map-v2" id="screen-map" style="background-image:url(' + bannerArt(run.act) + ')">' +
+      topbarHtml(S) +
+      '<div class="map-v2-body">' +
+        '<div class="lift">' + floors + '</div>' +
+        '<div class="map-steps" id="map-steps"><svg id="map-links"></svg>' + steps + '</div>' +
+      '</div>' +
       '<div class="map-hint">选择一个节点前进，打败第 ' + run.act + ' 层的 BOSS！</div>' +
-      '</div></div>';
+      '</div>';
+  }
+
+  // 渲染后绘制节点连接线（相对 #map-steps 容器坐标）
+  function drawMapLinks() {
+    var svg = document.getElementById('map-links');
+    var box = document.getElementById('map-steps');
+    if (!svg || !box) return;
+    var S = g.Game.state, run = S.run;
+    var base = box.getBoundingClientRect();
+    svg.setAttribute('width', box.scrollWidth);
+    svg.setAttribute('height', box.scrollHeight);
+    var html = '';
+    function center(id) {
+      var t = document.getElementById(id);
+      if (!t) return null;
+      var r = t.getBoundingClientRect();
+      return [r.left - base.left + r.width / 2, r.top - base.top + r.height / 2];
+    }
+    for (var s = 0; s < run.map.steps.length - 1; s++) {
+      var cur = run.map.steps[s], nxt = run.map.steps[s + 1];
+      for (var j = 0; j < cur.length; j++) {
+        var a = center('node-' + s + '-' + j);
+        if (!a) continue;
+        for (var k = 0; k < nxt.length; k++) {
+          var b = center('node-' + (s + 1) + '-' + k);
+          if (!b) continue;
+          var active = run.path && run.path[s] === j && run.path[s + 1] === k;
+          html += '<line x1="' + a[0] + '" y1="' + a[1] + '" x2="' + b[0] + '" y2="' + b[1] +
+            '" class="' + (active ? 'link active' : 'link') + '"/>';
+        }
+      }
+    }
+    svg.innerHTML = html;
   }
 
   /* ---------- 战斗 ---------- */
@@ -267,7 +312,7 @@
     return '<div class="screen" id="screen-reward">' + topbarHtml(S) +
       '<div class="center-wrap"><div class="panel">' +
       '<h2>战斗胜利！</h2>' +
-      '<div class="reward-gold">💰 获得金币 +' + rw.gold + '</div>' +
+      '<div class="reward-gold">' + ico('gold') + ' +' + rw.gold + ' 金币</div>' +
       (rw.relic ? '<div class="reward-relic">🏺 获得遗物「' + D.relics[rw.relic].name + '」：' + D.relics[rw.relic].desc + '</div>' : '') +
       '<div style="font-weight:900">选一张牌加入牌组（或跳过）：</div>' +
       '<div class="reward-cards">' + cardsHtml + '</div>' +
@@ -275,39 +320,50 @@
       '</div></div></div>';
   }
 
-  /* ---------- 商店 ---------- */
+  /* ---------- 商店（店面 redesign） ---------- */
   function renderShop(S) {
     var shop = S.shop, run = S.run;
+    // 卡牌货架：价签贴在右上角
     var cardsHtml = shop.cards.map(function (item, i) {
-      return '<div class="shop-item' + (item.sold ? ' sold' : '') + '">' +
-        cardHtml(item.id) +
-        (item.sold ? '<div class="price-tag">已售出</div>'
-          : '<button ' + (run.gold < item.price ? 'disabled' : '') +
-            ' onclick="Game.shopBuyCard(' + i + ')">💰 ' + item.price + '</button>') +
-        '</div>';
+      var inner = item.sold
+        ? '<div class="sold-stamp">已售出</div>'
+        : '<button class="price-tag-btn' + (run.gold < item.price ? ' cant' : '') + '"' +
+          (run.gold < item.price ? ' disabled' : '') +
+          ' onclick="Game.shopBuyCard(' + i + ')">' + ico('gold') + ' ' + item.price + '</button>';
+      return '<div class="shop-item ware' + (item.sold ? ' sold' : '') + '">' +
+        cardHtml(item.id) + inner + '</div>';
     }).join('');
+    // 遗物货架
     var relicsHtml = shop.relics.map(function (item, i) {
       var r = D.relics[item.id];
-      return '<div class="shop-item shop-relic' + (item.sold ? ' sold' : '') + '">' +
+      var inner = item.sold
+        ? '<div class="sold-stamp">已售出</div>'
+        : '<button class="price-tag-btn' + (run.gold < item.price ? ' cant' : '') + '"' +
+          (run.gold < item.price ? ' disabled' : '') +
+          ' onclick="Game.shopBuyRelic(' + i + ')">' + ico('gold') + ' ' + item.price + '</button>';
+      return '<div class="shop-item ware shop-relic' + (item.sold ? ' sold' : '') + '">' +
         '<div class="relic-icon big"><img src="' + relicArt(item.id) + '"></div>' +
         '<div class="rname">' + r.name + '</div>' +
-        '<div class="rdesc">' + r.desc + '</div>' +
-        (item.sold ? '<div class="price-tag">已售出</div>'
-          : '<button ' + (run.gold < item.price ? 'disabled' : '') +
-            ' onclick="Game.shopBuyRelic(' + i + ')">💰 ' + item.price + '</button>') +
-        '</div>';
+        '<div class="rdesc">' + r.desc + '</div>' + inner + '</div>';
     }).join('');
-    var removeBtn = shop.removeUsed ? '<div class="price-tag">已使用</div>'
-      : '<button ' + (run.gold < shop.removePrice ? 'disabled' : '') +
-        ' onclick="Game.shopRemoveMode()">' + (shop.removePrice === 0 ? '免费删牌（会员卡）' : '删一张牌 💰 ' + shop.removePrice) + '</button>';
+    // 服务台：付费删牌
+    var removeBtn = shop.removeUsed
+      ? '<div class="sold-stamp static">已使用</div>'
+      : '<button class="price-tag-btn static' + (run.gold < shop.removePrice ? ' cant' : '') + '"' +
+        (run.gold < shop.removePrice ? ' disabled' : '') +
+        ' onclick="Game.shopRemoveMode()">' +
+        (shop.removePrice === 0 ? '免费删牌（会员卡）' : '删一张牌 ' + ico('gold') + ' ' + shop.removePrice) + '</button>';
     return '<div class="screen" id="screen-shop">' + topbarHtml(S) +
-      '<div class="center-wrap"><div class="panel">' +
-      '<h2>🏪 秦国小卖铺</h2>' +
-      '<div class="shop-cards-row">' + cardsHtml + '</div>' +
-      '<div class="shop-bottom-row">' +
-        '<div class="shop-col"><h3>遗物</h3><div class="shop-relics-row">' + relicsHtml + '</div></div>' +
-        '<div class="shop-col"><h3>服务</h3><div class="shop-item">' + removeBtn + '</div></div>' +
-      '</div>' +
+      '<div class="center-wrap"><div class="panel shop-panel-v2">' +
+      '<div class="shop-front"><img src="' + eventArt('shop_event') + '" alt="秦国小卖铺">' +
+        '<div class="shop-sign">秦国小卖铺</div></div>' +
+      '<div class="shop-greet">「香香鸡，香喷喷的香香鸡！客官看看再走吧～」</div>' +
+      '<div class="shop-section"><div class="shop-sec-title">— 卡牌货架 —</div>' +
+        '<div class="shop-cards-row">' + cardsHtml + '</div></div>' +
+      '<div class="shop-section"><div class="shop-sec-title">— 遗物货架 —</div>' +
+        '<div class="shop-relics-row">' + relicsHtml + '</div></div>' +
+      '<div class="shop-section"><div class="shop-sec-title">— 服务台 —</div>' +
+        '<div class="shop-service">' + removeBtn + '</div></div>' +
       '<button class="primary" onclick="Game.shopLeave()">离开商店</button>' +
       '</div></div></div>';
   }
@@ -450,6 +506,7 @@
       default: html = '<div class="screen">未知界面</div>';
     }
     el().innerHTML = html;
+    if (S.screen === 'map') drawMapLinks();
   }
 
   /* ---------- 飘字与受击 ---------- */

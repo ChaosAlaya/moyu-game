@@ -424,6 +424,28 @@ section('b3) v2 资源 / 存档码 / 战绩簿');
   ok(save.history[19].act === 6 && save.history[19].victory === true, '最旧战绩正确淘汰');
 }
 
+// 红罐咖啡：能量上限 +1
+{
+  const engine = new Engine(19);
+  engine.newRun('xiaoq');
+  engine.state.relics.push('coffee_can');
+  engine.startCombat('group_at');
+  const c = engine.state.combat;
+  ok(c.maxEnergy === 4, '红罐咖啡：maxEnergy=4');
+  ok(c.energy === 4, '红罐咖啡：首回合 energy=4');
+  c.hand.length = 0;
+  engine.endTurn();
+  ok(c.over || c.energy === 4, '红罐咖啡：次回合 energy=4');
+  // 与獭罗牌叠加：首回合 4+1=5
+  const e2 = new Engine(20);
+  e2.newRun('xiaoq');
+  e2.state.relics.push('coffee_can', 'tarot_rel');
+  e2.startCombat('group_at');
+  ok(e2.state.combat.maxEnergy === 4 && e2.state.combat.energy === 5, '咖啡+獭罗牌：首回合 5 能量不冲突');
+  // 遗物图存在
+  ok(fs.existsSync(path.join(root, 'assets/v2/relic/coffee_can.jpg')), '红罐咖啡遗物图存在');
+}
+
 /* ---------- c) 地图生成 ---------- */
 section('c) 地图生成（10 层 × 100 次）');
 {

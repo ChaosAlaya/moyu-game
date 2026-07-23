@@ -163,23 +163,78 @@ button.yellow { background: var(--yellow); }
 .relic-icon img { height: 30px; }
 .topbar button { padding: 4px 12px; font-size: 13px; box-shadow: 2px 2px 0 var(--ink); }
 
-/* ---------- 地图 ---------- */
-#screen-map .map-body { flex: 1; width: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; }
-.map-step { display: flex; gap: 22px; align-items: center; }
-.map-step .step-label { width: 90px; text-align: right; font-weight: 700; font-size: 14px; opacity: .6; }
-.map-node {
-  min-width: 130px; padding: 12px 18px; border: 3px solid var(--ink); border-radius: 14px;
-  background: #fff; font-weight: 900; font-size: 16px; text-align: center;
-  box-shadow: 3px 3px 0 var(--ink);
+/* ---------- 地图（电梯爬楼 redesign） ---------- */
+#screen-map.map-v2 { background-size: cover; background-position: center; position: relative; }
+#screen-map.map-v2::before {
+  content: ''; position: absolute; inset: 0; z-index: 0;
+  background: rgba(12, 12, 24, 0.6);
 }
-.map-node.boss { background: var(--red); color: #fff; }
-.map-node.elite { background: var(--yellow); }
-.map-node.current { cursor: pointer; animation: pulse 1.2s infinite; }
+#screen-map.map-v2 .topbar { position: relative; z-index: 2; }
+.map-v2-body { flex: 1; width: 100%; display: flex; position: relative; z-index: 1; }
+
+/* 左侧电梯刻度尺 */
+.lift {
+  width: 92px; margin: 18px 0 18px 18px; padding: 10px 8px;
+  background: rgba(20, 16, 12, .85); border: 3px solid var(--ink); border-radius: 14px;
+  display: flex; flex-direction: column; gap: 6px; align-items: center;
+  align-self: center; max-height: 92%;
+}
+.lift-btn {
+  width: 62px; padding: 5px 0; text-align: center;
+  background: #4a4038; color: #cfc4b4; font-weight: 900; font-size: 14px;
+  border: 2px solid var(--ink); border-radius: 8px;
+}
+.lift-btn.current {
+  background: var(--red); color: #fff;
+  box-shadow: 0 0 12px rgba(192, 52, 74, .9);
+  animation: pulse 1.4s infinite;
+}
+.lift-btn.cleared { background: #2e4a34; color: #9fd4a9; }
+
+/* 节点区 */
+.map-steps {
+  flex: 1; display: flex; flex-direction: column; justify-content: center;
+  gap: 20px; position: relative; padding: 12px 30px;
+}
+#map-links { position: absolute; inset: 0; pointer-events: none; z-index: 0; }
+#map-links .link { stroke: rgba(255, 244, 230, .28); stroke-width: 2; stroke-dasharray: 6 6; }
+#map-links .link.active { stroke: var(--yellow); stroke-width: 4; stroke-dasharray: none; filter: drop-shadow(0 0 4px rgba(245, 194, 66, .8)); }
+.map-step { display: flex; gap: 26px; justify-content: center; position: relative; z-index: 1; }
+.map-node {
+  min-width: 118px; padding: 10px 16px; border: 3px solid var(--ink); border-radius: 14px;
+  font-weight: 900; font-size: 15px; text-align: center;
+  box-shadow: 3px 3px 0 rgba(0,0,0,.55);
+  display: flex; flex-direction: column; align-items: center; gap: 2px;
+}
+.map-node i { font-style: normal; font-size: 19px; }
+.map-node.t-monster { background: #FFF4E6; }
+.map-node.t-elite { background: var(--yellow); }
+.map-node.t-event { background: #D9C6F2; }
+.map-node.t-shop { background: #A8D8A8; }
+.map-node.t-rest { background: #AECBEB; }
+.map-node.t-boss {
+  background: var(--red); color: #fff; font-size: 18px;
+  min-width: 140px; padding: 14px 24px;
+}
+.map-node.t-boss i { font-size: 24px; }
+.map-node.current { cursor: pointer; animation: nodeglow 1.3s infinite; }
 .map-node.current:hover { transform: translateY(-3px); }
-.map-node.future { opacity: .45; }
-.map-node.past { opacity: .25; }
-@keyframes pulse { 0%,100% { box-shadow: 3px 3px 0 var(--ink); } 50% { box-shadow: 3px 3px 0 var(--red), 0 0 18px rgba(192,52,74,.5); } }
-.map-hint { font-weight: 700; opacity: .7; margin-top: 6px; }
+.map-node.future { opacity: .55; }
+.map-node.past { opacity: .35; }
+.map-node.chosen { outline: 3px solid var(--yellow); opacity: .8; }
+@keyframes nodeglow {
+  0%,100% { box-shadow: 3px 3px 0 rgba(0,0,0,.55); }
+  50% { box-shadow: 3px 3px 0 var(--red), 0 0 20px rgba(245,194,66,.85); }
+}
+@keyframes pulse {
+  0%,100% { box-shadow: 2px 2px 0 var(--ink); }
+  50% { box-shadow: 2px 2px 0 var(--red), 0 0 14px rgba(192,52,74,.7); }
+}
+#screen-map .map-hint {
+  position: relative; z-index: 1; text-align: center;
+  color: #fff; text-shadow: 1px 1px 0 #000;
+  font-weight: 700; padding: 8px 0 12px; margin: 0;
+}
 
 /* ---------- 战斗 ---------- */
 #screen-combat { justify-content: flex-end; }
@@ -335,13 +390,79 @@ button.yellow { background: var(--yellow); }
 .reward-cards { display: flex; gap: 24px; }
 .reward-cards .card { margin: 0; }
 .reward-cards .card:hover { transform: translateY(-10px) scale(1.08); }
-.reward-gold { font-size: 20px; font-weight: 900; color: #B8860B; }
+.reward-gold {
+  font-size: 22px; font-weight: 900; color: #7a5c00;
+  background: var(--yellow); border: 3px solid var(--ink); border-radius: 999px;
+  padding: 4px 20px; box-shadow: 2px 2px 0 var(--ink);
+}
+.reward-gold .ico { height: 1.3em; }
 .reward-relic { font-size: 16px; font-weight: 900; color: #7A4FA3; }
 
 .shop-cards-row { display: flex; gap: 22px; align-items: flex-start; }
 .shop-bottom-row { display: flex; gap: 40px; align-items: flex-start; }
 .shop-relics-row { display: flex; gap: 22px; align-items: flex-start; }
 .shop-col { display: flex; flex-direction: column; gap: 12px; align-items: center; }
+
+/* ---------- 商店（店面 redesign） ---------- */
+.shop-panel-v2 {
+  background: #2E2119; color: #F2E6D0; border-color: #14100c;
+  box-shadow: 5px 5px 0 #14100c; max-width: 940px; gap: 14px;
+}
+.shop-front { position: relative; width: 100%; }
+.shop-front img {
+  width: 100%; height: 96px; object-fit: cover;
+  border: 3px solid var(--ink); border-radius: 12px;
+}
+.shop-sign {
+  position: absolute; left: 50%; bottom: -16px; transform: translateX(-50%);
+  background: var(--red); color: #fff; font-size: 24px; font-weight: 900;
+  border: 3px solid var(--ink); border-radius: 12px; padding: 2px 26px;
+  box-shadow: 3px 3px 0 var(--ink); letter-spacing: 4px; white-space: nowrap;
+}
+.shop-greet {
+  margin-top: 22px; background: #14100c; color: var(--yellow);
+  border: 2px solid #6b5636; border-radius: 12px; padding: 8px 20px;
+  font-weight: 700; font-size: 15px;
+}
+.shop-section { width: 100%; }
+.shop-sec-title {
+  text-align: center; font-weight: 900; font-size: 15px; color: #d8b988;
+  border-top: 2px dashed #6b5636; padding-top: 10px; margin-bottom: 12px;
+}
+.shop-section .shop-cards-row, .shop-section .shop-relics-row { justify-content: center; }
+.shop-item.ware { position: relative; }
+.shop-item.ware.sold { opacity: .5; }
+/* 黄色价签（斜贴右上角） */
+.price-tag-btn {
+  position: absolute; top: -12px; right: -12px; z-index: 5;
+  background: var(--yellow); color: var(--ink);
+  transform: rotate(6deg);
+  padding: 4px 12px; font-size: 14px; box-shadow: 2px 2px 0 var(--ink);
+}
+.price-tag-btn:hover { transform: rotate(6deg) translate(-1px, -1px); }
+.price-tag-btn.cant { background: #9a9a9a; color: #eee; }
+.price-tag-btn.static { position: static; transform: none; font-size: 16px; padding: 10px 22px; }
+.price-tag-btn.static:hover { transform: translate(-1px, -1px); }
+/* 已售出戳 */
+.sold-stamp {
+  position: absolute; top: 40%; left: 50%; z-index: 6;
+  transform: translate(-50%, -50%) rotate(-12deg);
+  border: 4px solid var(--red); color: var(--red);
+  font-size: 22px; font-weight: 900; padding: 2px 14px; border-radius: 8px;
+  background: rgba(255, 244, 230, .85); letter-spacing: 4px;
+}
+.sold-stamp.static { position: static; transform: none; font-size: 16px; letter-spacing: 2px; }
+.shop-service { display: flex; justify-content: center; gap: 16px; align-items: center; }
+.shop-panel-v2 .rdesc { color: #e8dcc8; }
+/* 商店内卡牌用小号尺寸，控制整页高度 */
+.shop-panel-v2 .card { width: 104px; height: 150px; }
+.shop-panel-v2 .card .cdesc { font-size: 11px; }
+.shop-panel-v2 .card .cart { height: 42px; }
+.shop-panel-v2 .shop-relic { width: 140px; }
+.shop-panel-v2 .shop-relic .rdesc { font-size: 11px; }
+.shop-panel-v2 { gap: 10px; padding: 20px 30px; }
+.shop-panel-v2 .shop-greet { margin-top: 18px; padding: 6px 16px; font-size: 14px; }
+.shop-panel-v2 .shop-sec-title { margin-bottom: 8px; padding-top: 8px; }
 .shop-item { display: flex; flex-direction: column; align-items: center; gap: 6px; }
 .shop-item .card { margin: 0; cursor: default; }
 .shop-item .card:hover { transform: none; }

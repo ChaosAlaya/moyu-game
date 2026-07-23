@@ -93,6 +93,9 @@
   Game.pickNode = function (idx) {
     var node = S.engine.enterNode(idx);
     S.node = node;
+    // 记录走过的路径（地图连线高亮用）
+    if (!S.run.path) S.run.path = [];
+    S.run.path[S.run.step] = idx;
     if (node.type === 'monster' || node.type === 'elite' || node.type === 'boss') {
       S.engine.startCombat(node.enemyId);
       S.screen = 'combat';
