@@ -830,7 +830,8 @@
 
   /* ---------- 特效序列帧（v2/fx） ---------- */
   var FX_DIR = 'assets/v2/fx/';
-  var FX_SEQS = { hit: 4, crit: 5, combo: 3, death: 4, block: 2, heal: 3, rare: 4, celebrate: 3 };
+  var FX_SEQS = { hit: 4, crit: 5, combo: 3, death: 4, block: 2, heal: 3, rare: 4, celebrate: 3,
+    eliteDeath: 5, minionDeath: 6, qiangDeath: 8, knockaway: 4, stars: 3 };
   function frameList(seq) {
     var list = [];
     for (var i = 1; i <= FX_SEQS[seq]; i++) {
@@ -846,7 +847,7 @@
       im.src = src;
     }
     for (var k in FX_SEQS) frameList(k).forEach(function (s) { load(s); });
-    ['shockwave.png', 'rededge.png', 'bosscut_noword.jpg'].forEach(function (f) {
+    ['shockwave.png', 'rededge.png', 'bosscut_noword.jpg', 'boss_death_scene.jpg', 'golden_flash.jpg'].forEach(function (f) {
       load(FX_DIR + f);
     });
   }
@@ -934,6 +935,28 @@
     setTimeout(function () { d.remove(); }, 900);
   }
 
+  // BOSS 死亡全屏过场（红黑漫画爆破框，中央大字由 bigText 叠加）
+  function bossDeathScene() {
+    var fx = document.getElementById('fx');
+    if (!fx) return;
+    var d = document.createElement('img');
+    d.className = 'fx-scene';
+    d.src = FX_DIR + 'boss_death_scene.jpg';
+    fx.appendChild(d);
+    setTimeout(function () { d.remove(); }, 1400);
+  }
+
+  // 最终 BOSS 专属：全屏金色爆闪
+  function goldenFlash() {
+    var fx = document.getElementById('fx');
+    if (!fx) return;
+    var d = document.createElement('img');
+    d.className = 'fx-scene gold';
+    d.src = FX_DIR + 'golden_flash.jpg';
+    fx.appendChild(d);
+    setTimeout(function () { d.remove(); }, 900);
+  }
+
   // 阶段名大字弹出
   function bigText(text) {
     var fx = document.getElementById('fx');
@@ -981,6 +1004,6 @@
     bigText: bigText, deathAnim: deathAnim, goldFlash: goldFlash,
     impactFlash: impactFlash, miniShake: miniShake,
     preloadFx: preloadFx, playFxAt: playFxAt, playFxFrames: playFxFrames,
-    shockRing: shockRing, bossCut: bossCut
+    shockRing: shockRing, bossCut: bossCut, bossDeathScene: bossDeathScene, goldenFlash: goldenFlash
   };
 })(typeof window !== 'undefined' ? window : globalThis);

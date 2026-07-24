@@ -191,6 +191,33 @@
   };
   Game.cancelCard = function () { S.cardConfirm = null; render(); };
 
+  /* ---------- 敌人死亡演出 ---------- */
+  // BOSS：换倒地立绘+全屏过场+下班大字+星星绕头，1.2s 后消散（强总走专属演出）
+  // 精英：大消散；小怪：消散 v2，12% 概率击飞上天彩蛋
+  function enemyDeathAnim(edef, e) {
+    if (edef.boss) {
+      var img = document.getElementById('enemy-img');
+      if (img) img.src = 'assets/v2/enemy/boss_down_' + S.run.act +
+        (e.id === 'boss3' ? (e.phase > 0 ? '_p2' : '_p1') : '') + '.jpg';
+      UI.bossDeathScene();
+      UI.bigText('下班！');
+      UI.playFxFrames('enemy-img', 'stars', { size: 280, fps: 7, loops: 3 });
+      setTimeout(function () {
+        UI.deathAnim('enemy-img');
+        if (e.id === 'boss3') {
+          UI.playFxFrames('enemy-img', 'qiangDeath', { size: 460, fps: 10 });
+          UI.goldenFlash();
+        } else {
+          UI.playFxFrames('enemy-img', 'eliteDeath', { size: 420, fps: 12 });
+        }
+      }, 1200);
+      return;
+    }
+    UI.deathAnim('enemy-img');
+    if (edef.elite) UI.playFxFrames('enemy-img', 'eliteDeath', { size: 400, fps: 13 });
+    else UI.playFxFrames('enemy-img', Math.random() < 0.12 ? 'knockaway' : 'minionDeath', { size: 340, fps: 13 });
+  }
+
   Game.playCard = function (i) {
     var c = S.run.combat;
     if (!c || c.over || S.animating) return; // 动画编排期间锁输入
@@ -275,10 +302,12 @@
         setTimeout(function () { UI.floater('enemy-img', egg, 'text'); }, flyMs);
       }
       var endMs = midMs + (r.hits.length ? 180 : 0);
-      if (c.over && c.won) setTimeout(function () {
-        UI.deathAnim('enemy-img');
-        UI.playFxFrames('enemy-img', 'death', { size: 380, fps: 11 });
-      }, endMs);
+      var deathExtra = 0;
+      if (c.over && c.won) {
+        var edefE = D.enemies[c.enemy.id];
+        deathExtra = edefE.boss ? 1700 : 0;
+        setTimeout(function () { enemyDeathAnim(edefE, c.enemy); }, endMs);
+      }
       // 玩家阵亡（自伤牌）：暴击爆裂 + 全屏震动 + 红闪 + 立绘消散
       if (c.over && !c.won) setTimeout(function () {
         UI.playFxFrames('player-img', 'crit', { size: 380, fps: 11 });
@@ -286,9 +315,9 @@
         UI.edgeFlash();
         UI.deathAnim('player-img');
       }, endMs);
-      // 动画编排的最后一段结束后解锁（战斗已结束时 c.over 会自然拦截输入）
-      setTimeout(function () { S.animating = false; if (S.screen === 'combat') render(); }, endMs);
-      afterCombat(endMs);
+      // 动画编排的最后一段结束后解锁；战斗已结束时不重绘（保留死亡演出 DOM），由 afterCombat 切屏
+      setTimeout(function () { S.animating = false; if (S.screen === 'combat' && !c.over) render(); }, endMs);
+      afterCombat(endMs + deathExtra);
     }, preMs);
   };
 
@@ -356,10 +385,11 @@
       }, endMs + 150);
       endMs += 900;
     }
-    if (c.over && c.won) setTimeout(function () {
-      UI.deathAnim('enemy-img');
-      UI.playFxFrames('enemy-img', 'death', { size: 380, fps: 11 });
-    }, endMs);
+    var deathExtra = 0;
+    if (c.over && c.won) {
+      deathExtra = edef.boss ? 1700 : 0;
+      setTimeout(function () { enemyDeathAnim(edef, c.enemy); }, endMs);
+    }
     // 玩家阵亡：暴击爆裂 + 全屏震动 + 红闪 + 立绘消散
     if (c.over && !c.won) setTimeout(function () {
       UI.playFxFrames('player-img', 'crit', { size: 380, fps: 11 });
@@ -367,9 +397,9 @@
       UI.edgeFlash();
       UI.deathAnim('player-img');
     }, endMs);
-    // 敌人行动（含 BOSS 阶段切换）播完后解锁
-    setTimeout(function () { S.animating = false; if (S.screen === 'combat') render(); }, endMs);
-    afterCombat(endMs);
+    // 敌人行动（含 BOSS 阶段切换）播完后解锁；战斗已结束时不重绘（保留死亡演出 DOM）
+    setTimeout(function () { S.animating = false; if (S.screen === 'combat' && !c.over) render(); }, endMs);
+    afterCombat(endMs + deathExtra);
   };
 
   /* ---------- 奖励 ---------- */

@@ -467,6 +467,18 @@ section('b3) v2 资源 / 存档码 / 战绩簿');
   let missing = 0;
   for (const eid in D.enemies) if (!v2(`assets/v2/enemy/${eid}.jpg`)) { missing++; console.error('  ✗ 缺敌人图', eid); }
   ok(v2('assets/v2/enemy/boss3_p2.jpg'), '摸鱼强总第二阶段图存在');
+  // 死亡特效素材：序列帧 + BOSS 倒地立绘 + 全屏过场
+  {
+    const seqs = { eliteDeath: 5, minionDeath: 6, qiangDeath: 8, knockaway: 4, stars: 3 };
+    let fxMissing = 0;
+    for (const s in seqs) for (let i = 1; i <= seqs[s]; i++) {
+      if (!v2(`assets/v2/fx/${s}_${i}.png`)) { fxMissing++; console.error(`  ✗ 缺特效帧 ${s}_${i}`); }
+    }
+    for (let a = 1; a <= 9; a++) if (!v2(`assets/v2/enemy/boss_down_${a}.jpg`)) { fxMissing++; console.error('  ✗ 缺倒地立绘', a); }
+    ['boss_down_10_p1', 'boss_down_10_p2'].forEach(n => { if (!v2(`assets/v2/enemy/${n}.jpg`)) { fxMissing++; console.error('  ✗ 缺倒地立绘', n); } });
+    ['boss_death_scene.jpg', 'golden_flash.jpg'].forEach(n => { if (!v2(`assets/v2/fx/${n}`)) { fxMissing++; console.error('  ✗ 缺过场图', n); } });
+    ok(fxMissing === 0, `死亡特效素材齐全（26 帧 + 11 倒地 + 2 过场）`);
+  }
   for (const rid in D.relics) if (!v2(`assets/v2/relic/${rid}.jpg`)) { missing++; console.error('  ✗ 缺圣物图', rid); }
   for (const evid in D.events) if (!v2(`assets/v2/event/${evid}.jpg`)) { missing++; console.error('  ✗ 缺事件图', evid); }
   for (let a = 1; a <= 10; a++) if (!v2(`assets/v2/banner/act${a}.jpg`)) { missing++; console.error('  ✗ 缺横幅', a); }

@@ -1057,3 +1057,14 @@ button.yellow { background: var(--yellow); }
   /* 弹层近全屏 */
   .deck-select .card { flex-shrink: 0; }
 }
+
+/* ---------- BOSS 死亡全屏过场 / 金色爆闪 ---------- */
+.fx-scene {
+  position: absolute; inset: 0; width: 100%; height: 100%;
+  object-fit: cover; pointer-events: none; z-index: 105;
+  animation: scenefade 1.4s forwards;
+}
+.fx-scene.gold { animation-duration: .9s; mix-blend-mode: screen; }
+@keyframes scenefade {
+  0% { opacity: 0; } 12% { opacity: 1; } 75% { opacity: 1; } 100% { opacity: 0; }
+}
