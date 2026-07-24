@@ -337,16 +337,11 @@
       var dealAttr = S.dealAnim
         ? ' style="animation-delay:' + (i * 45) + 'ms"'
         : '';
-      // RUA!：伤害随打出的攻击牌数成长，卡面角标显示当前实际伤害（含力量/圣物加成）
+      // RUA!/黑暗之剑/钞能力/全力以赴/饥饿咆哮：实时伤害角标（与引擎同管线预览）
       var extraHtml = '';
-      for (var ei = 0; ei < def.effects.length; ei++) {
-        var ef = def.effects[ei];
-        if (ef.op === 'special' && ef.kind === 'rua') {
-          var ruaDmg = ef.base + ef.per * c.attacksPlayed + c.playerStrength +
-            (runHasRelic(run, 'keyboard_rel') ? 1 : 0) +
-            (runHasRelic(run, 'sword_tassel') && (edef.elite || edef.boss) ? 2 : 0);
-          extraHtml = '<div class="dmg-badge">' + ico('intent_attack') + ruaDmg + '</div>';
-        }
+      var pv = S.engine.previewDamage ? S.engine.previewDamage(inst) : null;
+      if (pv !== null && pv !== undefined) {
+        extraHtml = '<div class="dmg-badge">' + ico('intent_attack') + pv + '</div>';
       }
       return cardHtml(inst, {
         extraCls: (playable ? '' : ' unplayable') + (S.dealAnim ? ' deal-in' : '') + (S.cardConfirm === i ? ' confirming' : ''),

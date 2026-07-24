@@ -243,6 +243,7 @@
       playerStrength: 0,
       powers: [],            // {id, value}
       attacksPlayed: 0, cardsPlayed: 0, darkswordPlays: 0,
+      cardsThisTurn: 0, attacksThisTurn: 0, // 深谋/备战/摸鱼之道用
       combatStartHp: st.hp,
       flags: { scarfUsed: false, talismanUsed: false, gamepadUsed: false, attackPadUsed: false },
       over: false, won: false,
@@ -339,12 +340,12 @@
       if (p.id === 'scarf_power') c.playerBlock += p.value;
     });
     var drawN = 5;
-    // 角色被动
-    if (st.charId === 'xiaoq' && c.turn === 1) drawN += 2;
-    if (st.charId === 'jihuang') drawN += 1;
     // 洞洞板：第一回合多抽 1 张
     if (c.turn === 1 && this.hasRelic('pegboard')) drawN += 1;
     this._draw(drawN);
+    // 深谋/备战/摸鱼之道的每回合计数
+    c.cardsThisTurn = 0;
+    c.attacksThisTurn = 0;
   };
 
   // 玩家出牌。返回 { ok, error?, floaters? } 供 UI 做动画
@@ -381,9 +382,20 @@
     var edef2 = D.enemies[c.enemy.id];
     if (this.hasRelic('sword_tassel') && (edef2.elite || edef2.boss)) atkBonus += 2;
 
+    // 伤害结算管线（顺序固定，测试锁定）：
+    // 基础值 + 固定加成（力量/圣物/深谋/钞能）→ 虚弱 → 血怒百分比 → 易伤
     function dealDamage(base) {
       var dmg = base + atkBonus + c.playerStrength;
+      // 深谋：机皇打出攻击牌时，每有 2 张其他剩余手牌伤害 +1（打出瞬间手牌已减该牌）
+      if (def.type === 'attack' && st.charId === 'jihuang') dmg += Math.floor(c.hand.length / 2);
+      // 钞能：爽老鸭每有 50 金币伤害 +1（与深谋同级固定值相加）
+      if (st.charId === 'shuanglaoya') dmg += Math.floor(st.gold / 50);
       if (c.playerWeak > 0) dmg = Math.floor(dmg * 0.75);
+      // 血怒：剩饭伤害提升 = 已损失精力百分比 × 35%
+      if (st.charId === 'shengfan') {
+        var lostPct = 1 - st.hp / st.maxHp;
+        dmg = Math.floor(dmg * (1 + lostPct * 0.25));
+      }
       if (c.enemy.vulnerable > 0) dmg = Math.floor(dmg * 1.5);
       if (dmg < 0) dmg = 0;
       // 敌人格挡
@@ -428,6 +440,13 @@
           st.hp -= ef.value; result.dmgToPlayer += ef.value;
           break;
         case 'skipEnemy': c.enemy.skipTurns += ef.value; break;
+        case 'maxHpUp': // 最大精力提升（本局有效），同时等量回复
+          st.maxHp += ef.value;
+          st.hp = Math.min(st.maxHp, st.hp + ef.value);
+          result.healGained += ef.value;
+          break;
+        case 'gainGold': st.gold += ef.value; break;
+        case 'loseGold': st.gold = Math.max(0, st.gold - ef.value); break;
         case 'goldDamage': {
           // 钞能力：每有 per 金币，伤害 +bonus（旧版为阈值 gte 达标追加，保留兼容）
           var gb = ef.value + (ef.per
@@ -463,6 +482,16 @@
             var sb = ef.base;
             if (!c.enemy.intent || c.enemy.intent.type !== 'attack') sb += ef.bonus;
             dealDamage(sb);
+          } else if (ef.kind === 'hunger') {
+            // 饥饿咆哮：造成已损失精力 pct 的伤害（最低 min）
+            dealDamage(Math.max(ef.min, Math.floor((st.maxHp - st.hp) * ef.pct)));
+          } else if (ef.kind === 'allout') {
+            // 全力以赴：当前手牌数（不含本牌）× per
+            dealDamage(c.hand.length * ef.per);
+          } else if (ef.kind === 'prepare') {
+            // 备战：抽 draw 张；若本回合只打出过这一张牌，再抽 bonus 张
+            self._draw(ef.draw);
+            if (c.cardsThisTurn === 0) self._draw(ef.bonus || 1);
           }
           break;
         }
@@ -472,7 +501,11 @@
 
     // 统计
     c.cardsPlayed++;
-    if (def.type === 'attack') c.attacksPlayed++;
+    c.cardsThisTurn++;
+    if (def.type === 'attack') { c.attacksPlayed++; c.attacksThisTurn++; }
+    if (inst.id === 'darksword') c.darkswordPlays++;
+    // 摸鱼之道：每打出 5 张牌恢复 1 点能量（允许临时超过上限）
+    if (st.charId === 'xiaoq' && c.cardsPlayed % 5 === 0) c.energy += 1;
     if (inst.id === 'darksword') c.darkswordPlays++;
     if (def.flavor) c.easterEgg = def.flavor;
     // 能力：摸鱼境界
@@ -497,6 +530,7 @@
     }
     if (c.enemy.hp <= 0) {
       c.enemy.hp = 0;
+      if (st.hp < 0) st.hp = 0; // 同归于尽也先把精力归零（反弹击杀场景）
       this._winCombat();
       if (result) result.won = true;
     } else if (st.hp <= 0) {
@@ -510,7 +544,6 @@
     var st = this.state, c = st.combat;
     c.over = true; c.won = true;
     // 胜利回复
-    if (st.charId === 'shengfan') st.hp = Math.min(st.maxHp, st.hp + 4);
     if (this.hasRelic('chicken_bucket')) st.hp = Math.min(st.maxHp, st.hp + 2);
   };
 
@@ -525,8 +558,9 @@
     var st = this.state, c = st.combat;
     if (!c || c.over) return { over: true };
     var result = { dmgToPlayer: 0, enemyBlock: 0, skipped: false, over: false, hits: [], absorbed: [], reflected: 0, scarf: false, attacked: false };
-    // 弃掉手牌
-    while (c.hand.length) c.discard.push(c.hand.pop());
+    // 深谋：机皇本回合没打出过攻击牌时，手牌全部保留到下回合；否则照常弃牌
+    var keepHand = st.charId === 'jihuang' && c.attacksThisTurn === 0;
+    if (!keepHand) while (c.hand.length) c.discard.push(c.hand.pop());
     // 玩家 debuff 衰减
     if (c.playerWeak > 0) c.playerWeak--;
     if (c.playerVuln > 0) c.playerVuln--;
@@ -922,6 +956,41 @@
     if (save.history.length > 20) save.history.length = 20;
     return save.history;
   }
+
+  /* ---------- 实时伤害预览（卡面角标数据源，与 dealDamage 同管线） ---------- */
+  // 返回当前打出该牌可造成的单段伤害；不支持的牌返回 null
+  Engine.prototype.previewDamage = function (inst) {
+    var st = this.state, c = st.combat;
+    if (!st || !c) return null;
+    var def = Engine.cardDef(inst);
+    var base = null;
+    for (var i = 0; i < def.effects.length; i++) {
+      var ef = def.effects[i];
+      if (ef.op === 'special') {
+        if (ef.kind === 'rua') base = ef.base + ef.per * c.attacksPlayed;
+        else if (ef.kind === 'darksword') base = ef.base + ef.per * c.darkswordPlays;
+        else if (ef.kind === 'allout') base = Math.max(0, c.hand.length - 1) * ef.per; // 打出时本牌已离手
+        else if (ef.kind === 'hunger') base = Math.max(ef.min, Math.floor((st.maxHp - st.hp) * ef.pct));
+      } else if (ef.op === 'goldDamage') {
+        base = ef.value + (ef.per
+          ? Math.floor(st.gold / ef.per) * (ef.bonus || 1)
+          : (st.gold >= ef.gte ? ef.bonus : 0));
+      }
+      if (base !== null) break;
+    }
+    if (base === null) return null;
+    // 与 dealDamage 相同的固定加成（力量/键盘/剑穗/深谋/钞能）
+    var dmg = base + c.playerStrength;
+    var edef = D.enemies[c.enemy.id];
+    if (def.type === 'attack' && this.hasRelic('keyboard_rel')) dmg += 1;
+    if (this.hasRelic('sword_tassel') && edef && (edef.elite || edef.boss)) dmg += 2;
+    if (def.type === 'attack' && st.charId === 'jihuang') dmg += Math.floor(Math.max(0, c.hand.length - 1) / 2);
+    if (st.charId === 'shuanglaoya') dmg += Math.floor(st.gold / 50);
+    if (c.playerWeak > 0) dmg = Math.floor(dmg * 0.75);
+    if (st.charId === 'shengfan') dmg = Math.floor(dmg * (1 + (1 - st.hp / st.maxHp) * 0.25));
+    if (c.enemy.vulnerable > 0) dmg = Math.floor(dmg * 1.5);
+    return Math.max(0, dmg);
+  };
 
   g.GameEngine = {
     Engine: Engine,

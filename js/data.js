@@ -14,7 +14,8 @@
   var KEYWORDS = ['力量', '虚弱', '易伤', '消耗', '格挡', '能量', '抽牌', '回复'];
   var EFFECT_OPS = [
     'damage', 'block', 'draw', 'heal', 'energy', 'weak', 'vulnerable',
-    'strength', 'selfDamage', 'skipEnemy', 'power', 'special', 'goldDamage'
+    'strength', 'selfDamage', 'skipEnemy', 'power', 'special', 'goldDamage',
+    'maxHpUp', 'gainGold', 'loseGold'
   ];
 
   /* ---------------- 卡牌 ----------------
@@ -299,17 +300,88 @@
     /* ---- 角色专属 ---- */
     ganfan: {
       name: '干饭', cost: 1, type: 'skill', rarity: 'common', char: 'shengfan',
-      desc: '回复 3 点精力，获得 4 点格挡。',
-      effects: [{ op: 'heal', value: 3 }, { op: 'block', value: 4 }],
-      up: { desc: '回复 4 点精力，获得 6 点格挡。',
-        effects: [{ op: 'heal', value: 4 }, { op: 'block', value: 6 }] }
+      desc: '回复 2 点精力，获得 4 点格挡。',
+      effects: [{ op: 'heal', value: 2 }, { op: 'block', value: 4 }],
+      up: { desc: '回复 3 点精力，获得 6 点格挡。',
+        effects: [{ op: 'heal', value: 3 }, { op: 'block', value: 6 }] }
+    },
+    stockpile: {
+      name: '囤粮', cost: 1, type: 'skill', rarity: 'common', char: 'shengfan',
+      desc: '最大精力 +3（本局有效）。',
+      effects: [{ op: 'maxHpUp', value: 3 }],
+      up: { desc: '最大精力 +5（本局有效）。', effects: [{ op: 'maxHpUp', value: 5 }] }
+    },
+    feast: {
+      name: '满汉全席', cost: 2, type: 'skill', rarity: 'uncommon', char: 'shengfan',
+      exhaust: true,
+      desc: '最大精力 +6 并回复 6 点精力。消耗。',
+      effects: [{ op: 'maxHpUp', value: 6 }, { op: 'heal', value: 6 }],
+      up: { desc: '最大精力 +9 并回复 9 点精力。消耗。',
+        effects: [{ op: 'maxHpUp', value: 9 }, { op: 'heal', value: 9 }] }
+    },
+    twicecooked: {
+      name: '回锅肉', cost: 1, type: 'skill', rarity: 'common', char: 'shengfan',
+      exhaust: true,
+      desc: '回复 6 点精力。消耗。',
+      effects: [{ op: 'heal', value: 6 }],
+      up: { desc: '回复 8 点精力。消耗。', effects: [{ op: 'heal', value: 8 }] }
+    },
+    bpmanage: {
+      name: '血压管理', cost: 1, type: 'skill', rarity: 'uncommon', char: 'shengfan',
+      desc: '失去 6 点精力，抽 2 张牌。',
+      effects: [{ op: 'selfDamage', value: 6 }, { op: 'draw', value: 2 }],
+      up: { desc: '失去 4 点精力，抽 2 张牌。',
+        effects: [{ op: 'selfDamage', value: 4 }, { op: 'draw', value: 2 }] }
+    },
+    hunger: {
+      name: '饥饿咆哮', cost: 2, type: 'attack', rarity: 'uncommon', char: 'shengfan',
+      desc: '造成已损失精力 20% 的伤害（最低 8）。',
+      effects: [{ op: 'special', kind: 'hunger', pct: 0.2, min: 8 }],
+      up: { desc: '造成已损失精力 28% 的伤害（最低 10）。',
+        effects: [{ op: 'special', kind: 'hunger', pct: 0.28, min: 10 }] }
+    },
+    holdstill: {
+      name: '按兵不动', cost: 1, type: 'skill', rarity: 'common', char: 'jihuang',
+      desc: '获得 6 点格挡，抽 1 张牌。',
+      effects: [{ op: 'block', value: 6 }, { op: 'draw', value: 1 }],
+      up: { desc: '获得 8 点格挡，抽 1 张牌。',
+        effects: [{ op: 'block', value: 8 }, { op: 'draw', value: 1 }] }
+    },
+    allout: {
+      name: '全力以赴', cost: 2, type: 'attack', rarity: 'uncommon', char: 'jihuang',
+      exhaust: true,
+      desc: '造成当前手牌数 ×3 的伤害。消耗。',
+      effects: [{ op: 'special', kind: 'allout', per: 3 }],
+      up: { desc: '造成当前手牌数 ×4 的伤害。消耗。',
+        effects: [{ op: 'special', kind: 'allout', per: 4 }] }
+    },
+    prepare: {
+      name: '备战', cost: 0, type: 'skill', rarity: 'common', char: 'jihuang',
+      desc: '抽 1 张牌；若本回合只打出过这一张牌，再抽 1 张。',
+      effects: [{ op: 'special', kind: 'prepare', draw: 1, bonus: 1 }],
+      up: { desc: '抽 2 张牌；若本回合只打出过这一张牌，再抽 1 张。',
+        effects: [{ op: 'special', kind: 'prepare', draw: 2, bonus: 1 }] }
+    },
+    capitalop: {
+      name: '资本运作', cost: 1, type: 'skill', rarity: 'uncommon', char: 'shuanglaoya',
+      exhaust: true,
+      desc: '获得 25 金币。消耗。',
+      effects: [{ op: 'gainGold', value: 25 }],
+      up: { desc: '获得 35 金币。消耗。', effects: [{ op: 'gainGold', value: 35 }] }
+    },
+    spendall: {
+      name: '挥金如土', cost: 1, type: 'attack', rarity: 'uncommon', char: 'shuanglaoya',
+      desc: '失去 15 金币，造成 20 点伤害。',
+      effects: [{ op: 'loseGold', value: 15 }, { op: 'damage', value: 20 }],
+      up: { desc: '失去 15 金币，造成 26 点伤害。',
+        effects: [{ op: 'loseGold', value: 15 }, { op: 'damage', value: 26 }] }
     },
     binge: {
       name: '暴食', cost: 2, type: 'attack', rarity: 'uncommon', char: 'shengfan',
-      desc: '造成 12 点伤害，自己损失 2 点精力。',
-      effects: [{ op: 'damage', value: 12 }, { op: 'selfDamage', value: 2 }],
-      up: { desc: '造成 16 点伤害，自己损失 2 点精力。',
-        effects: [{ op: 'damage', value: 16 }, { op: 'selfDamage', value: 2 }] }
+      desc: '造成 10 点伤害，自己损失 2 点精力。',
+      effects: [{ op: 'damage', value: 10 }, { op: 'selfDamage', value: 2 }],
+      up: { desc: '造成 14 点伤害，自己损失 2 点精力。',
+        effects: [{ op: 'damage', value: 14 }, { op: 'selfDamage', value: 2 }] }
     },
     calc: {
       name: '严谨计算', cost: 1, type: 'attack', rarity: 'common', char: 'jihuang',
@@ -347,41 +419,41 @@
       name: '摸鱼奎恩', title: '摸鱼之道', img: 'xiaoq',
       avatar: 'assets/v2/avatar/xiaoq.jpg',
       maxHp: 75, gold: 99,
-      passive: '每场战斗的第一回合多抽 2 张牌。',
-      passiveId: 'firstDraw2',
+      passive: '本场战斗每打出 5 张牌，恢复 1 点能量。',
+      passiveId: 'energyCycle',
       unlock: 0,
-      deck: ['strike_moyu', 'strike_moyu', 'strike_moyu', 'strike_moyu',
-        'defend_moyu', 'defend_moyu', 'defend_moyu', 'defend_moyu',
-        'chicken', 'squat']
+      deck: ['strike_moyu', 'strike_moyu', 'strike_moyu',
+        'defend_moyu', 'defend_moyu', 'defend_moyu',
+        'rua', 'darksword', 'chicken', 'spiritwin']
     },
     shengfan: {
       name: '北极熊剩饭', title: '干饭人', img: 'shengfan',
       avatar: 'assets/v2/avatar/shengfan.jpg',
-      maxHp: 90, gold: 99,
-      passive: '最大精力 +15，战斗胜利后额外回复 4 点精力。',
-      passiveId: 'foodie',
+      maxHp: 75, gold: 99,
+      passive: '造成的所有伤害提升：已损失精力百分比 × 25%。',
+      passiveId: 'bloodrage',
       unlock: 2,
       deck: ['strike_moyu', 'strike_moyu', 'strike_moyu',
         'defend_moyu', 'defend_moyu', 'defend_moyu',
-        'squat', 'ganfan', 'ganfan', 'binge']
+        'ganfan', 'ganfan', 'binge', 'stockpile']
     },
     jihuang: {
       name: '企鹅机皇', title: '攻略制定', img: 'jihuang',
       avatar: 'assets/v2/avatar/jihuang.jpg',
       maxHp: 70, gold: 99,
-      passive: '每回合多抽 1 张牌。',
-      passiveId: 'extraDraw1',
+      passive: '打出攻击牌时每有 2 张其他手牌伤害 +1；本回合未打出攻击牌则不弃牌。',
+      passiveId: 'strategist',
       unlock: 4,
       deck: ['strike_moyu', 'strike_moyu', 'strike_moyu',
         'defend_moyu', 'defend_moyu', 'defend_moyu',
-        'calc', 'calc', 'optimize', 'spiritwin']
+        'calc', 'calc', 'optimize', 'holdstill']
     },
     shuanglaoya: {
       name: '爽老鸭', title: '财力支柱', img: 'shuanglaoya',
       avatar: 'assets/v2/avatar/shuanglaoya.jpg',
       maxHp: 80, gold: 120,
-      passive: '商店卡牌商品 +1 格，每场战斗开始获得 10 金币。',
-      passiveId: 'moneybags',
+      passive: '每有 50 金币造成的伤害 +1；商店卡牌商品 +1 格，开战获得 10 金币。',
+      passiveId: 'moneyPower',
       unlock: 7,
       deck: ['strike_moyu', 'strike_moyu', 'strike_moyu',
         'defend_moyu', 'defend_moyu', 'defend_moyu',

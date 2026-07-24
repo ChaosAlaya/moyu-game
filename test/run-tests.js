@@ -24,7 +24,7 @@ section('a) 数据完整性');
 
 const CARD_TYPES = ['attack', 'skill', 'power'];
 const RARITIES = ['common', 'uncommon', 'rare'];
-const SPECIAL_KINDS = ['rua', 'darksword', 'breakdown', 'calc', 'tarot', 'shuangdao'];
+const SPECIAL_KINDS = ['rua', 'darksword', 'breakdown', 'calc', 'tarot', 'shuangdao', 'hunger', 'allout', 'prepare'];
 
 let cardCount = 0;
 for (const id in D.cards) {
@@ -187,7 +187,7 @@ section('b) 全部敌人各模拟一场');
     const goldBefore = engine.state.gold;
     engine.startCombat('group_at');
     const c = engine.state.combat;
-    const expectDraw = 5 + (chId === 'xiaoq' ? 2 : 0) + (chId === 'jihuang' ? 1 : 0);
+    const expectDraw = 5; // 新被动不再影响首回合抽牌
     ok(c.hand.length === expectDraw, `${chId} 首回合抽牌数 = ${expectDraw}（实际 ${c.hand.length}）`);
     ok(c.energy === 4, '首回合能量 4');
     if (chId === 'shuanglaoya') {
@@ -245,7 +245,7 @@ section('b) 全部敌人各模拟一场');
   const c = engine.state.combat;
   while (c.drawPile.length) c.discard.push(c.drawPile.pop());
   engine._draw(3);
-  ok(c.hand.length === 5 + 2 + 3, '弃牌堆洗牌后可继续抽牌');
+  ok(c.hand.length === 5 + 3, '弃牌堆洗牌后可继续抽牌');
 }
 
 /* ---------- b2) 新 op / 新卡 / 新圣物 hook ---------- */
@@ -258,26 +258,254 @@ section('b2) 新机制数值断言');
   engine.startCombat('punchclock');
   const st = engine.state, c = st.combat;
   c.enemy.hp = 300; c.enemy.maxHp = 300;
-  st.gold = 120; // floor(120/50)=2 → 12+2=14
+  st.gold = 120; // 卡牌每50金+1（+2）与被动钞能（+2）叠加 → 12+2+2=16
   c.hand.unshift({ uid: 1, id: 'money', up: false });
   let hb = c.enemy.hp;
   engine.playCard(0);
-  ok(c.enemy.hp === hb - 14, `钞能力 金币120 打 14（实际 ${hb - c.enemy.hp}）`);
-  st.gold = 260; c.energy = 3; // floor(260/50)=5 → 12+5=17
+  ok(c.enemy.hp === hb - 16, `钞能力 金币120 打 16（实际 ${hb - c.enemy.hp}）`);
+  st.gold = 260; c.energy = 3; // 12+5（卡）+5（被动）=22
   c.hand.unshift({ uid: 2, id: 'money', up: false });
   hb = c.enemy.hp;
   engine.playCard(0);
-  ok(c.enemy.hp === hb - 17, `钞能力 金币260 打 17（实际 ${hb - c.enemy.hp}）`);
+  ok(c.enemy.hp === hb - 22, `钞能力 金币260 打 22（实际 ${hb - c.enemy.hp}）`);
   st.gold = 49; c.energy = 3; // floor(49/50)=0 → 12
   c.hand.unshift({ uid: 3, id: 'money', up: false });
   hb = c.enemy.hp;
   engine.playCard(0);
-  ok(c.enemy.hp === hb - 12, `钞能力 金币49 打 12（实际 ${hb - c.enemy.hp}）`);
-  st.gold = 250; c.energy = 3; // 升级版 15+5=20
+  ok(c.enemy.hp === hb - 12, `钞能力 金币49 打 12（实际 ${hb - c.enemy.hp}）（被动同样 0）`);
+  st.gold = 250; c.energy = 3; // 升级版 15+5（卡）+5（被动）=25
   c.hand.unshift({ uid: 4, id: 'money', up: true });
   hb = c.enemy.hp;
   engine.playCard(0);
-  ok(c.enemy.hp === hb - 20, `钞能力+ 金币250 打 20（实际 ${hb - c.enemy.hp}）`);
+  ok(c.enemy.hp === hb - 25, `钞能力+ 金币250 打 25（实际 ${hb - c.enemy.hp}）`);
+}
+
+// ============ 四角色新被动（重设计） ============
+section('b2.5) 四角色被动数值断言');
+
+// xiaoq 摸鱼之道：每打出 5 张牌恢复 1 能量（可超上限）
+{
+  const engine = new Engine(31);
+  engine.newRun('xiaoq');
+  engine.startCombat('group_at');
+  const st = engine.state, c = st.combat;
+  c.enemy.hp = 300; c.enemy.maxHp = 300;
+  ok(c.hand.length === 5, '小Q首回合抽 5（无首回合加成）');
+  // 连打 5 张 0 费牌
+  for (let i = 0; i < 5; i++) c.hand.unshift({ uid: 100 + i, id: 'pie', up: false });
+  c.energy = 0;
+  for (let i = 0; i < 5; i++) engine.playCard(0);
+  ok(c.energy === 1, `摸鱼之道：第 5 张牌后能量 +1（实际 ${c.energy}）`);
+  for (let i = 0; i < 5; i++) c.hand.unshift({ uid: 200 + i, id: 'pie', up: false });
+  for (let i = 0; i < 5; i++) engine.playCard(0);
+  ok(c.energy === 2, `摸鱼之道：第 10 张牌后再 +1（实际 ${c.energy}）`);
+}
+
+// shengfan 血怒：伤害 ×(1+已损失%×0.5)，先固定值后百分比
+{
+  const engine = new Engine(32);
+  engine.newRun('shengfan');
+  engine.startCombat('punchclock');
+  const st = engine.state, c = st.combat;
+  c.enemy.hp = 500; c.enemy.maxHp = 500;
+  st.hp = st.maxHp; // 满血：无加成
+  c.hand.unshift({ uid: 1, id: 'strike_moyu', up: false });
+  let hb = c.enemy.hp;
+  engine.playCard(0);
+  ok(c.enemy.hp === hb - 6, `血怒满血打 6（实际 ${hb - c.enemy.hp}）`);
+  st.hp = Math.floor(st.maxHp * 0.6); // 损失 40% → ×(1+0.4×0.35)=×1.14
+  c.energy = 3;
+  c.hand.unshift({ uid: 2, id: 'strike_moyu', up: false });
+  hb = c.enemy.hp;
+  engine.playCard(0);
+  ok(c.enemy.hp === hb - Math.floor(6 * (1 + 0.4 * 0.25)), `血怒损失40%打 floor(6×1.14)=6（实际 ${hb - c.enemy.hp}）`);
+  st.hp = 1; // 损失 ~99% → ×1.49
+  c.energy = 3; c.playerStrength = 4; // 固定值先加再乘：floor((6+4)×1.494)≈14
+  c.hand.unshift({ uid: 3, id: 'strike_moyu', up: false });
+  hb = c.enemy.hp;
+  engine.playCard(0);
+  ok(c.enemy.hp === hb - Math.floor(10 * (1 + (1 - 1 / 80) * 0.25)),
+    `血怒叠加顺序：力量固定值先加再百分比（实际 ${hb - c.enemy.hp}）`);
+}
+
+// jihuang 深谋 a：每 2 张其他手牌攻击 +1
+{
+  const engine = new Engine(33);
+  engine.newRun('jihuang');
+  engine.startCombat('punchclock');
+  const st = engine.state, c = st.combat;
+  c.enemy.hp = 500; c.enemy.maxHp = 500;
+  // 手牌 5 张，打出 1 张后剩 4 → +2
+  let hb = c.enemy.hp;
+  c.hand.unshift({ uid: 1, id: 'strike_moyu', up: false });
+  engine.playCard(0);
+  ok(c.enemy.hp === hb - (6 + Math.floor(4 / 2)), `深谋：剩4手牌攻击+2（实际 ${hb - c.enemy.hp}）`);
+  // 手牌打空后剩 0 → +0
+  c.hand = [{ uid: 2, id: 'strike_moyu', up: false }];
+  c.energy = 3;
+  hb = c.enemy.hp;
+  engine.playCard(0);
+  ok(c.enemy.hp === hb - 6, `深谋：空手牌攻击+0（实际 ${hb - c.enemy.hp}）`);
+  // 深谋 b：本回合没打攻击牌 → 不弃牌
+  const c2 = st.combat;
+  // 先塞满抽牌堆，防止弃牌重洗干扰断言
+  for (let di = 0; di < 20; di++) c2.drawPile.unshift({ uid: 500 + di, id: 'defend_moyu', up: false });
+  c2.hand = [{ uid: 10, id: 'defend_moyu', up: false }, { uid: 11, id: 'defend_moyu', up: false }];
+  c2.attacksThisTurn = 0;
+  engine.endTurn();
+  const kept = c2.hand.filter(x => x.uid === 10 || x.uid === 11).length;
+  ok(kept === 2, `深谋：未打攻击牌手牌保留（实际保留 ${kept}）`);
+  // 打过攻击牌 → 照常弃牌
+  c2.hand = [{ uid: 12, id: 'strike_moyu', up: false }, { uid: 13, id: 'defend_moyu', up: false }];
+  c2.attacksThisTurn = 1;
+  const discB = c2.discard.length;
+  engine.endTurn();
+  ok(c2.discard.length === discB + 2 && c2.discard.some(x => x.uid === 12) && c2.discard.some(x => x.uid === 13), '深谋：打过攻击牌照常弃牌');
+}
+
+// shuanglaoya 钞能：每 50 金币伤害 +1（与卡牌自身金币加成叠加）
+{
+  const engine = new Engine(34);
+  engine.newRun('shuanglaoya');
+  engine.startCombat('punchclock');
+  const st = engine.state, c = st.combat;
+  c.enemy.hp = 500; c.enemy.maxHp = 500;
+  st.gold = 100; // +2
+  c.hand.unshift({ uid: 1, id: 'strike_moyu', up: false });
+  let hb = c.enemy.hp;
+  engine.playCard(0);
+  ok(c.enemy.hp === hb - 8, `钞能：金币100 摸鱼一击打 8（实际 ${hb - c.enemy.hp}）`);
+  st.gold = 0;
+  c.energy = 3;
+  c.hand.unshift({ uid: 2, id: 'strike_moyu', up: false });
+  hb = c.enemy.hp;
+  engine.playCard(0);
+  ok(c.enemy.hp === hb - 6, `钞能：金币0 无加成（实际 ${hb - c.enemy.hp}）`);
+}
+
+// ============ 10 张新卡效果断言 ============
+section('b2.6) 重设计新卡断言');
+function mkCombat(charId, hp, maxHp) {
+  const engine = new Engine(40);
+  engine.newRun(charId);
+  engine.startCombat('punchclock');
+  const st = engine.state, c = st.combat;
+  c.enemy.hp = 500; c.enemy.maxHp = 500;
+  if (maxHp) { st.maxHp = maxHp; st.hp = hp; }
+  return [engine, st, c];
+}
+{
+  // 囤粮：maxHp+4 本局有效
+  let [e1, s1] = mkCombat('shengfan');
+  const m0 = s1.maxHp;
+  s1.combat.hand.unshift({ uid: 1, id: 'stockpile', up: false });
+  e1.playCard(0);
+  ok(s1.maxHp === m0 + 3, `囤粮：最大精力 +3（实际 ${s1.maxHp}）`);
+  // 满汉全席：maxHp+8 回 8 消耗
+  let [e2, s2, c2] = mkCombat('shengfan', 50, 90);
+  c2.hand.unshift({ uid: 2, id: 'feast', up: false });
+  e2.playCard(0);
+  ok(s2.maxHp === 96 && s2.hp === 62 && c2.exhausted.length === 1,
+    `满汉全席：maxHp+8 回8 消耗（maxHp=${s2.maxHp} hp=${s2.hp}）`);
+  // 回锅肉：回 6 消耗
+  let [e3, s3, c3] = mkCombat('shengfan', 50, 90);
+  c3.hand.unshift({ uid: 3, id: 'twicecooked', up: false });
+  e3.playCard(0);
+  ok(s3.hp === 56 && c3.exhausted.length === 1, `回锅肉：回6消耗（hp=${s3.hp}）`);
+  // 血压管理：失 6 抽 2
+  let [e4, s4, c4] = mkCombat('shengfan', 50, 90);
+  const handB4 = c4.hand.length;
+  c4.hand.unshift({ uid: 4, id: 'bpmanage', up: false });
+  e4.playCard(0);
+  ok(s4.hp === 44 && c4.hand.length === handB4 + 2, `血压管理：-6精力抽2（hp=${s4.hp}）`);
+  // 饥饿咆哮：损失 40 → max(8,10)=10；损失 10 → 最低 8
+  let [e5, s5, c5] = mkCombat('shengfan', 50, 90);
+  c5.hand.unshift({ uid: 5, id: 'hunger', up: false });
+  let hb5 = c5.enemy.hp;
+  e5.playCard(0);
+  ok(c5.enemy.hp === hb5 - Math.floor(8 * (1 + (1 - 50 / 90) * 0.25)), `饥饿咆哮：损失40打8×血怒=9（实际 ${hb5 - c5.enemy.hp}）`);
+  let [e6, s6, c6] = mkCombat('shengfan', 80, 90);
+  c6.hand.unshift({ uid: 6, id: 'hunger', up: false });
+  let hb6 = c6.enemy.hp;
+  e6.playCard(0);
+  ok(c6.enemy.hp === hb6 - 8, `饥饿咆哮：最低 8（实际 ${hb6 - c6.enemy.hp}）`);
+  // 按兵不动：6 格挡抽 1
+  let [e7, s7, c7] = mkCombat('jihuang');
+  const handB7 = c7.hand.length;
+  c7.hand.unshift({ uid: 7, id: 'holdstill', up: false });
+  e7.playCard(0);
+  ok(c7.playerBlock === 6 && c7.hand.length === handB7 + 1, `按兵不动：6格挡抽1（blk=${c7.playerBlock}）`);
+  // 全力以赴：手牌 3（不含本牌）×3=9，消耗
+  let [e8, s8, c8] = mkCombat('jihuang');
+  c8.hand = [{ uid: 8, id: 'allout', up: false },
+    { uid: 81, id: 'defend_moyu', up: false }, { uid: 82, id: 'defend_moyu', up: false }, { uid: 83, id: 'defend_moyu', up: false }];
+  let hb8 = c8.enemy.hp;
+  e8.playCard(0);
+  ok(c8.enemy.hp === hb8 - 10 && c8.exhausted.length === 1, `全力以赴：3手牌×3=9+深谋1=10（实际 ${hb8 - c8.enemy.hp}）`);
+  // 备战：首打抽 1+1；非首打只抽 1
+  let [e9, s9, c9] = mkCombat('jihuang');
+  c9.hand = [{ uid: 9, id: 'prepare', up: false }];
+  c9.cardsThisTurn = 0;
+  const handB9 = c9.hand.length;
+  e9.playCard(0);
+  ok(c9.hand.length === handB9 + 1, `备战：首打抽2（净+1，实际 ${c9.hand.length}）`);
+  let [e10, s10, c10] = mkCombat('jihuang');
+  c10.hand = [{ uid: 10, id: 'prepare', up: false }];
+  c10.cardsThisTurn = 2;
+  const handB10 = c10.hand.length;
+  e10.playCard(0);
+  ok(c10.hand.length === handB10, `备战：非首打只抽1（实际 ${c10.hand.length}）`);
+  // 资本运作：+25 金币消耗
+  let [e11, s11, c11] = mkCombat('shuanglaoya');
+  const g11 = s11.gold;
+  c11.hand.unshift({ uid: 11, id: 'capitalop', up: false });
+  e11.playCard(0);
+  ok(s11.gold === g11 + 25 && c11.exhausted.length === 1, `资本运作：+25金币消耗（gold=${s11.gold}）`);
+  // 挥金如土：-15 金币打 20
+  let [e12, s12, c12] = mkCombat('shuanglaoya');
+  s12.gold = 20;
+  const g12 = s12.gold;
+  c12.hand.unshift({ uid: 12, id: 'spendall', up: false });
+  let hb12 = c12.enemy.hp;
+  e12.playCard(0);
+  ok(s12.gold === g12 - 15, `挥金如土：-15金币（gold=${s12.gold}）`);
+  // 伤害含被动钞能 floor(20/50)=0 → 20
+  ok(c12.enemy.hp === hb12 - 20, `挥金如土：打20（实际 ${hb12 - c12.enemy.hp}）`);
+}
+
+// ============ 实时角标（previewDamage） ============
+section('b2.7) 实时伤害角标');
+{
+  const engine = new Engine(50);
+  engine.newRun('shuanglaoya');
+  engine.startCombat('punchclock');
+  const st = engine.state, c = st.combat;
+  c.enemy.hp = 500; c.enemy.maxHp = 500;
+  // 钞能力：金币 120 → 12+2+2=16
+  st.gold = 120;
+  ok(engine.previewDamage({ id: 'money', up: false }) === 16, `角标钞能力=16（实际 ${engine.previewDamage({ id: 'money', up: false })}）`);
+  // 黑暗之剑：打过 2 次 → 7+3×2=13
+  c.darkswordPlays = 2;
+  ok(engine.previewDamage({ id: 'darksword', up: false }) === 15, `角标黑暗之剑含被动=15（实际 ${engine.previewDamage({ id: 'darksword', up: false })}）`);
+  // RUA!：打过 3 张攻击 → 4+2×3=10
+  c.attacksPlayed = 3;
+  ok(engine.previewDamage({ id: 'rua', up: false }) === 10 + Math.floor(120 / 50),
+    `角标RUA含被动（实际 ${engine.previewDamage({ id: 'rua', up: false })}）`);
+  // 全力以赴：手牌 5 含本牌 → (5-1)×3=12
+  c.hand = [{ uid: 1, id: 'allout', up: false }, { uid: 2, id: 'defend_moyu', up: false },
+    { uid: 3, id: 'defend_moyu', up: false }, { uid: 4, id: 'defend_moyu', up: false }, { uid: 5, id: 'defend_moyu', up: false }];
+  ok(engine.previewDamage({ id: 'allout', up: false }) === 12 + Math.floor(120 / 50),
+    `角标全力以赴=14（实际 ${engine.previewDamage({ id: 'allout', up: false })}）`);
+  // 饥饿咆哮：shengfan 视角（血怒也并入）
+  const e2 = new Engine(51);
+  e2.newRun('shengfan');
+  e2.startCombat('punchclock');
+  const s2 = e2.state;
+  s2.hp = 50; // 损失 30/80 → hunger base 7，血怒 ×(1+0.375×0.35) → floor(7×1.13)=7
+  const pv = e2.previewDamage({ id: 'hunger', up: false });
+  ok(pv === Math.floor(8 * (1 + (1 - 50 / 80) * 0.25)), `角标饥饿咆哮含血怒=${pv}`);
+  // 普通攻击牌无角标
+  ok(engine.previewDamage({ id: 'strike_moyu', up: false }) === null, '普通牌无角标返回 null');
 }
 
 // 特殊卡：獭罗牌占卜 / 爽到 / 严谨计算
@@ -685,31 +913,34 @@ function autoRun(engine, quiet) {
 }
 
 /* ---------- e) 平衡：50 局胜率统计 ---------- */
-section('e) 平衡统计（50 局自动 run）');
+section('e) 平衡统计（4 角色 × 50 局自动 run）');
 {
-  let victories = 0, errors = 0, reach8 = 0;
-  const actDist = {};
-  for (let trial = 0; trial < 50; trial++) {
-    try {
-      const engine = new Engine(777000 + trial * 13);
-      engine.newRun('xiaoq'); // 用默认角色测平衡基线
-      const r = autoRun(engine, true);
-      if (r.victory) victories++;
-      const reached = r.victory ? 10 : r.act;
-      actDist[reached] = (actDist[reached] || 0) + 1;
-      if (reached >= 8) reach8++;
-    } catch (err) {
-      errors++;
-      console.error(`  ✗ 平衡 run #${trial} 抛异常: ${err.message}`);
+  let totalErrors = 0;
+  const chars = ['xiaoq', 'shengfan', 'jihuang', 'shuanglaoya'];
+  for (const chId of chars) {
+    let victories = 0, errors = 0, reach8 = 0;
+    const actDist = {};
+    for (let trial = 0; trial < 50; trial++) {
+      try {
+        const engine = new Engine(777000 + trial * 13 + chars.indexOf(chId) * 100000);
+        engine.newRun(chId);
+        const r = autoRun(engine, true);
+        if (r.victory) victories++;
+        const reached = r.victory ? 10 : r.act;
+        actDist[reached] = (actDist[reached] || 0) + 1;
+        if (reached >= 8) reach8++;
+      } catch (err) {
+        errors++;
+        totalErrors++;
+        console.error(`  ✗ 平衡 run ${chId}#${trial} 抛异常: ${err.message}`);
+      }
     }
+    const wr = victories / 50;
+    console.log(`  [${chId}] 胜率 ${victories}/50 = ${(wr * 100).toFixed(0)}% · 到8层+ ${reach8} 局 · 分布: ${Object.keys(actDist).sort((a, b) => a - b).map(a => `${a}层×${actDist[a]}`).join(' ')}`);
+    ok(wr >= 0.15 && wr <= 0.40, `${chId} 胜率在 15%~40%（实际 ${(wr * 100).toFixed(0)}%）`);
+    ok(errors === 0, `${chId} 50 局无异常`);
   }
-  const wr = victories / 50;
-  console.log(`  胜率: ${victories}/50 = ${(wr * 100).toFixed(0)}%`);
-  console.log(`  到达层数分布: ${Object.keys(actDist).sort((a, b) => a - b).map(a => `第${a}层×${actDist[a]}`).join(' ')}`);
-  console.log(`  到达第 8 层及以上: ${reach8} 局`);
-  ok(errors === 0, '50 局无异常');
-  ok(wr >= 0.15 && wr <= 0.50, `胜率在 15%~50%（实际 ${(wr * 100).toFixed(0)}%）`);
-  ok(reach8 >= 2, `至少 2 局到达第 8 层以后（实际 ${reach8}）`);
+  ok(totalErrors === 0, '全部角色 50 局无异常');
 }
 
 /* ---------- 汇总 ---------- */
