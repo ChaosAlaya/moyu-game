@@ -192,8 +192,8 @@
   Game.cancelCard = function () { S.cardConfirm = null; render(); };
 
   /* ---------- 敌人死亡演出 ---------- */
-  // BOSS：换倒地立绘+全屏过场+下班大字+星星绕头，1.2s 后消散（强总走专属演出）
-  // 精英：大消散；小怪：消散 v2，12% 概率击飞上天彩蛋
+  // BOSS：换倒地立绘+全屏过场+下班大字+星星绕头，2.2s 后消散（强总走专属演出）
+  // 精英：大消散+冲击波；小怪：大消散+闪白，12% 概率击飞上天彩蛋
   function enemyDeathAnim(edef, e) {
     if (edef.boss) {
       var img = document.getElementById('enemy-img');
@@ -205,17 +205,28 @@
       setTimeout(function () {
         UI.deathAnim('enemy-img');
         if (e.id === 'boss3') {
-          UI.playFxFrames('enemy-img', 'qiangDeath', { size: 460, fps: 10 });
+          UI.playFxFrames('enemy-img', 'qiangDeath', { size: 460, fps: 8 });
           UI.goldenFlash();
         } else {
-          UI.playFxFrames('enemy-img', 'eliteDeath', { size: 420, fps: 12 });
+          UI.playFxFrames('enemy-img', 'eliteDeath', { size: 420, fps: 12, holdLast: 700 });
         }
-      }, 1200);
+      }, 2200);
       return;
     }
+    // 消散瞬间加一次短促冲击波环+闪白
+    UI.shockRing('enemy-img');
+    UI.hitFlash('enemy-img');
     UI.deathAnim('enemy-img');
-    if (edef.elite) UI.playFxFrames('enemy-img', 'eliteDeath', { size: 400, fps: 13 });
-    else UI.playFxFrames('enemy-img', Math.random() < 0.12 ? 'knockaway' : 'minionDeath', { size: 340, fps: 13 });
+    if (edef.elite) {
+      UI.playFxFrames('enemy-img', 'eliteDeath', { size: 480, fps: 8, holdLast: 1300 });
+    } else if (Math.random() < 0.12) {
+      // 击飞彩蛋：飞更高+旋转
+      UI.playFxFrames('enemy-img', 'knockaway', { size: 420, fps: 10, holdLast: 1300 });
+      var km = document.getElementById('enemy-img');
+      if (km) km.classList.add('knockfly');
+    } else {
+      UI.playFxFrames('enemy-img', 'minionDeath', { size: 420, fps: 8, holdLast: 900 });
+    }
   }
 
   Game.playCard = function (i) {
@@ -303,10 +314,11 @@
       }
       var endMs = midMs + (r.hits.length ? 180 : 0);
       var deathExtra = 0;
-      if (c.over && c.won) {
+      if (c.over) {
         var edefE = D.enemies[c.enemy.id];
-        deathExtra = edefE.boss ? 1700 : 0;
-        setTimeout(function () { enemyDeathAnim(edefE, c.enemy); }, endMs);
+        // 胜利：演出时长 小怪≥1.2s / 精英≥1.6s / BOSS≥3.2s；玩家阵亡同样留白
+        deathExtra = c.won ? (edefE.boss ? 3200 : edefE.elite ? 1600 : 1200) : 700;
+        if (c.won) setTimeout(function () { enemyDeathAnim(edefE, c.enemy); }, endMs);
       }
       // 玩家阵亡（自伤牌）：暴击爆裂 + 全屏震动 + 红闪 + 立绘消散
       if (c.over && !c.won) setTimeout(function () {
@@ -315,8 +327,8 @@
         UI.edgeFlash();
         UI.deathAnim('player-img');
       }, endMs);
-      // 动画编排的最后一段结束后解锁；战斗已结束时不重绘（保留死亡演出 DOM），由 afterCombat 切屏
-      setTimeout(function () { S.animating = false; if (S.screen === 'combat' && !c.over) render(); }, endMs);
+      // 动画编排（含死亡演出）播完后解锁；战斗已结束时不重绘（保留死亡演出 DOM），由 afterCombat 切屏
+      setTimeout(function () { S.animating = false; if (S.screen === 'combat' && !c.over) render(); }, endMs + deathExtra);
       afterCombat(endMs + deathExtra);
     }, preMs);
   };
@@ -386,9 +398,9 @@
       endMs += 900;
     }
     var deathExtra = 0;
-    if (c.over && c.won) {
-      deathExtra = edef.boss ? 1700 : 0;
-      setTimeout(function () { enemyDeathAnim(edef, c.enemy); }, endMs);
+    if (c.over) {
+      deathExtra = c.won ? (edef.boss ? 3200 : edef.elite ? 1600 : 1200) : 700;
+      if (c.won) setTimeout(function () { enemyDeathAnim(edef, c.enemy); }, endMs);
     }
     // 玩家阵亡：暴击爆裂 + 全屏震动 + 红闪 + 立绘消散
     if (c.over && !c.won) setTimeout(function () {
@@ -397,8 +409,8 @@
       UI.edgeFlash();
       UI.deathAnim('player-img');
     }, endMs);
-    // 敌人行动（含 BOSS 阶段切换）播完后解锁；战斗已结束时不重绘（保留死亡演出 DOM）
-    setTimeout(function () { S.animating = false; if (S.screen === 'combat' && !c.over) render(); }, endMs);
+    // 敌人行动（含 BOSS 阶段切换与死亡演出）播完后解锁；战斗已结束时不重绘（保留死亡演出 DOM）
+    setTimeout(function () { S.animating = false; if (S.screen === 'combat' && !c.over) render(); }, endMs + deathExtra);
     afterCombat(endMs + deathExtra);
   };
 

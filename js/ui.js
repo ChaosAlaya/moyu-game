@@ -873,7 +873,10 @@
     var timer = setInterval(function () {
       idx++;
       if (idx >= total) {
-        clearInterval(timer); d.remove();
+        clearInterval(timer);
+        // 播完可在最后一帧停留 holdLast 毫秒（死亡演出等需要更久可见窗口）
+        if (opts.holdLast) setTimeout(function () { d.remove(); }, opts.holdLast);
+        else d.remove();
         if (opts.onDone) opts.onDone();
         return;
       }
@@ -943,7 +946,7 @@
     d.className = 'fx-scene';
     d.src = FX_DIR + 'boss_death_scene.jpg';
     fx.appendChild(d);
-    setTimeout(function () { d.remove(); }, 1400);
+    setTimeout(function () { d.remove(); }, 2300);
   }
 
   // 最终 BOSS 专属：全屏金色爆闪
@@ -954,7 +957,7 @@
     d.className = 'fx-scene gold';
     d.src = FX_DIR + 'golden_flash.jpg';
     fx.appendChild(d);
-    setTimeout(function () { d.remove(); }, 900);
+    setTimeout(function () { d.remove(); }, 1600);
   }
 
   // 阶段名大字弹出
@@ -965,7 +968,7 @@
     d.className = 'fx-big';
     d.textContent = text;
     fx.appendChild(d);
-    setTimeout(function () { d.remove(); }, 1600);
+    setTimeout(function () { d.remove(); }, 2100);
   }
 
   // 敌人死亡消散

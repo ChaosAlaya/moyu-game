@@ -596,16 +596,22 @@ button.yellow { background: var(--yellow); }
 /* 阶段名大字 */
 .fx-big {
   position: absolute; left: 50%; top: 34%; transform: translate(-50%,-50%);
-  font-size: 84px; font-weight: 900; color: var(--red); white-space: nowrap;
+  font-size: 100px; font-weight: 900; color: var(--red); white-space: nowrap;
   text-shadow: 5px 5px 0 var(--ink), 0 0 40px rgba(192,52,74,.9);
-  animation: bigpop 1.5s forwards; z-index: 110;
+  animation: bigpop 2s forwards; z-index: 110;
 }
 @keyframes bigpop {
   0% { opacity: 0; transform: translate(-50%,-50%) scale(.15); }
-  18% { opacity: 1; transform: translate(-50%,-50%) scale(1.25); }
-  30% { transform: translate(-50%,-50%) scale(1); }
-  80% { opacity: 1; }
+  14% { opacity: 1; transform: translate(-50%,-50%) scale(1.25); }
+  24% { transform: translate(-50%,-50%) scale(1); }
+  82% { opacity: 1; }
   100% { opacity: 0; transform: translate(-50%,-50%) scale(1.08); }
+}
+/* 击飞彩蛋：飞更高+旋转 */
+.knockfly { animation: knockfly 1s forwards !important; }
+@keyframes knockfly {
+  0% { opacity: 1; transform: translateY(0) rotate(0); }
+  100% { opacity: 0; transform: translateY(-260px) rotate(38deg); }
 }
 /* 敌人死亡消散（先爆裂闪白再缩没） */
 .dying {
