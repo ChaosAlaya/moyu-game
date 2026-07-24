@@ -908,10 +908,11 @@ button.yellow { background: var(--yellow); }
 
 /* 出牌确认条（仅 touch 模式渲染） */
 .confirm-bar {
-  position: fixed; left: 50%; bottom: 246px; transform: translateX(-50%);
+  position: fixed; left: 50%; bottom: 236px; transform: translateX(-50%);
   z-index: 60; display: flex; align-items: flex-end; gap: 14px;
   background: var(--cream); border: 3px solid var(--ink); border-radius: 14px;
   box-shadow: 4px 4px 0 rgba(0,0,0,.5); padding: 10px 14px;
+  max-width: 94vw;
 }
 .cb-preview { pointer-events: none; }
 .cb-preview .card { margin: 0; }
@@ -992,18 +993,31 @@ button.yellow { background: var(--yellow); }
   .ic-32 { width: 22px; height: 22px; }
   .ic-trash { font-size: 16px; }
   .infocard .status-row { padding: 0; }
-  /* 舞台立绘缩小放右下（固定定位，不与结束回合按钮冲突） */
-  .pstage { position: fixed; left: auto; right: 4px; bottom: 316px; transform: none; z-index: 5; }
+  /* 舞台立绘缩小放左下（与 PC 对角线一致：角色左下、敌人右上） */
+  .pstage { position: fixed; left: 4px; right: auto; bottom: 300px; transform: none; z-index: 5; }
+  .enemy-zone { align-items: flex-end; padding-right: 4vw; }
+  .enemy-zone .intent { align-self: center; }
   .pstage .player-img.full { height: 118px; }
   .stage-ellipse { width: 128px; height: 30px; margin-top: -11px; }
-  /* 手牌横滑 */
+  /* 手牌聚拢：缩小 + 负 margin（间距 46px ≥ 触控目标），7 张一屏可见 */
   .hand {
-    height: 238px; overflow-x: auto; justify-content: flex-start;
-    padding: 0 8px 10px; align-items: flex-end;
+    height: 214px; overflow-x: visible; justify-content: center;
+    padding: 0 4px 10px; align-items: flex-end;
   }
-  .hand .card { margin: 0 -10px; }
+  .hand .card { width: 112px; height: 162px; margin: 0 -33px; }
+  .hand .card .ctitle { font-size: 12px; padding: 3px 1px; }
+  .hand .card .cdesc { font-size: 10px; padding: 4px 5px; line-height: 1.35; }
+  .hand .card .ctype { font-size: 9px; }
+  .hand .card .cost { width: 26px; height: 26px; font-size: 14px; border-width: 2px; }
+  .hand .card .cart { height: 50px; }
+  .hand .card .upbadge { width: 20px; height: 20px; font-size: 13px; border-width: 2px; }
+  .hand .card.confirming {
+    z-index: 30; position: relative;
+    transform: translateY(-16px) scale(1.12);
+    margin: 0 -4px;
+  }
   .hand .endturn {
-    position: fixed; right: 10px; bottom: 246px; z-index: 30;
+    position: fixed; right: 10px; bottom: 236px; z-index: 30;
     min-height: 56px; margin-left: 0; font-size: 17px; padding: 10px 22px;
   }
 
