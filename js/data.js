@@ -505,6 +505,17 @@
     bigbook: ['assets/v2/card/bigbook.jpg'],
     realm: ['assets/v2/card/realm.jpg'],
     chicken_bucket_card: ['assets/v2/card/chicken_bucket_card.jpg'],
+    /* 重设计新卡卡面（cardnew 素材） */
+    stockpile: ['assets/v2/card/stockpile.jpg'],
+    feast: ['assets/v2/card/feast.jpg'],
+    twicecooked: ['assets/v2/card/twicecooked.jpg'],
+    bpmanage: ['assets/v2/card/bpmanage.jpg'],
+    hunger: ['assets/v2/card/hunger.jpg'],
+    holdstill: ['assets/v2/card/holdstill.jpg'],
+    allout: ['assets/v2/card/allout.jpg'],
+    prepare: ['assets/v2/card/prepare.jpg'],
+    capitalop: ['assets/v2/card/capitalop.jpg'],
+    spendall: ['assets/v2/card/spendall.jpg'],
     /* 角色专属牌卡面用新头像 */
     scarf_power: ['assets/v2/avatar/xiaoq.jpg', 'contain'],
     guide: ['assets/v2/avatar/jihuang.jpg', 'contain'],
