@@ -968,6 +968,150 @@ section('b4) 事件去重 / 新事件 / 角色权重 / 商店复制');
   ok(st2.gold === 200 - Math.round(150 * 0.8), `稀有牌复制墨镜 8 折 120（实际扣 ${200 - st2.gold}）`);
 }
 
+/* ---------- b5) Boss Rush：框架 / 10 BOSS / 新招式 / 1vN ---------- */
+section('b5) Boss Rush');
+
+// 10 BOSS 数据结构
+{
+  const RUSH_MOVE_TYPES = MOVE_TYPES.concat(['stealGold', 'costUp', 'counter']);
+  ok(D.rushBosses.length === 10, `rushBosses 共 10 场（实际 ${D.rushBosses.length}）`);
+  D.rushBosses.forEach((b, i) => {
+    ok(Number.isInteger(b.hp) && b.hp > 0, `rush BOSS #${i + 1} ${b.name} HP 合法`);
+    if (b.multi) {
+      ok(Array.isArray(b.members) && b.members.length === 3, '董事会 1v3 有 3 位董事');
+      b.members.forEach(m => {
+        ok(m.hp > 0, `董事 ${m.name} HP 合法`);
+        m.moves.forEach(mv => ok(RUSH_MOVE_TYPES.includes(mv.type), `董事 ${m.name} 招式类型 "${mv.type}" 合法`));
+      });
+    } else if (b.phases) {
+      ok(b.phases.length === 3, '资本化身三阶段');
+      b.phases.forEach(ph => ph.moves.forEach(mv => ok(RUSH_MOVE_TYPES.includes(mv.type), `资本 ${b.name} 招式类型 "${mv.type}" 合法`)));
+    } else {
+      b.moves.forEach(mv => ok(RUSH_MOVE_TYPES.includes(mv.type), `rush BOSS ${b.name} 招式类型 "${mv.type}" 合法`));
+    }
+  });
+  ok(D.rushBosses[9].hp === 550, '资本化身 HP 550');
+}
+
+// rush 框架：继承 / 推进 / 整备时机 / 失败重来
+{
+  const engine = new Engine(81);
+  engine.newRun('xiaoq');
+  const build = {
+    charId: 'xiaoq',
+    deck: engine.state.deck.map(c => ({ uid: c.uid, id: c.id, up: false, costMod: 0 })),
+    relics: ['badge', 'doll'], equippedRelics: ['badge', 'doll'],
+    gold: 233, hp: 55, maxHp: 80
+  };
+  engine.rushStart(build);
+  const st = engine.state;
+  ok(st.rush.fight === 1 && st.gold === 233 && st.hp === 55 && st.maxHp === 80, 'rushStart 继承构筑（金币/精力）');
+  ok(st.deck.length === build.deck.length && st.relics.join() === 'badge,doll', 'rushStart 继承牌组/圣物');
+  ok(!engine.rushNeedRest(), '第 1 场后无需整备');
+  engine.rushAdvance(); engine.rushAdvance(); engine.rushAdvance();
+  ok(st.rush.fight === 4 && engine.rushNeedRest(), '第 3 场后进入整备点');
+  // 失败重来
+  st.gold = 999;
+  st.hp = 10;
+  st.deck.push({ uid: 999, id: 'rua', up: true });
+  engine.rushRestart();
+  ok(st.rush.fight === 1 && st.gold === 233 && st.hp === 55 && st.deck.length === build.deck.length,
+    'rushRestart 牌组/金币/精力回到进入时状态');
+  // 通关判定
+  st.rush.fight = 10;
+  ok(engine.rushAdvance() === true && st.rush.won, '第 10 场后 Rush 通关');
+}
+
+// 新招式：stealGold / costUp / counter / perGold
+{
+  // stealGold：偷男偷 15 金
+  const e1 = new Engine(82);
+  e1.newRun('xiaoq');
+  e1.state.gold = 50;
+  e1.startRushCombat(D.rushBosses[3], 4);
+  const c1 = e1.state.combat;
+  c1.enemy.intent = { name: '顺手牵羊', type: 'stealGold', value: 15 };
+  c1.hand = [];
+  const r1 = e1.endTurn();
+  ok(e1.state.gold === 35 && r1.stolenGold === 15, `偷男偷 15 金（实际 ${e1.state.gold}）`);
+  // perGold：销赃，金币 100 → 8+2=10 伤害
+  const e2 = new Engine(83);
+  e2.newRun('xiaoq');
+  e2.state.gold = 100;
+  e2.startRushCombat(D.rushBosses[3], 4);
+  const c2 = e2.state.combat;
+  c2.enemy.intent = { name: '销赃', type: 'attack', value: 8, perGold: 50 };
+  c2.hand = [];
+  e2.state.hp = 75;
+  const hpB2 = e2.state.hp;
+  e2.endTurn();
+  ok(e2.state.hp === hpB2 - 10, `销赃镜像：金币100 攻 8+2=10（实际 ${hpB2 - e2.state.hp}）`);
+  // costUp：财务总监 2 张手牌费用 +1
+  const e3 = new Engine(84);
+  e3.newRun('xiaoq');
+  e3.startRushCombat(D.rushBosses[4], 5);
+  const c3 = e3.state.combat;
+  c3.enemy.intent = { name: '成本核算', type: 'costUp', value: 2 };
+  const mods0 = c3.hand.filter(i => (i.costMod || 0) > 0).length;
+  e3.endTurn();
+  const mods1 = c3.hand.concat(c3.drawPile).filter(i => (i.costMod || 0) > 0).length;
+  ok(mods1 === 2, `成本核算：2 张手牌费用 +1（实际 ${mods1}）`);
+  ok(c3.hand.concat(c3.drawPile).filter(i => (i.costMod || 0) > 0).every(i => Engine.cardDef(i).cost + i.costMod >= 2), '附加费用进入结算管线');
+  // counter：秋后算账，玩家未造成伤害 → 34；造成伤害 → 18
+  const e4 = new Engine(85);
+  e4.newRun('xiaoq');
+  e4.startRushCombat(D.rushBosses[7], 8);
+  const c4 = e4.state.combat;
+  c4.enemy.intent = { name: '秋后算账', type: 'counter', value: 34, fallback: 18 };
+  c4.playerDealtDmgThisTurn = 0;
+  const hpB4 = e4.state.hp;
+  c4.hand = [];
+  e4.endTurn();
+  ok(e4.state.hp === hpB4 - 34, `秋后算账：未受攻击打 34（实际 ${hpB4 - e4.state.hp}）`);
+  const e5 = new Engine(86);
+  e5.newRun('xiaoq');
+  e5.startRushCombat(D.rushBosses[7], 8);
+  const c5 = e5.state.combat;
+  c5.enemy.intent = { name: '秋后算账', type: 'counter', value: 34, fallback: 18 };
+  c5.playerDealtDmgThisTurn = 10;
+  const hpB5 = e5.state.hp;
+  c5.hand = [];
+  e5.endTurn();
+  ok(e5.state.hp === hpB5 - 18, `秋后算账：受过攻击打 18（实际 ${hpB5 - e5.state.hp}）`);
+}
+
+// 1vN：三董事 / 点选目标 / 孤注一掷 / 全灭判胜
+{
+  const engine = new Engine(87);
+  engine.newRun('xiaoq');
+  const board = D.rushBosses[8];
+  engine.startMultiCombat(board, 9);
+  const st = engine.state, c = st.combat;
+  ok(c.multi && c.enemies.length === 3, '1vN 三董事在场');
+  ok(c.target === 0 && c.enemy.id === 'b_fin', '默认目标最左存活者');
+  // 点选目标
+  ok(engine.pickTarget(2) && c.target === 2 && c.enemy.id === 'b_hr', '点选切换目标到人力董事');
+  // 打当前目标
+  const hpB = c.enemies[2].hp;
+  c.enemy.hp = 5; // strike 6 点伤害足够击杀
+  c.hand.unshift({ uid: 1, id: 'strike_moyu', up: false });
+  engine.playCard(0);
+  const hr = c.enemies[2];
+  ok(hr.dead, '目标董事被击杀');
+  ok(c.enemies[0].strength === 1 && c.enemies[1].strength === 1, '孤注一掷：其余董事力量 +1');
+  ok(c.target !== 2 && !c.enemy.dead, '目标自动切到存活者');
+  // 全灭判胜
+  c.enemies[0].hp = 1;
+  c.enemies[1].hp = 1;
+  engine.pickTarget(0);
+  c.hand.unshift({ uid: 2, id: 'strike_moyu', up: false });
+  engine.playCard(0);
+  engine.pickTarget(1);
+  c.hand.unshift({ uid: 3, id: 'strike_moyu', up: false });
+  engine.playCard(0);
+  ok(c.over && c.won, '全灭才算胜利');
+}
+
 /* ---------- c) 地图生成 ---------- */
 section('c) 地图生成（10 层 × 100 次）');
 {
@@ -1098,6 +1242,86 @@ section('e) 平衡统计（4 角色 × 50 局自动 run）');
     ok(errors === 0, `${chId} 50 局无异常`);
   }
   ok(totalErrors === 0, '全部角色 50 局无异常');
+}
+
+/* ---------- f) Boss Rush 平衡模拟 ---------- */
+section('f) Boss Rush 平衡（4 角色通关构筑模拟）');
+
+// 用通关构筑跑 Rush 模拟：战斗胜利→20% 回复+随机拿卡/跳过→整备点回血→推进
+function simRush(engine, build) {
+  engine.rushStart(build);
+  const st = engine.state;
+  while (st.rush.fight <= 10) {
+    engine.rushStartFight();
+    const won = scriptedCombat(engine, 300, true);
+    if (!won || !engine.state.combat.over) {
+      return { victory: false, fight: st.rush.fight };
+    }
+    engine.rushFightWon();
+    // 间歇奖励：80% 拿一张
+    const rw = engine.genReward();
+    engine.takeReward(rw);
+    if (engine.rng() < 0.8) engine.takeRewardCard(rw, engine.rng.int(3));
+    const won10 = engine.rushAdvance();
+    if (won10) return { victory: true, fight: 10 };
+    if (engine.rushNeedRest()) engine.rushRest(0); // 整备统一回血
+  }
+  return { victory: true, fight: 10 };
+}
+
+{
+  const chars = ['xiaoq', 'shengfan', 'jihuang', 'shuanglaoya'];
+  const summary = {};
+  for (const chId of chars) {
+    // 先跑出最多 12 套通关构筑
+    const builds = [];
+    for (let trial = 0; trial < 40 && builds.length < 12; trial++) {
+      const engine = new Engine(555000 + trial * 7 + chars.indexOf(chId) * 10000);
+      engine.newRun(chId);
+      const r = autoRun(engine, true);
+      if (r.victory) {
+        const st = engine.state;
+        builds.push({
+          charId: chId,
+          deck: st.deck.map(c => ({ uid: c.uid, id: c.id, up: c.up, costMod: c.costMod || 0 })),
+          relics: st.relics.slice(),
+          equippedRelics: (st.equippedRelics || st.relics).slice(),
+          gold: st.gold, hp: st.hp, maxHp: st.maxHp
+        });
+      }
+    }
+    let wins = 0, totalFight = 0, errors = 0;
+    for (const build of builds) {
+      try {
+        const engine2 = new Engine(999000 + builds.indexOf(build) * 31 + chars.indexOf(chId) * 10000);
+        engine2.newRun(chId);
+        const r = simRush(engine2, build);
+        totalFight += r.fight;
+        if (r.victory) wins++;
+      } catch (err) {
+        errors++;
+        console.error(`  ✗ rush 模拟 ${chId} 异常: ${err.message}`);
+      }
+    }
+    const n = builds.length;
+    const wr = n ? wins / n : 0;
+    const avg = n ? (totalFight / n).toFixed(1) : 0;
+    console.log(`  [${chId}] 通关构筑 ${n} 套 · Rush 通关 ${wins}（${(wr * 100).toFixed(0)}%）· 平均进度 ${avg} 场`);
+    summary[chId] = { wr, avg: parseFloat(avg), n, errors };
+    ok(errors === 0, `${chId} rush 模拟无异常`);
+    // 分层验收：全部角色平均进度 ≥6（弱构筑也应打到中后段）；强构筑（剩饭/老鸭）通关率 20%~70%
+    ok(summary[chId].avg >= 6, `${chId} 平均进度 ≥6 场（实际 ${avg}）`);
+    if (chId === 'shengfan' || chId === 'shuanglaoya') {
+      ok(wr >= 0.2 && wr <= 0.7, `${chId} Rush 通关率 20%~70%（实际 ${(wr * 100).toFixed(0)}%）`);
+    }
+    // 弱构筑（xiaoq/机皇）允许 0 通关但平均进度要 ≥7（策划案"弱构筑止步 5~8 场"的验收）
+    if (chId === 'xiaoq' || chId === 'jihuang') {
+      ok(summary[chId].avg >= 7, `${chId} 弱构筑平均进度 ≥7 场（实际 ${avg}）`);
+    }
+  }
+  // 资本化身能打：至少 2 个角色有通关记录
+  const anyWins = ['shengfan', 'shuanglaoya'].filter(c => summary[c].wr > 0).length;
+  ok(anyWins >= 2, `资本化身能打：${anyWins} 个角色有 Rush 通关记录（要求 ≥2）`);
 }
 
 /* ---------- 汇总 ---------- */

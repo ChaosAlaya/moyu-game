@@ -233,20 +233,20 @@
   };
 
   /* ---------- 战斗 ---------- */
-  Engine.prototype.startCombat = function (enemyId) {
+  // 通用战斗装配：edef 可为 D.enemies 条目或 rushBoss 条目
+  Engine.prototype._makeCombat = function (edef, opts) {
     var st = this.state;
-    var edef = D.enemies[enemyId];
-    if (!edef) throw new Error('未知敌人: ' + enemyId);
-    st.seen.enemies[enemyId] = true;
+    opts = opts || {};
     var enemy = {
-      id: enemyId,
+      id: edef.id || 'rush',
       name: edef.name,
       hp: edef.hp, maxHp: edef.hp,
       block: 0, strength: 0, weak: 0, vulnerable: 0,
       skipTurns: 0, turnCount: 0,
       loopIdx: 0, phase: 0,
       dmgBonus: 0,
-      intent: null
+      intent: null,
+      _def: edef
     };
     // 精英随层数成长：HP +8/层，攻击 +1/层
     if (edef.elite) {
@@ -268,13 +268,17 @@
       attacksPlayed: 0, cardsPlayed: 0, darkswordPlays: 0,
       cardsThisTurn: 0, attacksThisTurn: 0, // 深谋/备战/摸鱼之道用
       combatStartHp: st.hp,
+      playerDealtDmgThisTurn: 0, // 高级VP「秋后算账」判定用
       flags: { scarfUsed: false, talismanUsed: false, gamepadUsed: false, attackPadUsed: false },
       over: false, won: false,
       log: [],
-      easterEgg: null        // UI 彩蛋文字
+      easterEgg: null,       // UI 彩蛋文字
+      rushBoss: opts.rushBoss || null,
+      rushFight: opts.fightIdx || 0,
+      multi: false
     };
     // BOSS 战：黑暗剑柄
-    if (edef.boss && this.hasRelic('sword_hilt')) combat.playerStrength += 2;
+    if ((edef.boss || opts.rushBoss) && this.hasRelic('sword_hilt')) combat.playerStrength += 2;
     // 猛男寨徽章：战斗开始力量 +1
     if (this.hasRelic('badge')) combat.playerStrength += 1;
     // 爽老鸭被动：每场战斗开始 +10 金币
@@ -287,18 +291,62 @@
     return combat;
   };
 
+  Engine.prototype.startCombat = function (enemyId) {
+    var edef = D.enemies[enemyId];
+    if (!edef) throw new Error('未知敌人: ' + enemyId);
+    this.state.seen.enemies[enemyId] = true;
+    return this._makeCombat(edef);
+  };
+
+  // Boss Rush 单体 BOSS 战
+  Engine.prototype.startRushCombat = function (rushDef, fightIdx) {
+    return this._makeCombat(rushDef, { rushBoss: rushDef, fightIdx: fightIdx });
+  };
+
+  // 1vN 集团战（董事会）：敌人数组，各自独立血量/格挡/意图/行动
+  Engine.prototype.startMultiCombat = function (boardDef, fightIdx) {
+    var combat = this._makeCombat(boardDef, { rushBoss: boardDef, fightIdx: fightIdx });
+    var self = this;
+    combat.multi = true;
+    combat.enemies = boardDef.members.map(function (m) {
+      return {
+        id: m.id, name: m.name,
+        hp: m.hp, maxHp: m.hp,
+        block: 0, strength: 0, weak: 0, vulnerable: 0,
+        skipTurns: 0, turnCount: 0, loopIdx: 0,
+        dmgBonus: 0, intent: null, dead: false,
+        _def: m
+      };
+    });
+    combat.enemy = combat.enemies[0];
+    combat.target = 0;
+    combat.enemies.forEach(function (e) { self._chooseIntent(e); });
+    return combat;
+  };
+
+  // 1vN：切换集火目标（只能选存活者）
+  Engine.prototype.pickTarget = function (i) {
+    var c = this.state.combat;
+    if (!c || !c.multi || c.over) return false;
+    var e = c.enemies[i];
+    if (!e || e.dead) return false;
+    c.target = i;
+    c.enemy = e;
+    return true;
+  };
+
   Engine.prototype._moves = function (enemy) {
-    var edef = D.enemies[enemy.id];
+    var edef = enemy._def;
     if (edef.phases) {
       var ph = edef.phases[enemy.phase] || edef.phases[edef.phases.length - 1];
       return ph.moves;
     }
-    return edef.moves;
+    return edef.moves || [];
   };
 
   // 检查 BOSS 阶段切换
   Engine.prototype._checkPhase = function (enemy) {
-    var edef = D.enemies[enemy.id];
+    var edef = enemy._def;
     if (!edef.phases) return;
     var next = edef.phases[enemy.phase + 1];
     if (next && enemy.hp <= enemy.maxHp * edef.phases[enemy.phase].until) {
@@ -310,7 +358,7 @@
   };
 
   Engine.prototype._chooseIntent = function (enemy) {
-    var edef = D.enemies[enemy.id];
+    var edef = enemy._def;
     var moves = this._moves(enemy);
     var mv = null;
     // every 型招式优先
@@ -369,6 +417,7 @@
     // 深谋/备战/摸鱼之道的每回合计数
     c.cardsThisTurn = 0;
     c.attacksThisTurn = 0;
+    c.playerDealtDmgThisTurn = 0; // 高级VP「秋后算账」判定重置
   };
 
   // 玩家出牌。返回 { ok, error?, floaters? } 供 UI 做动画
@@ -378,7 +427,7 @@
     var inst = c.hand[handIdx];
     if (!inst) return { ok: false, error: '无此牌' };
     var def = Engine.cardDef(inst);
-    var cost = def.cost;
+    var cost = def.cost + (inst.costMod || 0); // 财务总监「成本核算」可附加费用
     // 机皇手柄：每回合第一张技能牌费用 -1
     if (def.type === 'skill' && this.hasRelic('gamepad') && !c.flags.gamepadUsed) {
       cost = Math.max(0, cost - 1);
@@ -402,7 +451,7 @@
     // 圣物伤害加成：键盘（攻击牌每段 +1）、黑暗剑穗（对精英/BOSS +2）
     var atkBonus = 0;
     if (def.type === 'attack' && this.hasRelic('keyboard_rel')) atkBonus += 1;
-    var edef2 = D.enemies[c.enemy.id];
+    var edef2 = c.enemy._def;
     if (this.hasRelic('sword_tassel') && (edef2.elite || edef2.boss)) atkBonus += 2;
 
     // 伤害结算管线（顺序固定，测试锁定）：
@@ -424,6 +473,7 @@
       var through = dmg - absorbed;
       c.enemy.hp -= through;
       result.dmgToEnemy += through;
+      c.playerDealtDmgThisTurn += through;
       result.hits.push(through);
     }
 
@@ -548,6 +598,16 @@
       st.hp = 1; c.flags.talismanUsed = true;
       c.log.push({ t: 'relic', text: '耳鸣星护符发动！' });
     }
+    if (c.multi) {
+      // 1vN：逐个结算死亡（孤注一掷：每倒下一位，其余力量 +3；全灭才胜利）
+      this._checkMultiDeaths(result);
+      if (!c.over && st.hp <= 0) {
+        st.hp = 0;
+        this._loseCombat();
+        if (result) result.lost = true;
+      }
+      return;
+    }
     if (c.enemy.hp <= 0) {
       c.enemy.hp = 0;
       if (st.hp < 0) st.hp = 0; // 同归于尽也先把精力归零（反弹击杀场景）
@@ -557,6 +617,36 @@
       st.hp = 0;
       this._loseCombat();
       if (result) result.lost = true;
+    }
+  };
+
+  // 1vN 死亡结算：标记死亡 → 其余存活者力量+3 → 重选目标 → 全灭判胜
+  Engine.prototype._checkMultiDeaths = function (result) {
+    var st = this.state, c = st.combat;
+    if (!c.multi) return;
+    for (var i = 0; i < c.enemies.length; i++) {
+      var e = c.enemies[i];
+      if (e.dead || e.hp > 0) continue;
+      e.dead = true;
+      e.hp = 0;
+      result.deaths = result.deaths || [];
+      result.deaths.push(i);
+      for (var j = 0; j < c.enemies.length; j++) {
+        if (!c.enemies[j].dead) c.enemies[j].strength += 1;
+      }
+    }
+    var alive = c.enemies.filter(function (e2) { return !e2.dead; });
+    if (!alive.length) {
+      if (st.hp < 0) st.hp = 0; // 同归于尽先归零
+      this._winCombat();
+      if (result) result.won = true;
+      return;
+    }
+    // 当前目标死了 → 切到第一个存活者
+    if (c.enemy.dead) {
+      var ni = c.enemies.indexOf(alive[0]);
+      c.target = ni;
+      c.enemy = c.enemies[ni];
     }
   };
 
@@ -573,21 +663,15 @@
     st.over = true; st.victory = false;
   };
 
-  // 结束回合：弃手牌 → 敌人行动 → 结算 → 新回合
-  Engine.prototype.endTurn = function () {
+  // 单个敌人行动（1v1 与 1vN 共用）：应用被动 → 执行意图 → debuff 衰减
+  Engine.prototype._enemyAct = function (e, result) {
     var st = this.state, c = st.combat;
-    if (!c || c.over) return { over: true };
-    var result = { dmgToPlayer: 0, enemyBlock: 0, skipped: false, over: false, hits: [], absorbed: [], reflected: 0, scarf: false, attacked: false };
-    // 深谋：机皇本回合没打出过攻击牌时，手牌全部保留到下回合；否则照常弃牌
-    var keepHand = st.charId === 'jihuang' && c.attacksThisTurn === 0;
-    if (!keepHand) while (c.hand.length) c.discard.push(c.hand.pop());
-    // 玩家 debuff 衰减
-    if (c.playerWeak > 0) c.playerWeak--;
-    if (c.playerVuln > 0) c.playerVuln--;
-
-    var e = c.enemy;
+    var edef = e._def;
     e.block = 0; // 敌人格挡在其回合开始清零
     e.turnCount++;
+    // rush BOSS 被动：每回合自动加力量/格挡
+    if (edef.passiveStrength) e.strength += edef.passiveStrength;
+    if (edef.passiveBlock) { e.block += edef.passiveBlock; result.enemyBlock = (result.enemyBlock || 0) + edef.passiveBlock; }
     if (e.skipTurns > 0) {
       e.skipTurns--;
       result.skipped = true;
@@ -595,8 +679,8 @@
       var mv = e.intent;
       var self = this;
       function enemyHit(base) {
-        // 精英随层数成长的攻击加成（dmgBonus）在此结算
-        var dmg = base + e.strength + (e.dmgBonus || 0);
+        // 精英随层数成长的攻击加成（dmgBonus）在此结算；销赃镜像（perGold）按玩家金币加伤
+        var dmg = base + e.strength + (e.dmgBonus || 0) + (mv.perGold ? Math.floor(st.gold / mv.perGold) : 0);
         if (e.weak > 0) dmg = Math.floor(dmg * 0.75);
         if (c.playerVuln > 0) dmg = Math.floor(dmg * 1.5);
         if (dmg < 0) dmg = 0;
@@ -614,7 +698,7 @@
         result.dmgToPlayer += through;
         result.hits.push(through);
         result.absorbed.push(absorbed);
-        // 剩饭护体：反弹
+        // 剩饭护体：反弹（打当前行动的敌人）
         c.powers.forEach(function (p) {
           if (p.id === 'leftover_shield') {
             var ref = p.value;
@@ -635,7 +719,7 @@
           if (mv.strength) e.strength += mv.strength;
           break;
         }
-        case 'block': e.block += mv.value; result.enemyBlock = mv.value; break;
+        case 'block': e.block += mv.value; result.enemyBlock = (result.enemyBlock || 0) + mv.value; break;
         case 'debuff':
           if (mv.weak) c.playerWeak += mv.weak;
           if (mv.vulnerable) c.playerVuln += mv.vulnerable;
@@ -643,16 +727,70 @@
         case 'buff': if (mv.strength) e.strength += mv.strength; break;
         case 'charge': break; // 蓄力仅作为意图提示
         case 'heal': e.hp = Math.min(e.maxHp, e.hp + mv.value); break;
+        case 'stealGold': { // 偷男：偷取玩家金币（不造成伤害）
+          var stolen = Math.min(st.gold, mv.value);
+          st.gold -= stolen;
+          result.stolenGold = (result.stolenGold || 0) + stolen;
+          break;
+        }
+        case 'costUp': { // 财务总监「成本核算」：随机 N 张（手牌+抽牌堆）本场费用 +1
+          var pool3 = c.hand.concat(c.drawPile);
+          var n = Math.min(mv.value, pool3.length);
+          for (var k = 0; k < n; k++) {
+            var idx = self.rng.int(pool3.length);
+            var inst = pool3.splice(idx, 1)[0];
+            inst.costMod = (inst.costMod || 0) + 1;
+            result.costUpCards = (result.costUpCards || 0) + 1;
+          }
+          break;
+        }
+        case 'counter': { // 高级VP「秋后算账」：玩家本回合未造成伤害则重锤
+          result.attacked = true;
+          enemyHit(c.playerDealtDmgThisTurn === 0 ? mv.value : mv.fallback);
+          break;
+        }
       }
     }
     // 敌人 debuff 衰减
     if (e.weak > 0) e.weak--;
     if (e.vulnerable > 0) e.vulnerable--;
-
     this._checkPhase(e);
+  };
+
+  // 结束回合：弃手牌 → 敌人行动 → 结算 → 新回合
+  Engine.prototype.endTurn = function () {
+    var st = this.state, c = st.combat;
+    if (!c || c.over) return { over: true };
+    var result = { dmgToPlayer: 0, enemyBlock: 0, skipped: false, over: false, hits: [], absorbed: [], reflected: 0, scarf: false, attacked: false };
+    // 深谋：机皇本回合没打出过攻击牌时，手牌全部保留到下回合；否则照常弃牌
+    var keepHand = st.charId === 'jihuang' && c.attacksThisTurn === 0;
+    if (!keepHand) while (c.hand.length) c.discard.push(c.hand.pop());
+    // 玩家 debuff 衰减
+    if (c.playerWeak > 0) c.playerWeak--;
+    if (c.playerVuln > 0) c.playerVuln--;
+
+    if (c.multi) {
+      // 1vN：存活董事按顺序各自行动
+      for (var mi = 0; mi < c.enemies.length; mi++) {
+        var me = c.enemies[mi];
+        if (me.dead) continue;
+        this._enemyAct(me, result);
+        this._afterDamageChecks(result);
+        this._checkMultiDeaths(result);
+        if (c.over) break;
+      }
+    } else {
+      this._enemyAct(c.enemy, result);
+    }
+
     this._afterDamageChecks(result);
     if (!c.over) {
-      this._chooseIntent(e);
+      if (c.multi) {
+        var self2 = this;
+        c.enemies.forEach(function (e2) { if (!e2.dead) self2._chooseIntent(e2); });
+      } else {
+        this._chooseIntent(c.enemy);
+      }
       this._startPlayerTurn();
     }
     result.over = c.over;
@@ -1094,7 +1232,118 @@
     return info;
   };
 
-  /* ---------- 实时伤害预览（卡面角标数据源，与 dealDamage 同管线） ---------- */
+  /* ---------- Boss Rush：总部连续作战 ---------- */
+  // 从通关构筑开始 Rush：build = {charId, deck, relics, equippedRelics, gold, hp, maxHp}
+  Engine.prototype.rushStart = function (build) {
+    this.newRun(build.charId);
+    var st = this.state;
+    st.deck = build.deck.map(function (c) { return { uid: c.uid, id: c.id, up: c.up, costMod: c.costMod || 0 }; });
+    st.uidCounter = build.deck.reduce(function (m, c) { return Math.max(m, c.uid); }, 0) + 1;
+    st.relics = build.relics.slice();
+    st.equippedRelics = (build.equippedRelics || build.relics).slice(0, Engine.MAX_EQUIPPED_RELICS || 4);
+    st.gold = build.gold;
+    st.maxHp = build.maxHp;
+    st.hp = build.hp;
+    st.rush = {
+      fight: 1,
+      entry: {
+        charId: build.charId,
+        deck: st.deck.map(function (c) { return { uid: c.uid, id: c.id, up: c.up, costMod: c.costMod || 0 }; }),
+        relics: st.relics.slice(),
+        equippedRelics: st.equippedRelics.slice(),
+        gold: build.gold,
+        hp: build.hp,
+        maxHp: build.maxHp
+      },
+      active: true,
+      won: false,
+      failed: false
+    };
+    return st.rush;
+  };
+
+  // 失败重开：牌组/圣物/金币/精力回到进入时状态，从第 1 场重来
+  Engine.prototype.rushRestart = function () {
+    var st = this.state;
+    if (!st.rush) return;
+    var entry = st.rush.entry;
+    st.deck = entry.deck.map(function (c) { return { uid: c.uid, id: c.id, up: c.up, costMod: c.costMod || 0 }; });
+    st.uidCounter = entry.deck.reduce(function (m, c) { return Math.max(m, c.uid); }, 0) + 1;
+    st.relics = entry.relics.slice();
+    st.equippedRelics = entry.equippedRelics.slice();
+    st.gold = entry.gold;
+    st.maxHp = entry.maxHp;
+    st.hp = entry.hp;
+    st.rush.fight = 1;
+    st.rush.failed = false;
+    st.rush.won = false;
+    st.over = false;
+    st.victory = false;
+    st.combat = null;
+  };
+
+  // 当前场次 BOSS 定义
+  Engine.prototype.rushBossDef = function () {
+    var st = this.state;
+    if (!st.rush || st.rush.fight > D.rushBosses.length) return null;
+    return D.rushBosses[st.rush.fight - 1];
+  };
+
+  // 进入当前场战斗（董事会走 1vN）
+  Engine.prototype.rushStartFight = function () {
+    var def = this.rushBossDef();
+    if (!def) throw new Error('Rush 已全部通关');
+    if (def.multi) return this.startMultiCombat(def, this.state.rush.fight);
+    return this.startRushCombat(def, this.state.rush.fight);
+  };
+
+  // Rush 胜利推进：回复 20% 最大精力
+  Engine.prototype.rushFightWon = function () {
+    var st = this.state;
+    st.hp = Math.min(st.maxHp, st.hp + Math.floor(st.maxHp * 0.4));
+  };
+
+  // Rush 失败结算
+  Engine.prototype.rushFightLost = function () {
+    var st = this.state;
+    if (!st.rush) return;
+    st.rush.failed = true;
+    // Rush 中失败不结束整局（由调用方处理重开/退出）
+    st.over = false;
+    st.victory = false;
+  };
+
+  // 推进场次；第 10 场胜利则 Rush 通关
+  Engine.prototype.rushAdvance = function () {
+    var st = this.state;
+    st.rush.fight++;
+    if (st.rush.fight > D.rushBosses.length) {
+      st.rush.won = true;
+      st.rush.active = false;
+    }
+    return st.rush.won;
+  };
+
+  // 整备点（第 3/6/9 场后）三选一：0 回 40% / 1 升级随机 2 张 / 2 随机圣物
+  Engine.prototype.rushRest = function (choice) {
+    var st = this.state;
+    if (choice === 0) {
+      st.hp = Math.min(st.maxHp, st.hp + Math.floor(st.maxHp * 0.7));
+    } else if (choice === 1) {
+      var ups = st.deck.filter(function (c) { return !c.up; });
+      this.rng.shuffle(ups);
+      ups.slice(0, 2).forEach(function (c) { c.up = true; });
+    } else {
+      var pool = Object.keys(D.relics).filter(function (r) { return st.relics.indexOf(r) < 0; });
+      if (pool.length) this.addRelic(this.rng.pick(pool));
+    }
+  };
+
+  // 整备点（第 3/6/9 场后）是否需要
+  Engine.prototype.rushNeedRest = function () {
+    var f = this.state.rush.fight;
+    return f === 4 || f === 7 || f === 9 || f === 10; // 第 3/6/8/9 场之后的整备（进入下一场前）
+  };
   // 返回当前打出该牌可造成的单段伤害；不支持的牌返回 null
   Engine.prototype.previewDamage = function (inst) {
     var st = this.state, c = st.combat;
@@ -1118,7 +1367,7 @@
     if (base === null) return null;
     // 与 dealDamage 相同的固定加成（力量/键盘/剑穗/深谋/钞能）
     var dmg = base + c.playerStrength;
-    var edef = D.enemies[c.enemy.id];
+    var edef = c.enemy._def;
     if (def.type === 'attack' && this.hasRelic('keyboard_rel')) dmg += 1;
     if (this.hasRelic('sword_tassel') && edef && (edef.elite || edef.boss)) dmg += 2;
     if (def.type === 'attack' && st.charId === 'jihuang') dmg += Math.floor(Math.max(0, c.hand.length - 1) / 2);

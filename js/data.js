@@ -1125,6 +1125,139 @@
     monster: '小怪', elite: '精英', event: '事件', shop: '秦国小卖铺', rest: '茶水间', boss: 'BOSS'
   };
 
+  /* ---------------- Boss Rush：总部连续作战 ----------------
+   * 10 场 BOSS 连打（数值按策划案 v5）
+   * 特殊招式类型（engine endTurn 处理）：
+   *   stealGold: 偷玩家金币（不造成伤害）
+   *   perGold: attack 附加属性，伤害 += floor(玩家金币/perGold)（销赃镜像）
+   *   costUp: 随机 N 张玩家手牌本场费用 +1
+   *   counter: 玩家本回合未造成伤害则打 value，否则打 fallback
+   *   passiveStrength / passiveBlock: 敌人每回合开始自动加力量/格挡
+   */
+  var rushBosses = [
+    {
+      id: 'front', name: '总部前台·微笑杀手', hp: 180, ai: 'loop',
+      moves: [
+        { name: '职业微笑', type: 'block', value: 8 },
+        { name: '前台问候', type: 'attack', value: 10 },
+        { name: '为您预约', type: 'charge' },
+        { name: '预约已排满', type: 'attack', value: 18 }
+      ]
+    },
+    {
+      id: 'elevator', name: '电梯战神', hp: 210,
+      moves: [
+        { name: '负重深蹲', type: 'attack', value: 28, every: 3 },
+        { name: '关门', type: 'charge', w: 2 },
+        { name: '急速下坠', type: 'attack', value: 22, w: 3 }
+      ]
+    },
+    {
+      id: 'secretary', name: '会议室秘书长', hp: 240,
+      moves: [
+        { name: '议题发散', type: 'attack', value: 12, w: 3 },
+        { name: '主持议程', type: 'buff', strength: 2, w: 2 },
+        { name: '延长会议', type: 'heal', value: 15, w: 2 }
+      ]
+    },
+    {
+      id: 'thief', name: '神秘偷男', hp: 280,
+      moves: [
+        { name: '顺手牵羊', type: 'stealGold', value: 15, w: 2 },
+        { name: '黑吃黑', type: 'attack', value: 14, w: 3 },
+        { name: '销赃', type: 'attack', value: 8, perGold: 50, w: 2 }
+      ]
+    },
+    {
+      id: 'findir', name: '财务总监', hp: 320,
+      moves: [
+        { name: '成本核算', type: 'costUp', value: 2, w: 2 },
+        { name: '预算收紧', type: 'attack', value: 16, w: 3 },
+        { name: '冻结报销', type: 'debuff', weak: 2, w: 2 }
+      ]
+    },
+    {
+      id: 'juan', name: '卷王之王', hp: 360, ai: 'loop',
+      moves: [
+        { name: '凌晨四点', type: 'attack', value: 14 },
+        { name: '开始卷', type: 'buff', strength: 1 },
+        { name: '凌晨四点', type: 'attack', value: 14 },
+        { name: 'KPI 冲刺', type: 'attack', value: 26 }
+      ]
+    },
+    {
+      id: 'hrdir', name: '人力总监', hp: 410,
+      moves: [
+        { name: '绩效改进计划', type: 'attack', value: 16, w: 3 },
+        { name: '微笑面谈', type: 'debuff', weak: 2, vulnerable: 1, w: 2 },
+        { name: '最后一杯咖啡', type: 'heal', value: 15, w: 2 }
+      ]
+    },
+    {
+      id: 'vp', name: '高级VP', hp: 460, passiveBlock: 12,
+      moves: [
+        { name: '代理决策', type: 'attack', value: 16, w: 3 },
+        { name: '影子护卫', type: 'block', value: 12, w: 2 },
+        { name: '秋后算账', type: 'counter', value: 30, fallback: 16, w: 2 }
+      ]
+    },
+    {
+      id: 'board', name: '董事会', hp: 550, multi: true,
+      members: [
+        {
+          id: 'b_fin', name: '财务董事', hp: 180,
+          moves: [
+            { name: '做账', type: 'attack', value: 10, w: 3 },
+            { name: '顺手牵羊', type: 'stealGold', value: 10, w: 2 },
+            { name: '财报粉饰', type: 'block', value: 8, w: 1 }
+          ]
+        },
+        {
+          id: 'b_tech', name: '技术董事', hp: 200,
+          moves: [
+            { name: '迭代轰炸', type: 'attack', value: 3, times: 3, w: 3 },
+            { name: '上线冲刺', type: 'attack', value: 13, w: 2 },
+            { name: '架构护盾', type: 'block', value: 12, w: 2 }
+          ]
+        },
+        {
+          id: 'b_hr', name: '人力董事', hp: 170,
+          moves: [
+            { name: '优化', type: 'attack', value: 18, every: 3 },
+            { name: '绩效面谈', type: 'debuff', weak: 1, vulnerable: 1, w: 2 },
+            { name: '团建回血', type: 'heal', value: 10, w: 1 },
+            { name: '例行谈话', type: 'attack', value: 10, w: 2 }
+          ]
+        }
+      ]
+    },
+    {
+      id: 'capital', name: '资本化身', hp: 550,
+      phases: [
+        {
+          until: 0.66, phaseName: '资本的力量',
+          moves: [
+            { name: '市场规律', type: 'attack', value: 14, strength: 1, w: 1 }
+          ]
+        },
+        {
+          until: 0.33, phaseName: '最终收割',
+          moves: [
+            { name: '资本的力量', type: 'attack', value: 12, times: 2, strength: 2, w: 1 }
+          ]
+        },
+        {
+          until: 0,
+          moves: [
+            { name: '最终收割', type: 'attack', value: 12, weak: 2, every: 3 },
+            { name: '常态输出', type: 'attack', value: 12, times: 2, w: 1 }
+          ]
+        }
+      ],
+      moves: []
+    }
+  ];
+
   g.GameData = {
     KEYWORDS: KEYWORDS,
     EFFECT_OPS: EFFECT_OPS,
@@ -1139,6 +1272,7 @@
     TOTAL_ACTS: TOTAL_ACTS,
     NODE_WEIGHTS: NODE_WEIGHTS,
     CHAR_CARD_WEIGHTS: CHAR_CARD_WEIGHTS,
+    rushBosses: rushBosses,
     NODE_NAMES: NODE_NAMES
   };
 })(typeof window !== 'undefined' ? window : globalThis);

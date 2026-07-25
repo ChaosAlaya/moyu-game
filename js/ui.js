@@ -82,13 +82,20 @@
   /* ---------- 标题（横版主视觉 + 右侧竖排按钮） ---------- */
   function renderTitle(S) {
     var sv = S.save;
+    var rushBtn = (sv.wins > 0 || sv.lastWinBuild)
+      ? '<button class="tbtn rush-btn" onclick="Game.enterRush()"><img class="rush-logo-mini" src="assets/v2/rush/rush_logo.png" alt="">总部连续作战！</button>'
+      : '';
+    var godTitle = sv.godTitle
+      ? '<div class="god-title">👑 称号：摸鱼之神</div>' : '';
     return '<div class="screen title-bg2" id="screen-title">' +
       '<div class="title-menu2">' +
       '<button class="tbtn primary" onclick="Game.toChars()">▶ 开始摸鱼</button>' +
+      rushBtn +
       '<button class="tbtn" onclick="Game.showCodex()">📖 图鉴</button>' +
       '<button class="tbtn" onclick="Game.toHistory()">🏆 战绩</button>' +
       '<button class="tbtn" onclick="Game.toSave()">💾 存档</button>' +
       '<button class="tbtn" onclick="Game.toggleSfx()">🔊 音效：' + (g.GameSfx.enabled ? '开' : '关') + '</button>' +
+      godTitle +
       '</div>' +
       '<div class="stats">最高到达：第 ' + sv.maxFloor + ' 层 · 通关 ' + sv.wins + ' 次 · 累计摸鱼 ' + sv.runs + ' 局</div>' +
       '</div>';
@@ -317,19 +324,57 @@
 
   function renderCombat(S) {
     var run = S.run, c = run.combat, e = c.enemy;
-    var edef = D.enemies[e.id];
+    var edef = e._def;
     var ch = D.characters[run.charId];
-    var cls = edef.boss ? 'boss' : edef.elite ? 'elite' : '';
+    var cls = (edef.boss || c.rushBoss) ? 'boss' : edef.elite ? 'elite' : '';
     var eHpPct = Math.max(0, e.hp / e.maxHp * 100);
     var pHpPct = Math.max(0, run.hp / run.maxHp * 100);
-    // 老板等带阶段的 BOSS：阶段 2 换图
-    var eArt = enemyArt(e.id, edef.phases && e.phase > 0);
+    // 老板等带阶段的 BOSS：阶段 2 换图；rush BOSS 用 rush 立绘路径；资本化身三阶段换图
+    var eArt;
+    if (c.rushBoss) {
+      eArt = c.rushBoss.id === 'capital'
+        ? 'assets/v2/rush/capital_p' + (e.phase + 1) + '.jpg'
+        : 'assets/v2/rush/' + c.rushBoss.id + '.jpg';
+    } else {
+      eArt = enemyArt(e.id, edef.phases && e.phase > 0);
+    }
+    // 1vN：敌人并排，可点选集火目标
+    var enemyZoneHtml;
+    if (c.multi) {
+      var members = c.enemies.map(function (me, mi) {
+        var hpPct = Math.max(0, me.hp / me.maxHp * 100);
+        var dead = me.dead ? ' dead' : '';
+        var tgt = (mi === c.target && !me.dead) ? ' target' : '';
+        var onclick = me.dead ? '' : ' onclick="Game.pickTarget(' + mi + ')"';
+        var mArt = 'assets/v2/rush/' + me.id + '.jpg';
+        var mIntent = me.dead ? '' : '<div class="intent mini">' + (me.intent ? (me.intent.name || '') : '…') + '</div>';
+        return '<div class="multi-enemy' + dead + tgt + '"' + onclick + '>' +
+          mIntent +
+          '<img class="enemy-img v2" id="enemy-img-' + mi + '" src="' + mArt + '" alt="' + me.name + '">' +
+          '<div class="enemy-name">' + me.name + '</div>' +
+          '<div class="hpbar mini"><div class="fill" style="width:' + hpPct + '%"></div>' +
+            '<div class="txt">' + me.hp + '/' + me.maxHp + '</div></div>' +
+          (me.block > 0 ? '<div class="block-badge">' + ico('block') + ' ' + me.block + '</div>' : '') +
+          (me.strength ? '<div class="status-row"><span class="status str">力量+' + me.strength + '</span></div>' : '') +
+          '</div>';
+      }).join('');
+      enemyZoneHtml = '<div class="multi-enemies">' + members + '</div>' +
+        '<div class="multi-tip">点击敌人切换集火目标（金框为当前目标）</div>';
+    } else {
+      var eStatus = statusBadges([
+        e.strength ? { cls: 'str', txt: '力量+' + e.strength } : null,
+        e.weak ? { cls: 'weak', txt: '虚弱 ' + e.weak } : null,
+        e.vulnerable ? { cls: 'vuln', txt: '易伤 ' + e.vulnerable } : null
+      ]);
+      enemyZoneHtml = intentHtml(S) +
+        '<img class="enemy-img v2 ' + cls + '" id="enemy-img" src="' + eArt + '" alt="' + e.name + '">' +
+        '<div class="enemy-name">' + e.name + '</div>' +
+        '<div class="hpbar"><div class="fill" style="width:' + eHpPct + '%"></div>' +
+          '<div class="txt">' + e.hp + '/' + e.maxHp + '</div></div>' +
+        (e.block > 0 ? '<div class="block-badge">' + ico('block') + ' 格挡 ' + e.block + '</div>' : '') +
+        '<div class="status-row">' + eStatus + '</div>';
+    }
 
-    var eStatus = statusBadges([
-      e.strength ? { cls: 'str', txt: '力量+' + e.strength } : null,
-      e.weak ? { cls: 'weak', txt: '虚弱 ' + e.weak } : null,
-      e.vulnerable ? { cls: 'vuln', txt: '易伤 ' + e.vulnerable } : null
-    ]);
     var pStatus = statusBadges([
       c.playerStrength ? { cls: 'str', txt: '力量+' + c.playerStrength } : null,
       c.playerWeak ? { cls: 'weak', txt: '虚弱 ' + c.playerWeak } : null,
@@ -342,7 +387,7 @@
     var hasGamepad = runHasRelic(run, 'gamepad');
     var hand = c.hand.map(function (inst, i) {
       var def = Engine.cardDef(inst);
-      var cost = def.cost;
+      var cost = def.cost + (inst.costMod || 0); // 「成本核算」附加费用
       if (def.type === 'skill' && hasGamepad && !c.flags.gamepadUsed) cost = Math.max(0, cost - 1);
       var playable = cost <= c.energy && !c.over;
       // 抽牌入场动画（仅在 endTurn 后的那次渲染开启）
@@ -417,14 +462,7 @@
             '<div class="stage-ellipse"></div>' +
           '</div>' +
         '</div>' +
-        '<div class="enemy-zone">' +
-          intentHtml(S) +
-          '<img class="enemy-img v2 ' + cls + '" id="enemy-img" src="' + eArt + '" alt="' + e.name + '">' +
-          '<div class="enemy-name">' + e.name + '</div>' +
-          '<div class="hpbar"><div class="fill" style="width:' + eHpPct + '%"></div>' +
-            '<div class="txt">' + e.hp + '/' + e.maxHp + '</div></div>' +
-          (e.block > 0 ? '<div class="block-badge">' + ico('block') + ' 格挡 ' + e.block + '</div>' : '') +
-          '<div class="status-row">' + eStatus + '</div>' +
+        '<div class="enemy-zone">' + enemyZoneHtml +
         '</div>' +
       '</div>' + confirmBar +
       '<div class="hand' + (S.animating ? ' anim-lock' : '') + '">' + hand +
@@ -580,9 +618,82 @@
       tips.map(function (t) { return '<div class="unlock-tip">' + t + '</div>'; }).join('') +
       '<div style="display:flex;gap:14px">' +
       '<button class="primary" onclick="Game.toChars()">再来一局</button>' +
+      (win ? '<button class="rush-btn2" onclick="Game.enterRush()">直上总部！</button>' : '') +
       '<button class="yellow" onclick="Game.shareResult()">复制战绩</button>' +
       '<button onclick="Game.toTitle()">回标题</button>' +
       '</div><div id="share-fallback"></div></div>';
+  }
+
+  /* ---------- Boss Rush：连胜主界面 ---------- */
+  function renderRush(S) {
+    var st = S.run, rush = st.rush;
+    var bosses = D.rushBosses;
+    var fight = rush.fight;
+    var cur = bosses[fight - 1];
+    // 进度节点
+    var nodes = bosses.map(function (b, i) {
+      var n = i + 1;
+      var cls = n < fight ? 'rush-node done' : n === fight ? 'rush-node cur' : 'rush-node todo';
+      return '<div class="' + cls + '">' + n + '</div>';
+    }).join('<div class="rush-link"></div>');
+    var preview = cur
+      ? '<div class="rush-preview">' +
+        '<img class="rush-boss-img" src="assets/v2/rush/' + (cur.multi ? 'b_fin' : cur.id) + '.jpg" alt="">' +
+        '<div class="rush-boss-name">第 ' + fight + ' 场 · ' + cur.name + (cur.multi ? '（1v3 集团战）' : '') + '</div>' +
+        '<button class="primary rush-go" onclick="Game.rushFight()">开战</button></div>'
+      : '';
+    return '<div class="screen rush-screen" id="screen-rush">' +
+      '<div class="topbar"><span class="floor">总部连续作战！ · 第 ' + fight + '/10 场</span>' +
+      '<span class="hp-mini">精力 ' + st.hp + '/' + st.maxHp + '</span>' +
+      '<span class="gold">金币 ' + st.gold + '</span>' +
+      '<div class="spacer"></div>' +
+      '<button onclick="Game.rushQuit()">存档退出</button></div>' +
+      '<div class="rush-body">' +
+      '<img class="rush-logo" src="assets/v2/rush/rush_logo.png" alt="">' +
+      '<div class="rush-progress">' + nodes + '</div>' +
+      preview +
+      '</div></div>';
+  }
+
+  /* ---------- Boss Rush：整备点 ---------- */
+  function renderRushRest(S) {
+    var st = S.run;
+    return '<div class="screen rush-screen" id="screen-rushrest">' +
+      '<div class="center-wrap"><div class="panel">' +
+      '<h2>整备点 · 第 ' + (st.rush.fight - 1) + ' 场后</h2>' +
+      '<div class="event-text">连续作战间隙，选择一项补给再继续：</div>' +
+      '<div class="rest-opts">' +
+      '<button class="primary" onclick="Game.rushRest(0)">回复 40% 最大精力（当前 ' + st.hp + '/' + st.maxHp + '）</button>' +
+      '<button class="yellow" onclick="Game.rushRest(1)">升级随机 2 张牌</button>' +
+      '<button class="yellow" onclick="Game.rushRest(2)">获得随机圣物</button>' +
+      '</div></div></div></div>';
+  }
+
+  /* ---------- Boss Rush：失败 ---------- */
+  function renderRushFail(S) {
+    var st = S.run;
+    return '<div class="screen rush-screen" id="screen-rushfail">' +
+      '<div class="center-wrap"><div class="panel">' +
+      '<h2>倒在了第 ' + st.rush.fight + ' 场…</h2>' +
+      '<div class="event-text">Rush 讲究一鼓作气。牌组将回到进入总部时的状态，从第 1 场重新挑战。</div>' +
+      '<div class="rest-opts">' +
+      '<button class="primary" onclick="Game.rushRetry()">从第 1 场重新挑战</button>' +
+      '<button onclick="Game.rushQuit()">存档退出</button>' +
+      '</div></div></div></div>';
+  }
+
+  /* ---------- Boss Rush：通关 ---------- */
+  function renderRushWin(S) {
+    var st = S.run;
+    return '<div class="screen rush-screen" id="screen-rushwin">' +
+      '<div class="center-wrap"><div class="panel rush-win-panel">' +
+      '<img class="rush-logo-big" src="assets/v2/rush/rush_logo.png" alt="">' +
+      '<h2>👑 摸鱼之神！</h2>' +
+      '<div class="event-text">你用 ' + D.characters[st.charId].name + ' 连破总部 10 场 BOSS 战，' +
+      '连资本化身都倒在了你的脚下！称号「摸鱼之神」已解锁，将常驻标题界面。</div>' +
+      '<div class="rest-opts">' +
+      '<button class="primary" onclick="Game.toTitle()">回标题</button>' +
+      '</div></div></div></div>';
   }
 
   /* ---------- 图鉴 ---------- */
@@ -702,6 +813,10 @@
       case 'event': html = renderEvent(S); break;
       case 'deckSelect': html = renderDeckSelect(S); break;
       case 'over': html = renderOver(S); break;
+      case 'rush': html = renderRush(S); break;
+      case 'rushRest': html = renderRushRest(S); break;
+      case 'rushFail': html = renderRushFail(S); break;
+      case 'rushWin': html = renderRushWin(S); break;
       case 'codex': html = renderCodex(S); break;
       case 'history': html = renderHistory(S); break;
       case 'save': html = renderSave(S); break;

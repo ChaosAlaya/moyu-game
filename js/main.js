@@ -156,11 +156,13 @@
   function afterCombat(extraMs) {
     if (!S.run.combat.over) return;
     var extra = extraMs || 0;
+    var isRush = !!(S.run.rush && S.run.rush.active);
     if (S.run.combat.won) {
       Sfx.play('win');
       setTimeout(function () {
         // 玩家可能已在延迟期间回了标题，避免突然弹出奖励屏
         if (S.screen !== 'combat') return;
+        if (isRush) { Game.rushAfterWin(); return; }
         S.reward = S.engine.genReward();
         S.engine.takeReward(S.reward);
         syncSave();
@@ -171,10 +173,21 @@
       Sfx.play('lose');
       setTimeout(function () {
         if (S.screen !== 'combat') return; // 同上：已离开战斗则不弹结算
+        if (isRush) {
+          S.engine.rushFightLost();
+          S.screen = 'rushFail';
+          render();
+          return;
+        }
         gameOver();
       }, 800 + extra);
     }
   }
+
+  /* ---------- 1vN：切换集火目标 ---------- */
+  Game.pickTarget = function (i) {
+    if (S.engine.pickTarget(i)) render();
+  };
 
   /* ---------- 移动端点按选中→确认出牌 ---------- */
   Game.tapCard = function (i) {
@@ -194,38 +207,48 @@
   /* ---------- 敌人死亡演出 ---------- */
   // BOSS：换倒地立绘+全屏过场+下班大字+星星绕头，2.2s 后消散（强总走专属演出）
   // 精英：大消散+冲击波；小怪：大消散+闪白，12% 概率击飞上天彩蛋
+  // 当前集火目标的元素 id（1vN 时按 target）
+  function eImg() {
+    var c = S.run.combat;
+    return (c && c.multi) ? 'enemy-img-' + c.target : 'enemy-img';
+  }
   function enemyDeathAnim(edef, e) {
-    if (edef.boss) {
-      var img = document.getElementById('enemy-img');
-      if (img) img.src = 'assets/v2/enemy/boss_down_' + S.run.act +
-        (e.id === 'boss3' ? (e.phase > 0 ? '_p2' : '_p1') : '') + '.jpg';
+    if (edef.boss || (S.run.combat && S.run.combat.rushBoss && !S.run.combat.multi)) {
+      var img = document.getElementById(eImg());
+      if (img) {
+        // rush BOSS 用 rush 倒地立绘；主游戏 BOSS 用 boss_down
+        img.src = (S.run.combat && S.run.combat.rushBoss)
+          ? 'assets/v2/rush/down_' + S.run.combat.rushBoss.id + '.jpg'
+          : 'assets/v2/enemy/boss_down_' + S.run.act +
+            (e.id === 'boss3' ? (e.phase > 0 ? '_p2' : '_p1') : '') + '.jpg';
+      }
       UI.bossDeathScene();
       UI.bigText('下班！');
-      UI.playFxFrames('enemy-img', 'stars', { size: 280, fps: 7, loops: 3 });
+      UI.playFxFrames(eImg(), 'stars', { size: 280, fps: 7, loops: 3 });
       setTimeout(function () {
-        UI.deathAnim('enemy-img');
-        if (e.id === 'boss3') {
-          UI.playFxFrames('enemy-img', 'qiangDeath', { size: 460, fps: 8 });
+        UI.deathAnim(eImg());
+        if (e.id === 'boss3' || (S.run.combat && S.run.combat.rushBoss && S.run.combat.rushBoss.id === 'capital')) {
+          UI.playFxFrames(eImg(), 'qiangDeath', { size: 460, fps: 8 });
           UI.goldenFlash();
         } else {
-          UI.playFxFrames('enemy-img', 'eliteDeath', { size: 420, fps: 12, holdLast: 700 });
+          UI.playFxFrames(eImg(), 'eliteDeath', { size: 420, fps: 12, holdLast: 700 });
         }
       }, 2200);
       return;
     }
     // 消散瞬间加一次短促冲击波环+闪白
-    UI.shockRing('enemy-img');
-    UI.hitFlash('enemy-img');
-    UI.deathAnim('enemy-img');
+    UI.shockRing(eImg());
+    UI.hitFlash(eImg());
+    UI.deathAnim(eImg());
     if (edef.elite) {
-      UI.playFxFrames('enemy-img', 'eliteDeath', { size: 480, fps: 8, holdLast: 1300 });
+      UI.playFxFrames(eImg(), 'eliteDeath', { size: 480, fps: 8, holdLast: 1300 });
     } else if (Math.random() < 0.12) {
       // 击飞彩蛋：飞更高+旋转
-      UI.playFxFrames('enemy-img', 'knockaway', { size: 420, fps: 10, holdLast: 1300 });
-      var km = document.getElementById('enemy-img');
+      UI.playFxFrames(eImg(), 'knockaway', { size: 420, fps: 10, holdLast: 1300 });
+      var km = document.getElementById(eImg());
       if (km) km.classList.add('knockfly');
     } else {
-      UI.playFxFrames('enemy-img', 'minionDeath', { size: 420, fps: 8, holdLast: 900 });
+      UI.playFxFrames(eImg(), 'minionDeath', { size: 420, fps: 8, holdLast: 900 });
     }
   }
 
@@ -263,20 +286,20 @@
           var pr = pel.getBoundingClientRect();
           // 手部位置：立绘右侧中部
           var handRect = { left: pr.left + pr.width * 0.72, top: pr.top + pr.height * 0.42, width: 44, height: 58 };
-          UI.cardFly(handRect, 'enemy-img', 260, null);
+          UI.cardFly(handRect, eImg(), 260, null);
         }
       }
       render();
       // 命中帧：敌人抖动+闪白+星环+冲击波，序列帧增强（大伤 crit / 多段 combo / 普通 hit）
       r.hits.forEach(function (h, idx) {
         setTimeout(function () {
-          UI.hitFlash('enemy-img');
-          UI.impactFlash('enemy-img');
-          UI.shockRing('enemy-img');
+          UI.hitFlash(eImg());
+          UI.impactFlash(eImg());
+          UI.shockRing(eImg());
           UI.miniShake();
           var seq = h >= 15 ? 'crit' : (r.hits.length > 1 ? 'combo' : 'hit');
-          UI.playFxFrames('enemy-img', seq, { size: h >= 15 ? 360 : r.hits.length > 1 ? 220 : 300, fps: 13 });
-          var p = UI.targetPos('enemy-img');
+          UI.playFxFrames(eImg(), seq, { size: h >= 15 ? 360 : r.hits.length > 1 ? 220 : 300, fps: 13 });
+          var p = UI.targetPos(eImg());
           if (p) UI.spawnFloatText(p.x, p.y, '-' + h, h >= 15 ? 'dmg big' : 'dmg');
           Sfx.play('hit');
         }, flyMs + idx * 180);
@@ -310,14 +333,14 @@
       if (c.easterEgg) {
         var egg = c.easterEgg;
         c.easterEgg = null;
-        setTimeout(function () { UI.floater('enemy-img', egg, 'text'); }, flyMs);
+        setTimeout(function () { UI.floater(eImg(), egg, 'text'); }, flyMs);
       }
       var endMs = midMs + (r.hits.length ? 180 : 0);
       var deathExtra = 0;
       if (c.over) {
-        var edefE = D.enemies[c.enemy.id];
+        var edefE = c.enemy._def;
         // 胜利：演出时长 小怪≥1.2s / 精英≥1.6s / BOSS≥3.2s；玩家阵亡同样留白
-        deathExtra = c.won ? (edefE.boss ? 3200 : edefE.elite ? 1600 : 1200) : 700;
+        deathExtra = c.won ? ((edefE.boss || c.rushBoss) ? 3200 : edefE.elite ? 1600 : 1200) : 700;
         if (c.won) setTimeout(function () { enemyDeathAnim(edefE, c.enemy); }, endMs);
       }
       // 玩家阵亡（自伤牌）：暴击爆裂 + 全屏震动 + 红闪 + 立绘消散
@@ -336,7 +359,7 @@
   Game.endTurn = function () {
     var c = S.run.combat;
     if (!c || c.over || S.animating) return; // 动画编排期间锁输入
-    var edef = D.enemies[c.enemy.id];
+    var edef = c.enemy._def;
     var phaseBefore = c.enemy.phase;
     var r = S.engine.endTurn();
     S.cardConfirm = null;
@@ -346,7 +369,7 @@
     render();
     S.dealAnim = false;
     // 敌人前冲 → 玩家受击帧（序列帧+冲击波+震屏+红闪，按节奏连发；格挡吸收有盾光表现）
-    if (r.attacked) UI.lunge('enemy-img');
+    if (r.attacked) UI.lunge(eImg());
     var startMs = r.attacked ? 220 : 0;
     if (r.scarf) setTimeout(function () {
       UI.playFxFrames('player-img', 'block', { size: 260, fps: 12 });
@@ -378,11 +401,11 @@
     });
     // 剩饭护体反弹：敌人头顶飘字
     if (r.reflected > 0) setTimeout(function () {
-      UI.hitFlash('enemy-img');
-      UI.floater('enemy-img', '反弹 -' + r.reflected, 'dmg');
+      UI.hitFlash(eImg());
+      UI.floater(eImg(), '反弹 -' + r.reflected, 'dmg');
     }, startMs);
-    if (r.skipped) UI.floater('enemy-img', '跳过了行动！', 'text');
-    if (r.enemyBlock > 0) UI.floater('enemy-img', '+' + r.enemyBlock + ' 格挡', 'block');
+    if (r.skipped) UI.floater(eImg(), '跳过了行动！', 'text');
+    if (r.enemyBlock > 0) UI.floater(eImg(), '+' + r.enemyBlock + ' 格挡', 'block');
     var endMs = startMs + Math.max(0, r.hits.length - 1) * 200 + (r.hits.length ? 200 : 0);
     // BOSS 阶段切换：全屏震动 + 红闪 + 阶段名大字
     var phaseChanged = edef.phases && c.enemy.phase !== phaseBefore;
@@ -426,9 +449,13 @@
   Game.rewardCard = function (i) {
     S.engine.takeRewardCard(S.reward, i);
     syncSave();
+    if (S.run.rush && S.run.rush.active) { Game.rushTakeCard(i); return; }
     finishNode();
   };
-  Game.rewardSkip = function () { finishNode(); };
+  Game.rewardSkip = function () {
+    if (S.run.rush && S.run.rush.active) { Game.rushSkipReward(); return; }
+    finishNode();
+  };
 
   /* ---------- 商店 ---------- */
   Game.shopBuyCard = function (i) {
@@ -503,12 +530,147 @@
 
   /* ---------- 结算 ---------- */
   function gameOver() {
-    if (S.run.victory) S.save.wins++;
+    if (S.run.victory) {
+      S.save.wins++;
+      // 记录通关构筑快照（Boss Rush 入口用）
+      S.save.lastWinBuild = {
+        charId: S.run.charId,
+        deck: S.run.deck.map(function (c) { return { uid: c.uid, id: c.id, up: c.up, costMod: c.costMod || 0 }; }),
+        relics: S.run.relics.slice(),
+        equippedRelics: (S.run.equippedRelics || S.run.relics).slice(),
+        gold: S.run.gold,
+        hp: S.run.hp,
+        maxHp: S.run.maxHp
+      };
+    }
     g.GameEngine.pushHistory(S.save, S.run); // 战绩簿
     syncSave();
     S.screen = 'over';
     render();
   }
+
+  /* ---------- Boss Rush：总部连续作战 ---------- */
+  var RUSH_SAVE_KEY = 'moyu_rush_save';
+
+  function rushPersist() {
+    if (!S.run || !S.run.rush) return;
+    try {
+      localStorage.setItem(RUSH_SAVE_KEY, JSON.stringify({
+        fight: S.run.rush.fight,
+        build: {
+          charId: S.run.charId,
+          deck: S.run.deck.map(function (c) { return { uid: c.uid, id: c.id, up: c.up, costMod: c.costMod || 0 }; }),
+          relics: S.run.relics.slice(),
+          equippedRelics: S.run.equippedRelics.slice(),
+          gold: S.run.gold,
+          hp: S.run.hp,
+          maxHp: S.run.maxHp
+        },
+        entry: S.run.rush.entry
+      }));
+    } catch (e) {}
+  }
+  function rushLoadSave() {
+    try {
+      var raw = localStorage.getItem(RUSH_SAVE_KEY);
+      return raw ? JSON.parse(raw) : null;
+    } catch (e) { return null; }
+  }
+  function rushClearSave() {
+    try { localStorage.removeItem(RUSH_SAVE_KEY); } catch (e) {}
+  }
+
+  // 进入 Rush（有存档续打，否则用通关构筑新开）
+  Game.enterRush = function () {
+    var saved = rushLoadSave();
+    if (saved && saved.build) {
+      S.engine.rushStart(saved.build);
+      S.run.rush.fight = saved.fight || 1;
+      if (saved.entry) S.run.rush.entry = saved.entry;
+    } else {
+      if (!S.save.lastWinBuild) { UI.toast('需要先通关 10 层才能挑战总部！'); return; }
+      S.engine.rushStart(S.save.lastWinBuild);
+    }
+    S.run = S.engine.state; // rushStart 会重建 run，同步引用
+    S.screen = 'rush';
+    render();
+  };
+
+  // 开始当前场战斗
+  Game.rushFight = function () {
+    if (!S.run || !S.run.rush) return;
+    S.engine.rushStartFight();
+    S.screen = 'combat';
+    render();
+  };
+
+  // Rush 战斗胜利后的奖励（三选一并回复 20%，已出牌组状态基础上）
+  Game.rushAfterWin = function () {
+    var st = S.run;
+    S.engine.rushFightWon(); // 回复 20%
+    S.reward = S.engine.genReward();
+    S.engine.takeReward(S.reward);
+    rushPersist();
+    S.screen = 'reward';
+    render();
+  };
+
+  // 拿完奖励推进：整备点 or 下一场 or 通关
+  function rushNext() {
+    var won = S.engine.rushAdvance();
+    if (won) {
+      // Rush 通关
+      S.save.godTitle = true;
+      g.GameEngine.pushHistory(S.save, {
+        charId: S.run.charId, act: 10, victory: true,
+        combat: { enemy: { name: '资本化身（总部连续作战）' } },
+        deck: S.run.deck, relics: S.run.relics
+      });
+      syncSave();
+      rushClearSave();
+      S.screen = 'rushWin';
+      render();
+      return;
+    }
+    rushPersist();
+    if (S.engine.rushNeedRest()) {
+      S.screen = 'rushRest';
+    } else {
+      S.screen = 'rush';
+    }
+    render();
+  }
+
+  // Rush 奖励三选一 / 跳过（复用现有 reward 界面，但走 rushNext）
+  Game.rushTakeCard = function (i) {
+    S.engine.takeRewardCard(S.reward, i);
+    syncSave();
+    rushNext();
+  };
+  Game.rushSkipReward = function () { rushNext(); };
+
+  // 整备点三选一
+  Game.rushRest = function (choice) {
+    S.engine.rushRest(choice);
+    rushPersist();
+    S.screen = 'rush';
+    render();
+  };
+
+  // Rush 失败：从第 1 场重来（牌组回到进入时状态）
+  Game.rushRetry = function () {
+    S.engine.rushRestart();
+    rushPersist();
+    S.screen = 'rush';
+    render();
+  };
+
+  // 中途退出：自动存档回标题
+  Game.rushQuit = function () {
+    rushPersist();
+    S.screen = 'title';
+    render();
+  };
 
   /* ---------- 图鉴 ---------- */
   Game.showCodex = function () {

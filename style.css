@@ -1081,3 +1081,81 @@ button.yellow { background: var(--yellow); }
 @keyframes scenefade {
   0% { opacity: 0; } 12% { opacity: 1; } 75% { opacity: 1; } 100% { opacity: 0; }
 }
+
+/* ---------- Boss Rush：连胜界面 ---------- */
+.rush-screen {
+  background: url('assets/v2/rush/rush_banner.jpg') center/cover no-repeat #0d1026;
+  position: relative;
+}
+.rush-screen::before {
+  content: ''; position: absolute; inset: 0; background: rgba(8, 10, 26, .55);
+}
+.rush-screen > * { position: relative; z-index: 1; }
+.rush-body {
+  flex: 1; display: flex; flex-direction: column; align-items: center;
+  justify-content: center; gap: 22px; padding: 20px;
+}
+.rush-logo { width: 180px; filter: drop-shadow(0 0 20px rgba(245,194,66,.5)); }
+.rush-logo-big { width: 220px; filter: drop-shadow(0 0 30px rgba(245,194,66,.8)); }
+.rush-progress { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; justify-content: center; }
+.rush-node {
+  width: 44px; height: 44px; border-radius: 50%;
+  border: 3px solid var(--ink); font-weight: 900; font-size: 16px;
+  display: flex; align-items: center; justify-content: center;
+  background: #2a2f4a; color: #889;
+}
+.rush-node.done { background: #2E9E4F; color: #fff; }
+.rush-node.cur { background: var(--red); color: #fff; box-shadow: 0 0 14px rgba(192,52,74,.9); }
+.rush-node.todo { opacity: .5; }
+.rush-link { width: 14px; height: 3px; background: rgba(255,244,230,.3); }
+.rush-preview {
+  display: flex; flex-direction: column; align-items: center; gap: 12px;
+  background: rgba(20, 16, 12, .85); border: 3px solid var(--ink); border-radius: 16px;
+  padding: 18px 26px;
+}
+.rush-boss-img { width: 200px; height: 200px; object-fit: cover; border: 3px solid var(--ink); border-radius: 14px; }
+.rush-boss-name { color: #fff; font-weight: 900; font-size: 18px; }
+.rush-go { font-size: 20px; padding: 10px 40px; }
+.rush-btn { display: flex; align-items: center; gap: 8px; }
+.rush-logo-mini { width: 28px; height: 28px; }
+.rush-btn2 {
+  background: var(--yellow); border-color: var(--ink); color: var(--ink);
+  font-weight: 900;
+}
+.god-title {
+  margin-top: 10px; color: var(--yellow); font-weight: 900; font-size: 15px;
+  text-shadow: 2px 2px 0 var(--ink);
+}
+.rush-win-panel { align-items: center; }
+
+/* ---------- 1vN 集团战 ---------- */
+.multi-enemies {
+  display: flex; gap: 18px; align-items: flex-start; justify-content: center;
+  width: 100%;
+}
+.multi-enemy {
+  display: flex; flex-direction: column; align-items: center; gap: 4px;
+  cursor: pointer; padding: 8px; border-radius: 14px;
+  border: 3px solid transparent; transition: transform .12s, border-color .12s;
+}
+.multi-enemy:not(.dead):hover { transform: translateY(-4px); }
+.multi-enemy.target { border-color: var(--yellow); box-shadow: 0 0 14px rgba(245,194,66,.6); }
+.multi-enemy.dead { opacity: .35; filter: grayscale(1); cursor: default; }
+.multi-enemy .enemy-img.v2 { height: 165px; width: 165px; }
+.intent.mini { font-size: 12px; padding: 3px 10px; }
+.hpbar.mini { width: 130px; height: 16px; }
+.hpbar.mini .txt { font-size: 11px; line-height: 11px; }
+.multi-tip {
+  color: rgba(255,244,230,.75); font-size: 13px; font-weight: 700;
+  text-shadow: 1px 1px 0 #000; margin-top: 6px;
+}
+
+/* 移动端 rush / 1vN 适配 */
+@media (max-width: 820px) {
+  .rush-logo { width: 130px; }
+  .rush-boss-img { width: 150px; height: 150px; }
+  .multi-enemies { gap: 8px; }
+  .multi-enemy .enemy-img.v2 { height: 105px; width: 105px; }
+  .multi-enemy { padding: 4px; }
+  .hpbar.mini { width: 100px; }
+}
