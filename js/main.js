@@ -150,6 +150,10 @@
       S.screen = 'event';
     }
     render();
+    // 仪式感：BOSS 开场亮出名字大字卡
+    if (node.type === 'boss' && S.run.combat && S.run.combat.enemy) {
+      UI.bigText(S.run.combat.enemy.name);
+    }
   };
 
   /* ---------- 战斗 ---------- */
@@ -545,8 +549,58 @@
     }
     g.GameEngine.pushHistory(S.save, S.run); // 战绩簿
     syncSave();
+    if (S.run.victory) { startCutscene(); return; } // 通关：强总→总部过场演出，再接 Rush
     S.screen = 'over';
     render();
+  }
+
+  /* ---------- 通关过渡演出（强总倒地 → 电梯上顶层 → 董事会大门 → Rush） ---------- */
+  // 5 镜头约 8.4s，全程可点击跳过；结束/跳过都直接进 Rush 连胜界面
+  var cutsceneTimers = [];
+  function csTimeout(fn, ms) { cutsceneTimers.push(setTimeout(fn, ms)); }
+  function clearCutsceneTimers() {
+    cutsceneTimers.forEach(clearTimeout);
+    cutsceneTimers = [];
+  }
+  function csStep(step, ms, sfx) {
+    csTimeout(function () {
+      if (S.screen !== 'cutscene') return;
+      S.cutsceneStep = step;
+      if (sfx) Sfx.play(sfx);
+      render();
+    }, ms);
+  }
+  Game.startCutscene = startCutscene; // 暴露给 e2e/调试
+  function startCutscene() {
+    clearCutsceneTimers();
+    S.cutsceneStep = 0; // 镜头0：暗下
+    S.screen = 'cutscene';
+    render();
+    csStep(1, 900, 'hit');   // 镜头1：电梯间门合 + 楼层滚动
+    csStep(2, 3400, 'draw'); // 镜头2：电梯门开，抵达顶层
+    csStep(3, 4800);         // 镜头3：董事会大门 + 门缝金光
+    csStep(4, 6200, 'win');  // 镜头4：推门，白光 + 主角剪影升起
+    csStep(5, 7600);         // 镜头5：白光全屏
+    csTimeout(endCutscene, 8400);
+    // 楼层数字 1F→顶层 高速滚动（叠加在镜头1的电梯指示器上）
+    var floors = ['1F', '3F', '5F', '7F', '10F', '顶层'];
+    floors.forEach(function (f, i) {
+      csTimeout(function () {
+        if (S.screen !== 'cutscene' || S.cutsceneStep !== 1) return; // 仅镜头1滚动，避免覆盖镜头2的「顶层」
+        var fn = document.getElementById('floor-num');
+        if (fn) fn.textContent = f;
+        if (i > 0) UI.miniShake(); // 上行轻震
+      }, 1200 + i * 400);
+    });
+  }
+  Game.skipCutscene = function () {
+    if (S.screen !== 'cutscene') return;
+    endCutscene();
+  };
+  function endCutscene() {
+    clearCutsceneTimers();
+    S.cutsceneStep = 0;
+    Game.enterRush();
   }
 
   /* ---------- Boss Rush：总部连续作战 ---------- */
@@ -602,6 +656,12 @@
     S.engine.rushStartFight();
     S.screen = 'combat';
     render();
+    // 仪式感：每场 BOSS 开场大字卡；资本化身登场全屏金色脉冲
+    var rb = S.run.combat && S.run.combat.rushBoss;
+    if (rb) {
+      UI.bigText(rb.name);
+      if (rb.id === 'capital') UI.goldenFlash();
+    }
   };
 
   // Rush 战斗胜利后的奖励（三选一并回复 20%，已出牌组状态基础上）
@@ -670,6 +730,16 @@
     rushPersist();
     S.screen = 'title';
     render();
+  };
+
+  /* ---------- 新手指南 ---------- */
+  Game.openGuide = function () { S.showGuide = true; S.guidePage = 0; render(); };
+  Game.closeGuide = function () { S.showGuide = false; render(); };
+  Game.guideNext = function () {
+    if ((S.guidePage || 0) < 4) { S.guidePage = (S.guidePage || 0) + 1; render(); }
+  };
+  Game.guidePrev = function () {
+    if ((S.guidePage || 0) > 0) { S.guidePage = (S.guidePage || 0) - 1; render(); }
   };
 
   /* ---------- 图鉴 ---------- */

@@ -41,6 +41,7 @@
         '<span class="relic-count">' + equipped.length + '/' + g.GameEngine.MAX_EQUIPPED_RELICS + '</span></div>' +
       '<div class="spacer"></div>' +
       '<button onclick="Game.showDeck(\'deck\')">牌组 ' + run.deck.length + '</button>' +
+      '<button onclick="Game.openGuide()">指南</button>' +
       '<button onclick="Game.showCodex()">图鉴</button>' +
       '<button onclick="Game.toTitle()">回标题</button>' +
       '</div>';
@@ -92,6 +93,7 @@
       '<button class="tbtn primary" onclick="Game.toChars()">▶ 开始摸鱼</button>' +
       rushBtn +
       '<button class="tbtn" onclick="Game.showCodex()">📖 图鉴</button>' +
+      '<button class="tbtn" onclick="Game.openGuide()">❓ 指南</button>' +
       '<button class="tbtn" onclick="Game.toHistory()">🏆 战绩</button>' +
       '<button class="tbtn" onclick="Game.toSave()">💾 存档</button>' +
       '<button class="tbtn" onclick="Game.toggleSfx()">🔊 音效：' + (g.GameSfx.enabled ? '开' : '关') + '</button>' +
@@ -740,6 +742,95 @@
       '</div></div></div>';
   }
 
+  /* ---------- 过渡演出（强总倒下 → Rush 连胜界面） ---------- */
+  function renderCutscene(S) {
+    var step = S.cutsceneStep || 0;
+    var html = '<div class="cutscene" onclick="Game.skipCutscene()">';
+    if (step === 0) {
+      html += '<div class="cs-black"></div>';
+    } else if (step === 1) {
+      // 电梯间：门合拢 + 楼层数字高速滚动
+      html += '<img class="cs-bg" src="assets/v2/cutscene/elevator.jpg">' +
+        '<div class="edoor l closing"></div><div class="edoor r closing"></div>' +
+        '<div class="floor-num" id="floor-num">1F</div>';
+    } else if (step === 2) {
+      // 电梯门开，到顶层
+      html += '<img class="cs-bg" src="assets/v2/cutscene/elevator.jpg">' +
+        '<div class="edoor l open"></div><div class="edoor r open"></div>' +
+        '<div class="floor-num">顶层</div>';
+    } else if (step === 3) {
+      // 董事会大门矗立，门缝金光脉冲
+      html += '<img class="cs-bg fadein" src="assets/v2/cutscene/door_closed.jpg">' +
+        '<div class="door-seam"></div>';
+    } else if (step === 4) {
+      // 推门而入：白光涌出 + 主角剪影升起
+      html += '<img class="cs-bg fadein" src="assets/v2/cutscene/door_open.jpg">' +
+        '<div class="door-glow"></div>' +
+        '<img class="silhouette" src="' + charArt(S.run.charId, 'stage') + '">';
+    } else {
+      // 白光全屏淡出
+      html += '<img class="cs-bg" src="assets/v2/cutscene/door_open.jpg">' +
+        '<div class="whiteflash"></div>';
+    }
+    html += '<div class="cs-skip">点击跳过 →</div></div>';
+    return html;
+  }
+
+  /* ---------- 新手指南（5 页弹层） ---------- */
+  var GUIDE_PAGES = [
+    {
+      title: '怎么赢',
+      html: '<p>爬 <b>10 层楼</b>，每层 <b>5 步</b>，打穿第 10 层 BOSS 即通关！</p>' +
+        '<p>精力归零就「被工作击倒」——本局结束。</p>' +
+        '<p>通关后解锁终局玩法「<b>总部连续作战！</b>」——连打 10 场 BOSS 的 Boss Rush。</p>'
+    },
+    {
+      title: '战斗基础',
+      html: '<p>每回合 <b>4 点能量</b>、<b>抽 5 张牌</b>；<b>格挡回合末清零</b>，别攒着。</p>' +
+        '<p>敌人头顶气泡 = 下回合意图，<b>点气泡看详情</b>（有肯尼的镜片时显示精确数值）。</p>' +
+        '<p>打出的牌进弃牌堆，抽完自动洗回。顶栏可随时【牌组】查看整套牌。</p>'
+    },
+    {
+      title: '关键词',
+      html: '<p><b>力量</b>：每层 +1 攻击伤害</p>' +
+        '<p><b>虚弱</b>：造成伤害 -25%（按回合衰减）</p>' +
+        '<p><b>易伤</b>：受伤 +50%（按回合衰减）</p>' +
+        '<p><b>消耗</b>：打出后本场战斗移除（不进弃牌堆）</p>'
+    },
+    {
+      title: '地图节点',
+      html: '<p><b>小怪</b> / <b>精英</b>（更强但掉圣物）/ <b>事件</b>（各种梗与抉择）</p>' +
+        '<p><b>秦国小卖铺</b>：买牌买圣物 + 付费删牌 + 付费复制牌（各 1 次）</p>' +
+        '<p><b>茶水间</b>：回复 30% 精力 或 升级 1 张牌（数值 +30%）</p>' +
+        '<p>每层最后一步固定 BOSS，打完上楼。</p>'
+    },
+    {
+      title: '角色与被动',
+      html: '<p><b>摸鱼奎恩</b>·摸鱼之道：本场每打出 5 张牌恢复 1 点能量</p>' +
+        '<p><b>北极熊剩饭</b>·血怒：每缺少 5 点精力，伤害 +1（上限 6）</p>' +
+        '<p><b>企鹅机皇</b>·深谋：攻击牌每 2 张手牌 +1 伤；本回合没打攻击牌则不弃牌</p>' +
+        '<p><b>爽老鸭</b>·钞能：每有 50 金币，伤害 +1；商店 +1 格、开战 +10 金</p>'
+    }
+  ];
+
+  function renderGuide(S) {
+    var page = S.guidePage || 0;
+    var pg = GUIDE_PAGES[page];
+    return '<div class="dv-backdrop guide-backdrop" onclick="Game.closeGuide()">' +
+      '<div class="dv-panel guide-panel" onclick="event.stopPropagation()">' +
+      '<h2>📖 摸鱼指南 · ' + pg.title + '</h2>' +
+      '<div class="guide-body">' + pg.html + '</div>' +
+      '<div class="guide-nav">' +
+      '<button ' + (page === 0 ? 'disabled' : '') + ' onclick="Game.guidePrev()">← 上一页</button>' +
+      '<span class="guide-dots">' + GUIDE_PAGES.map(function (_, i) {
+        return '<span class="gdot' + (i === page ? ' cur' : '') + '"></span>';
+      }).join('') + '</span>' +
+      '<button ' + (page === GUIDE_PAGES.length - 1 ? 'disabled' : '') + ' onclick="Game.guideNext()">下一页 →</button>' +
+      '</div>' +
+      '<button onclick="Game.closeGuide()">关闭</button>' +
+      '</div></div>';
+  }
+
   /* ---------- 牌组/牌堆/弃牌查看弹层 ---------- */
   function deckViewHtml(S) {
     var body = '';
@@ -820,9 +911,10 @@
       case 'codex': html = renderCodex(S); break;
       case 'history': html = renderHistory(S); break;
       case 'save': html = renderSave(S); break;
+      case 'cutscene': html = renderCutscene(S); break;
       default: html = '<div class="screen">未知界面</div>';
     }
-    el().innerHTML = html + (S.deckView ? deckViewHtml(S) : '') + (S.relicView ? relicViewHtml(S) : '');
+    el().innerHTML = html + (S.deckView ? deckViewHtml(S) : '') + (S.relicView ? relicViewHtml(S) : '') + (S.showGuide ? renderGuide(S) : '');
     // 界面切换时统一清理动画临时元素，防止飘字跨屏残留（同屏重绘保留进行中的动画）
     if (S.screen !== lastScreen) {
       var fx = document.getElementById('fx');
