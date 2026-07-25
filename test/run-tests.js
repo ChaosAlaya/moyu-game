@@ -811,6 +811,43 @@ section('b3) v2 资源 / 存档码 / 战绩簿');
   ok(r2.healGained === 3 && st.hp === st.maxHp, `截断后 healGained=3（实际 ${r2.healGained}）`);
 }
 
+// ============ 被动实时数值读取入口（passiveInfo 与管线一致性） ============
+section('b2.8) passiveInfo 读取入口');
+{
+  // 小Q：进度 = cardsPlayed % 5
+  const e1 = new Engine(60);
+  e1.newRun('xiaoq');
+  e1.startCombat('group_at');
+  const c1 = e1.state.combat;
+  c1.cardsPlayed = 7;
+  ok(e1.passiveInfo().value === '已打出 2/5 张牌', `passiveInfo 小Q进度（实际 ${e1.passiveInfo().value}）`);
+  // 剩饭：血怒百分比 = (1-hp/maxHp)×0.25
+  const e2 = new Engine(61);
+  e2.newRun('shengfan');
+  e2.startCombat('group_at');
+  e2.state.hp = 45; // 75 满 → 损失 40% → +10%
+  ok(e2.passiveInfo().value === '当前加成 +' + Math.round(0.4 * 0.25 * 100) + '%',
+    `passiveInfo 血怒（实际 ${e2.passiveInfo().value}）`);
+  // 与管线一致：strike 6 × (1+0.4×0.25) = floor(6.6) = 6 → 打 6+加成验证在 b2.5 已锁
+  // 机皇：手牌加伤 + 不弃牌标记
+  const e3 = new Engine(62);
+  e3.newRun('jihuang');
+  e3.startCombat('group_at');
+  const c3 = e3.state.combat;
+  c3.hand = [1, 2, 3, 4].map(i => ({ uid: i, id: 'defend_moyu', up: false }));
+  c3.attacksThisTurn = 0;
+  ok(e3.passiveInfo().value === '当前手牌加伤 +' + Math.floor(4 / 2), `passiveInfo 深谋（实际 ${e3.passiveInfo().value}）`);
+  ok(e3.passiveInfo().tag === '不弃牌', 'passiveInfo 深谋不弃牌标记');
+  c3.attacksThisTurn = 1;
+  ok(e3.passiveInfo().tag === null, 'passiveInfo 打过攻击牌无标记');
+  // 老鸭：金币/50
+  const e4 = new Engine(63);
+  e4.newRun('shuanglaoya');
+  e4.startCombat('group_at');
+  e4.state.gold = 137;
+  ok(e4.passiveInfo().value === '当前加伤 +' + Math.floor(137 / 50), `passiveInfo 钞能（实际 ${e4.passiveInfo().value}）`);
+}
+
 /* ---------- c) 地图生成 ---------- */
 section('c) 地图生成（10 层 × 100 次）');
 {

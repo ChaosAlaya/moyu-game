@@ -874,6 +874,13 @@ button.yellow { background: var(--yellow); }
 }
 .ic-more { font-size: 13px; font-weight: 900; opacity: .6; }
 .infocard .status-row { padding: 6px 12px; flex-wrap: wrap; }
+/* 被动技能区 */
+.ic-passive { background: linear-gradient(90deg, rgba(245,194,66,.18), rgba(245,194,66,.04)); cursor: help; }
+.ic-passive .pv { color: #B8860B; }
+.ic-passive .pv-tag {
+  font-style: normal; font-size: 11px; font-weight: 900; color: #fff;
+  background: #7A4FA3; border-radius: 6px; padding: 1px 6px; margin-left: 6px;
+}
 
 /* 舞台立绘在信息卡右侧 */
 .pstage {

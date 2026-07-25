@@ -251,6 +251,18 @@
     svg.innerHTML = html;
   }
 
+  /* ---------- 被动技能区（信息卡内，实时数值） ---------- */
+  function passiveRowHtml(S) {
+    if (!S.engine || !S.engine.passiveInfo) return '';
+    var pi = S.engine.passiveInfo();
+    if (!pi) return '';
+    return '<div class="ic-row ic-passive" title="' + pi.desc + '" onclick="GameUI.toast(\'' + pi.desc + '\')">' +
+      '<span class="ic-label">' + ico(pi.icon) + ' ' + pi.name + '</span>' +
+      '<span class="ic-val pv">' + pi.value +
+        (pi.tag ? '<em class="pv-tag">' + pi.tag + '</em>' : '') +
+      '</span></div>';
+  }
+
   /* ---------- 战斗 ---------- */
   // 从招式数据自动生成中文效果描述（不写死）
   function moveDesc(mv) {
@@ -397,6 +409,7 @@
               }).join('') +
               (run.relics.length > 4 ? '<span class="ic-more">+' + (run.relics.length - 4) + '</span>' : '') +
             '</span></div>' +
+            passiveRowHtml(S) +
             '<div class="status-row">' + pStatus + '</div>' +
           '</div>' +
           '<div class="pstage">' +

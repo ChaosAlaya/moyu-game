@@ -391,10 +391,10 @@
       // 钞能：爽老鸭每有 50 金币伤害 +1（与深谋同级固定值相加）
       if (st.charId === 'shuanglaoya') dmg += Math.floor(st.gold / 50);
       if (c.playerWeak > 0) dmg = Math.floor(dmg * 0.75);
-      // 血怒：剩饭伤害提升 = 已损失精力百分比 × 35%
+      // 血怒：剩饭伤害提升 = 已损失精力百分比 × BLOODRAGE_COEF
       if (st.charId === 'shengfan') {
         var lostPct = 1 - st.hp / st.maxHp;
-        dmg = Math.floor(dmg * (1 + lostPct * 0.25));
+        dmg = Math.floor(dmg * (1 + lostPct * Engine.BLOODRAGE_COEF));
       }
       if (c.enemy.vulnerable > 0) dmg = Math.floor(dmg * 1.5);
       if (dmg < 0) dmg = 0;
@@ -505,7 +505,7 @@
     if (def.type === 'attack') { c.attacksPlayed++; c.attacksThisTurn++; }
     if (inst.id === 'darksword') c.darkswordPlays++;
     // 摸鱼之道：每打出 5 张牌恢复 1 点能量（允许临时超过上限）
-    if (st.charId === 'xiaoq' && c.cardsPlayed % 5 === 0) c.energy += 1;
+    if (st.charId === 'xiaoq' && c.cardsPlayed % Engine.ENERGY_CYCLE === 0) c.energy += 1;
     if (inst.id === 'darksword') c.darkswordPlays++;
     if (def.flavor) c.easterEgg = def.flavor;
     // 能力：摸鱼境界
@@ -957,6 +957,39 @@
     return save.history;
   }
 
+  /* ---------- 被动技能实时数值（与伤害管线同公式，供信息卡显示） ---------- */
+  // 共享系数：改数值只动这里，管线与显示永远一致
+  Engine.BLOODRAGE_COEF = 0.25;   // 血怒：每 1% 已损失精力的伤害加成
+  Engine.STRATEGIST_PER = 2;      // 深谋：每 N 张手牌 +1 伤
+  Engine.MONEYPOWER_PER = 50;     // 钞能：每 N 金币 +1 伤
+  Engine.ENERGY_CYCLE = 5;        // 摸鱼之道：每 N 张牌回 1 能量
+
+  // 返回 { name, desc, value, tag?, icon }；combat 为 null 时返回基础信息
+  Engine.prototype.passiveInfo = function () {
+    var st = this.state;
+    if (!st) return null;
+    var ch = D.characters[st.charId];
+    var c = st.combat;
+    var info = { name: ch.title, desc: ch.passive, icon: 'buff', value: '', tag: null };
+    if (st.charId === 'xiaoq') {
+      info.icon = 'energy';
+      if (c) info.value = '已打出 ' + (c.cardsPlayed % Engine.ENERGY_CYCLE) + '/' + Engine.ENERGY_CYCLE + ' 张牌';
+    } else if (st.charId === 'shengfan') {
+      info.icon = 'intent_attack';
+      if (c) info.value = '当前加成 +' + Math.round((1 - st.hp / st.maxHp) * Engine.BLOODRAGE_COEF * 100) + '%';
+    } else if (st.charId === 'jihuang') {
+      info.icon = 'buff';
+      if (c) {
+        info.value = '当前手牌加伤 +' + Math.floor(c.hand.length / Engine.STRATEGIST_PER);
+        if (c.attacksThisTurn === 0) info.tag = '不弃牌';
+      }
+    } else if (st.charId === 'shuanglaoya') {
+      info.icon = 'gold';
+      if (c) info.value = '当前加伤 +' + Math.floor(st.gold / Engine.MONEYPOWER_PER);
+    }
+    return info;
+  };
+
   /* ---------- 实时伤害预览（卡面角标数据源，与 dealDamage 同管线） ---------- */
   // 返回当前打出该牌可造成的单段伤害；不支持的牌返回 null
   Engine.prototype.previewDamage = function (inst) {
@@ -987,7 +1020,7 @@
     if (def.type === 'attack' && st.charId === 'jihuang') dmg += Math.floor(Math.max(0, c.hand.length - 1) / 2);
     if (st.charId === 'shuanglaoya') dmg += Math.floor(st.gold / 50);
     if (c.playerWeak > 0) dmg = Math.floor(dmg * 0.75);
-    if (st.charId === 'shengfan') dmg = Math.floor(dmg * (1 + (1 - st.hp / st.maxHp) * 0.25));
+    if (st.charId === 'shengfan') dmg = Math.floor(dmg * (1 + (1 - st.hp / st.maxHp) * Engine.BLOODRAGE_COEF));
     if (c.enemy.vulnerable > 0) dmg = Math.floor(dmg * 1.5);
     return Math.max(0, dmg);
   };
