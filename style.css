@@ -860,7 +860,7 @@ button.yellow { background: var(--yellow); }
   background: #fff;
 }
 .ic-32 { width: 32px; height: 32px; object-fit: cover; border: 2px solid var(--ink); border-radius: 5px; }
-.ic-trash { font-size: 22px; line-height: 1; }
+.ic-trash-img { height: 24px; width: auto; vertical-align: -0.3em; }
 /* 圣物槽位 */
 .ic-relic-row { display: flex; gap: 6px; align-items: center; }
 .ic-relic {
@@ -1004,7 +1004,7 @@ button.yellow { background: var(--yellow); }
   .ic-row .hpbar { width: 88px; height: 15px; }
   .ic-row.ic-relics { display: none; }
   .ic-32 { width: 22px; height: 22px; }
-  .ic-trash { font-size: 16px; }
+  .ic-trash-img { height: 18px; }
   .infocard .status-row { padding: 0; }
   /* 舞台立绘缩小放左下（与 PC 对角线一致：角色左下、敌人右上） */
   .pstage { position: fixed; left: 4px; right: auto; bottom: 300px; transform: none; z-index: 5; }

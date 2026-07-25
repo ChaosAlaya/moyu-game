@@ -396,7 +396,7 @@
               '<span class="ic-label"><img class="ic-32" src="assets/v2/ui/cardback.jpg" alt=""> 牌堆</span>' +
               '<span class="ic-val">' + c.drawPile.length + '</span></div>' +
             '<div class="ic-row ic-pile" onclick="Game.showDeck(\'discard\')" title="查看弃牌堆">' +
-              '<span class="ic-label"><span class="ic-trash">🗑</span> 弃牌</span>' +
+              '<span class="ic-label"><img class="ic-trash-img" src="assets/v2/icon/trash.png" alt="弃牌"> 弃牌</span>' +
               '<span class="ic-val">' + c.discard.length + '</span></div>' +
             (c.exhausted.length ?
               '<div class="ic-row"><span class="ic-label">✕ 消耗</span><span class="ic-val">' + c.exhausted.length + '</span></div>' : '') +
