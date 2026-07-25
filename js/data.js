@@ -307,9 +307,9 @@
     },
     stockpile: {
       name: '囤粮', cost: 1, type: 'skill', rarity: 'common', char: 'shengfan',
-      desc: '最大精力 +3（本局有效）。',
-      effects: [{ op: 'maxHpUp', value: 3 }],
-      up: { desc: '最大精力 +5（本局有效）。', effects: [{ op: 'maxHpUp', value: 5 }] }
+      desc: '最大精力 +2（本局有效）。',
+      effects: [{ op: 'maxHpUp', value: 2 }],
+      up: { desc: '最大精力 +4（本局有效）。', effects: [{ op: 'maxHpUp', value: 4 }] }
     },
     feast: {
       name: '满汉全席', cost: 2, type: 'skill', rarity: 'uncommon', char: 'shengfan',
@@ -429,8 +429,8 @@
     shengfan: {
       name: '北极熊剩饭', title: '干饭人', img: 'shengfan',
       avatar: 'assets/v2/avatar/shengfan.jpg',
-      maxHp: 75, gold: 99,
-      passive: '造成的所有伤害提升：已损失精力百分比 × 25%。',
+      maxHp: 65, gold: 99,
+      passive: '每缺少 5 点精力，造成的伤害 +1（最多 +6）。',
       passiveId: 'bloodrage',
       unlock: 2,
       deck: ['strike_moyu', 'strike_moyu', 'strike_moyu',

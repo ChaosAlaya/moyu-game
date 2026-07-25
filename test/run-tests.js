@@ -301,7 +301,7 @@ section('b2.5) 四角色被动数值断言');
   ok(c.energy === 2, `摸鱼之道：第 10 张牌后再 +1（实际 ${c.energy}）`);
 }
 
-// shengfan 血怒：伤害 ×(1+已损失%×0.5)，先固定值后百分比
+// shengfan 血怒：每缺少 5 点精力伤害 +1（固定值，与力量同级相加）
 {
   const engine = new Engine(32);
   engine.newRun('shengfan');
@@ -313,19 +313,18 @@ section('b2.5) 四角色被动数值断言');
   let hb = c.enemy.hp;
   engine.playCard(0);
   ok(c.enemy.hp === hb - 6, `血怒满血打 6（实际 ${hb - c.enemy.hp}）`);
-  st.hp = Math.floor(st.maxHp * 0.6); // 损失 40% → ×(1+0.4×0.35)=×1.14
+  st.hp = 35; // 65 满 → 损失 30 → +6
   c.energy = 3;
   c.hand.unshift({ uid: 2, id: 'strike_moyu', up: false });
   hb = c.enemy.hp;
   engine.playCard(0);
-  ok(c.enemy.hp === hb - Math.floor(6 * (1 + 0.4 * 0.25)), `血怒损失40%打 floor(6×1.14)=6（实际 ${hb - c.enemy.hp}）`);
-  st.hp = 1; // 损失 ~99% → ×1.49
-  c.energy = 3; c.playerStrength = 4; // 固定值先加再乘：floor((6+4)×1.494)≈14
+  ok(c.enemy.hp === hb - 12, `血怒损失30打 6+6=12（实际 ${hb - c.enemy.hp}）`);
+  st.hp = 1; // 损失 64 → 上限 +6；力量 4 同级相加：6+4+6=16
+  c.energy = 3; c.playerStrength = 4;
   c.hand.unshift({ uid: 3, id: 'strike_moyu', up: false });
   hb = c.enemy.hp;
   engine.playCard(0);
-  ok(c.enemy.hp === hb - Math.floor(10 * (1 + (1 - 1 / 80) * 0.25)),
-    `血怒叠加顺序：力量固定值先加再百分比（实际 ${hb - c.enemy.hp}）`);
+  ok(c.enemy.hp === hb - 16, `血怒上限+6 与力量同级相加 6+4+6=16（实际 ${hb - c.enemy.hp}）`);
 }
 
 // jihuang 深谋 a：每 2 张其他手牌攻击 +1
@@ -400,7 +399,7 @@ function mkCombat(charId, hp, maxHp) {
   const m0 = s1.maxHp;
   s1.combat.hand.unshift({ uid: 1, id: 'stockpile', up: false });
   e1.playCard(0);
-  ok(s1.maxHp === m0 + 3, `囤粮：最大精力 +3（实际 ${s1.maxHp}）`);
+  ok(s1.maxHp === m0 + 2, `囤粮：最大精力 +2（实际 ${s1.maxHp}）`);
   // 满汉全席：maxHp+8 回 8 消耗
   let [e2, s2, c2] = mkCombat('shengfan', 50, 90);
   c2.hand.unshift({ uid: 2, id: 'feast', up: false });
@@ -423,12 +422,12 @@ function mkCombat(charId, hp, maxHp) {
   c5.hand.unshift({ uid: 5, id: 'hunger', up: false });
   let hb5 = c5.enemy.hp;
   e5.playCard(0);
-  ok(c5.enemy.hp === hb5 - Math.floor(8 * (1 + (1 - 50 / 90) * 0.25)), `饥饿咆哮：损失40打8×血怒=9（实际 ${hb5 - c5.enemy.hp}）`);
+  ok(c5.enemy.hp === hb5 - 14, `饥饿咆哮：损失40打 8+血怒6=14（实际 ${hb5 - c5.enemy.hp}）`);
   let [e6, s6, c6] = mkCombat('shengfan', 80, 90);
   c6.hand.unshift({ uid: 6, id: 'hunger', up: false });
   let hb6 = c6.enemy.hp;
   e6.playCard(0);
-  ok(c6.enemy.hp === hb6 - 8, `饥饿咆哮：最低 8（实际 ${hb6 - c6.enemy.hp}）`);
+  ok(c6.enemy.hp === hb6 - 10, `饥饿咆哮：最低 8+血怒2=10（实际 ${hb6 - c6.enemy.hp}）`);
   // 按兵不动：6 格挡抽 1
   let [e7, s7, c7] = mkCombat('jihuang');
   const handB7 = c7.hand.length;
@@ -496,14 +495,14 @@ section('b2.7) 实时伤害角标');
     { uid: 3, id: 'defend_moyu', up: false }, { uid: 4, id: 'defend_moyu', up: false }, { uid: 5, id: 'defend_moyu', up: false }];
   ok(engine.previewDamage({ id: 'allout', up: false }) === 12 + Math.floor(120 / 50),
     `角标全力以赴=14（实际 ${engine.previewDamage({ id: 'allout', up: false })}）`);
-  // 饥饿咆哮：shengfan 视角（血怒也并入）
+  // 饥饿咆哮：shengfan 视角（血怒固定值并入）
   const e2 = new Engine(51);
   e2.newRun('shengfan');
   e2.startCombat('punchclock');
   const s2 = e2.state;
-  s2.hp = 50; // 损失 30/80 → hunger base 7，血怒 ×(1+0.375×0.35) → floor(7×1.13)=7
+  s2.hp = 50; // 65 满 → 损失 15 → hunger base max(8,3)=8，血怒 +3 → 11
   const pv = e2.previewDamage({ id: 'hunger', up: false });
-  ok(pv === Math.floor(8 * (1 + (1 - 50 / 80) * 0.25)), `角标饥饿咆哮含血怒=${pv}`);
+  ok(pv === 11, `角标饥饿咆哮含血怒=${pv}（期望11）`);
   // 普通攻击牌无角标
   ok(engine.previewDamage({ id: 'strike_moyu', up: false }) === null, '普通牌无角标返回 null');
 }
@@ -821,12 +820,12 @@ section('b2.8) passiveInfo 读取入口');
   const c1 = e1.state.combat;
   c1.cardsPlayed = 7;
   ok(e1.passiveInfo().value === '已打出 2/5 张牌', `passiveInfo 小Q进度（实际 ${e1.passiveInfo().value}）`);
-  // 剩饭：血怒百分比 = (1-hp/maxHp)×0.25
+  // 剩饭：血怒固定值 = floor(损失/5)
   const e2 = new Engine(61);
   e2.newRun('shengfan');
   e2.startCombat('group_at');
-  e2.state.hp = 45; // 75 满 → 损失 40% → +10%
-  ok(e2.passiveInfo().value === '当前加成 +' + Math.round(0.4 * 0.25 * 100) + '%',
+  e2.state.hp = 35; // 65 满 → 损失 30 → +6
+  ok(e2.passiveInfo().value === '当前加伤 +6',
     `passiveInfo 血怒（实际 ${e2.passiveInfo().value}）`);
   // 与管线一致：strike 6 × (1+0.4×0.25) = floor(6.6) = 6 → 打 6+加成验证在 b2.5 已锁
   // 机皇：手牌加伤 + 不弃牌标记

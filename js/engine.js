@@ -383,19 +383,16 @@
     if (this.hasRelic('sword_tassel') && (edef2.elite || edef2.boss)) atkBonus += 2;
 
     // 伤害结算管线（顺序固定，测试锁定）：
-    // 基础值 + 固定加成（力量/圣物/深谋/钞能）→ 虚弱 → 血怒百分比 → 易伤
+    // 基础值 + 固定加成（力量/圣物/深谋/钞能/血怒）→ 虚弱 → 易伤
     function dealDamage(base) {
       var dmg = base + atkBonus + c.playerStrength;
       // 深谋：机皇打出攻击牌时，每有 2 张其他剩余手牌伤害 +1（打出瞬间手牌已减该牌）
       if (def.type === 'attack' && st.charId === 'jihuang') dmg += Math.floor(c.hand.length / 2);
       // 钞能：爽老鸭每有 50 金币伤害 +1（与深谋同级固定值相加）
       if (st.charId === 'shuanglaoya') dmg += Math.floor(st.gold / 50);
+      // 血怒：剩饭每缺少 BLOODRAGE_PER 点精力，伤害 +1（固定值，与力量同级）
+      if (st.charId === 'shengfan') dmg += Math.min(Engine.BLOODRAGE_CAP, Math.floor((st.maxHp - st.hp) / Engine.BLOODRAGE_PER));
       if (c.playerWeak > 0) dmg = Math.floor(dmg * 0.75);
-      // 血怒：剩饭伤害提升 = 已损失精力百分比 × BLOODRAGE_COEF
-      if (st.charId === 'shengfan') {
-        var lostPct = 1 - st.hp / st.maxHp;
-        dmg = Math.floor(dmg * (1 + lostPct * Engine.BLOODRAGE_COEF));
-      }
       if (c.enemy.vulnerable > 0) dmg = Math.floor(dmg * 1.5);
       if (dmg < 0) dmg = 0;
       // 敌人格挡
@@ -959,7 +956,8 @@
 
   /* ---------- 被动技能实时数值（与伤害管线同公式，供信息卡显示） ---------- */
   // 共享系数：改数值只动这里，管线与显示永远一致
-  Engine.BLOODRAGE_COEF = 0.25;   // 血怒：每 1% 已损失精力的伤害加成
+  Engine.BLOODRAGE_PER = 5;     // 血怒：剩饭每缺少 N 点精力，伤害 +1
+  Engine.BLOODRAGE_CAP = 6;     // 血怒加成上限（平衡锁定）
   Engine.STRATEGIST_PER = 2;      // 深谋：每 N 张手牌 +1 伤
   Engine.MONEYPOWER_PER = 50;     // 钞能：每 N 金币 +1 伤
   Engine.ENERGY_CYCLE = 5;        // 摸鱼之道：每 N 张牌回 1 能量
@@ -976,7 +974,7 @@
       if (c) info.value = '已打出 ' + (c.cardsPlayed % Engine.ENERGY_CYCLE) + '/' + Engine.ENERGY_CYCLE + ' 张牌';
     } else if (st.charId === 'shengfan') {
       info.icon = 'intent_attack';
-      if (c) info.value = '当前加成 +' + Math.round((1 - st.hp / st.maxHp) * Engine.BLOODRAGE_COEF * 100) + '%';
+      if (c) info.value = '当前加伤 +' + Math.min(Engine.BLOODRAGE_CAP, Math.floor((st.maxHp - st.hp) / Engine.BLOODRAGE_PER));
     } else if (st.charId === 'jihuang') {
       info.icon = 'buff';
       if (c) {
@@ -1019,8 +1017,8 @@
     if (this.hasRelic('sword_tassel') && edef && (edef.elite || edef.boss)) dmg += 2;
     if (def.type === 'attack' && st.charId === 'jihuang') dmg += Math.floor(Math.max(0, c.hand.length - 1) / 2);
     if (st.charId === 'shuanglaoya') dmg += Math.floor(st.gold / 50);
+    if (st.charId === 'shengfan') dmg += Math.min(Engine.BLOODRAGE_CAP, Math.floor((st.maxHp - st.hp) / Engine.BLOODRAGE_PER));
     if (c.playerWeak > 0) dmg = Math.floor(dmg * 0.75);
-    if (st.charId === 'shengfan') dmg = Math.floor(dmg * (1 + (1 - st.hp / st.maxHp) * Engine.BLOODRAGE_COEF));
     if (c.enemy.vulnerable > 0) dmg = Math.floor(dmg * 1.5);
     return Math.max(0, dmg);
   };
