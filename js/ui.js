@@ -476,13 +476,16 @@
         '<div class="rname">' + r.name + '</div>' +
         '<div class="rdesc">' + r.desc + '</div>' + inner + '</div>';
     }).join('');
-    // 服务台：付费删牌
+    // 服务台：付费删牌 + 付费复制牌（各 1 次）
     var removeBtn = shop.removeUsed
       ? '<div class="sold-stamp static">已使用</div>'
       : '<button class="price-tag-btn static' + (run.gold < shop.removePrice ? ' cant' : '') + '"' +
         (run.gold < shop.removePrice ? ' disabled' : '') +
         ' onclick="Game.shopRemoveMode()">' +
         (shop.removePrice === 0 ? '免费删牌（会员卡）' : '删一张牌 ' + ico('gold') + ' ' + shop.removePrice) + '</button>';
+    var copyBtn = shop.copyUsed
+      ? '<div class="sold-stamp static">已使用</div>'
+      : '<button class="price-tag-btn static" onclick="Game.shopCopyMode()">复制一张牌</button>';
     return '<div class="screen" id="screen-shop">' + topbarHtml(S) +
       '<div class="center-wrap"><div class="panel shop-panel-v2">' +
       '<div class="shop-front"><img src="' + eventArt('shop_event') + '" alt="秦国小卖铺">' +
@@ -493,7 +496,7 @@
       '<div class="shop-section"><div class="shop-sec-title">— 圣物货架 —</div>' +
         '<div class="shop-relics-row">' + relicsHtml + '</div></div>' +
       '<div class="shop-section"><div class="shop-sec-title">— 服务台 —</div>' +
-        '<div class="shop-service">' + removeBtn + '</div></div>' +
+        '<div class="shop-service">' + removeBtn + copyBtn + '</div></div>' +
       '<button class="primary" onclick="Game.shopLeave()">离开商店</button>' +
       '</div></div></div>';
   }
@@ -540,9 +543,10 @@
       '</div></div></div>';
   }
 
-  /* ---------- 选牌（删牌/升级） ---------- */
+  /* ---------- 选牌（删牌/升级/复制） ---------- */
   function renderDeckSelect(S) {
     var title = S.selecting === 'shopRemove' ? '选择要移除的牌'
+      : S.selecting === 'shopCopy' ? '选择要复制的牌（按稀有度付费）'
       : S.selecting === 'eventRemove' ? '选择要移除的牌'
       : '选择要升级的牌';
     var list = S.run.deck.filter(function (inst) {
@@ -551,7 +555,7 @@
     var cardsHtml = list.map(function (inst) {
       return cardHtml(inst, { onclick: 'Game.deckSelectPick(' + inst.uid + ')' });
     }).join('') || '<div>没有可选择的牌</div>';
-    var cancelBtn = S.selecting === 'shopRemove'
+    var cancelBtn = (S.selecting === 'shopRemove' || S.selecting === 'shopCopy')
       ? '<button onclick="Game.deckSelectCancel()">取消</button>' : '';
     return '<div class="screen" id="screen-decksel">' + topbarHtml(S) +
       '<div class="center-wrap"><div class="panel">' +

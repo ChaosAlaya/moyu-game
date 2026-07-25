@@ -36,6 +36,7 @@
     squat: {
       name: '带薪蹲坑', cost: 1, type: 'attack', rarity: 'common',
       desc: '造成 5 点伤害，获得 4 点格挡。',
+      tags: ["block"],
       effects: [{ op: 'damage', value: 5 }, { op: 'block', value: 4 }],
       up: { desc: '造成 7 点伤害，获得 6 点格挡。',
         effects: [{ op: 'damage', value: 7 }, { op: 'block', value: 6 }] }
@@ -57,6 +58,7 @@
     rua: {
       name: 'RUA!', cost: 1, type: 'attack', rarity: 'uncommon',
       desc: '造成 4 点伤害，本场战斗每打出过 1 张攻击牌 +2。',
+      tags: ["grow"],
       effects: [{ op: 'special', kind: 'rua', base: 4, per: 2 }],
       up: { desc: '造成 6 点伤害，本场战斗每打出过 1 张攻击牌 +2。',
         effects: [{ op: 'special', kind: 'rua', base: 6, per: 2 }] }
@@ -64,6 +66,7 @@
     darksword: {
       name: '黑暗之剑', cost: 2, type: 'attack', rarity: 'uncommon',
       desc: '造成 7 点伤害，本场战斗每打出过一次此牌 +3。',
+      tags: ["grow"],
       effects: [{ op: 'special', kind: 'darksword', base: 7, per: 3 }],
       up: { desc: '造成 10 点伤害，本场战斗每打出过一次此牌 +3。',
         effects: [{ op: 'special', kind: 'darksword', base: 10, per: 3 }] }
@@ -79,6 +82,7 @@
     pie: {
       name: '老板画的饼', cost: 0, type: 'attack', rarity: 'common',
       desc: '造成 2 点伤害，抽 1 张牌。',
+      tags: ["draw"],
       effects: [{ op: 'damage', value: 2 }, { op: 'draw', value: 1 }],
       up: { desc: '造成 3 点伤害，抽 1 张牌。',
         effects: [{ op: 'damage', value: 3 }, { op: 'draw', value: 1 }] }
@@ -92,6 +96,7 @@
     breakdown: {
       name: '深夜破防', cost: 1, type: 'attack', rarity: 'uncommon',
       desc: '造成等同于你本场战斗已损失精力 30% 的伤害（最低 4）。',
+      tags: ["selfhp"],
       effects: [{ op: 'special', kind: 'breakdown', pct: 0.3, min: 4 }],
       up: { desc: '造成等同于你本场战斗已损失精力 40% 的伤害（最低 6）。',
         effects: [{ op: 'special', kind: 'breakdown', pct: 0.4, min: 6 }] }
@@ -106,6 +111,7 @@
     ultimate: {
       name: '终极摸鱼', cost: 3, type: 'attack', rarity: 'rare',
       desc: '造成 18 点伤害，获得 8 点格挡。',
+      tags: ["block"],
       effects: [{ op: 'damage', value: 18 }, { op: 'block', value: 8 }],
       up: { desc: '造成 24 点伤害，获得 10 点格挡。',
         effects: [{ op: 'damage', value: 24 }, { op: 'block', value: 10 }] }
@@ -115,18 +121,21 @@
     defend_moyu: {
       name: '摸鱼', cost: 1, type: 'skill', rarity: 'common',
       desc: '获得 5 点格挡。',
+      tags: ["block"],
       effects: [{ op: 'block', value: 5 }],
       up: { desc: '获得 8 点格挡。', effects: [{ op: 'block', value: 8 }] }
     },
     fakebusy: {
       name: '装忙', cost: 1, type: 'skill', rarity: 'common',
       desc: '获得 7 点格挡。',
+      tags: ["block"],
       effects: [{ op: 'block', value: 7 }],
       up: { desc: '获得 10 点格挡。', effects: [{ op: 'block', value: 10 }] }
     },
     spiritwin: {
       name: '精神胜利法', cost: 1, type: 'skill', rarity: 'common',
       desc: '获得 4 点格挡，抽 1 张牌。',
+      tags: ["draw"],
       effects: [{ op: 'block', value: 4 }, { op: 'draw', value: 1 }],
       up: { desc: '获得 6 点格挡，抽 1 张牌。',
         effects: [{ op: 'block', value: 6 }, { op: 'draw', value: 1 }] }
@@ -134,6 +143,7 @@
     paidpoop: {
       name: '带薪拉屎', cost: 1, type: 'skill', rarity: 'common',
       desc: '获得 6 点格挡，回复 2 点精力。',
+      tags: ["heal"],
       effects: [{ op: 'block', value: 6 }, { op: 'heal', value: 2 }],
       up: { desc: '获得 8 点格挡，回复 3 点精力。',
         effects: [{ op: 'block', value: 8 }, { op: 'heal', value: 3 }] }
@@ -141,6 +151,7 @@
     latenight: {
       name: '深夜外卖', cost: 1, type: 'skill', rarity: 'common',
       desc: '回复 3 点精力，抽 1 张牌。',
+      tags: ["heal"],
       effects: [{ op: 'heal', value: 3 }, { op: 'draw', value: 1 }],
       up: { desc: '回复 4 点精力，抽 1 张牌。',
         effects: [{ op: 'heal', value: 4 }, { op: 'draw', value: 1 }] }
@@ -148,6 +159,7 @@
     stealth: {
       name: '隐身术', cost: 2, type: 'skill', rarity: 'uncommon',
       desc: '获得 12 点格挡。',
+      tags: ["block"],
       effects: [{ op: 'block', value: 12 }],
       up: { desc: '获得 16 点格挡。', effects: [{ op: 'block', value: 16 }] }
     },
@@ -155,6 +167,7 @@
       name: '带薪年假', cost: 2, type: 'skill', rarity: 'uncommon',
       exhaust: true,
       desc: '回复 8 点精力。消耗。',
+      tags: ["heal"],
       effects: [{ op: 'heal', value: 8 }],
       up: { desc: '回复 11 点精力。消耗。', effects: [{ op: 'heal', value: 11 }] }
     },
@@ -162,6 +175,7 @@
       name: '香香鸡', cost: 1, type: 'skill', rarity: 'uncommon',
       exhaust: true,
       desc: '回复 5 点精力。消耗。',
+      tags: ["heal"],
       effects: [{ op: 'heal', value: 5 }],
       up: { desc: '回复 7 点精力。消耗。', effects: [{ op: 'heal', value: 7 }] }
     },
@@ -169,6 +183,7 @@
       name: '香香鸡全家桶', cost: 2, type: 'skill', rarity: 'uncommon',
       exhaust: true,
       desc: '回复 8 点精力，获得 4 点格挡。消耗。',
+      tags: ["heal"],
       effects: [{ op: 'heal', value: 8 }, { op: 'block', value: 4 }],
       up: { desc: '回复 11 点精力，获得 6 点格挡。消耗。',
         effects: [{ op: 'heal', value: 11 }, { op: 'block', value: 6 }] }
@@ -177,12 +192,14 @@
       name: '重庆小面', cost: 1, type: 'skill', rarity: 'uncommon',
       exhaust: true,
       desc: '回复 4 点精力。消耗。',
+      tags: ["heal"],
       effects: [{ op: 'heal', value: 4 }],
       up: { desc: '回复 6 点精力。消耗。', effects: [{ op: 'heal', value: 6 }] }
     },
     tarot: {
       name: '獭罗牌占卜', cost: 0, type: 'skill', rarity: 'uncommon',
       desc: '抽 1 张牌；若敌人意图是攻击，获得 4 点格挡。',
+      tags: ["block"],
       effects: [{ op: 'special', kind: 'tarot', draw: 1, blk: 4 }],
       up: { desc: '抽 1 张牌；若敌人意图是攻击，获得 6 点格挡。',
         effects: [{ op: 'special', kind: 'tarot', draw: 1, blk: 6 }] }
@@ -190,6 +207,7 @@
     bigbook: {
       name: '大书库', cost: 2, type: 'skill', rarity: 'uncommon',
       desc: '抽 3 张牌。',
+      tags: ["draw"],
       effects: [{ op: 'draw', value: 3 }],
       up: { desc: '抽 4 张牌。', effects: [{ op: 'draw', value: 4 }] }
     },
@@ -197,6 +215,7 @@
       name: '量子波动速读', cost: 0, type: 'skill', rarity: 'uncommon',
       exhaust: true,
       desc: '抽 2 张牌。消耗。',
+      tags: ["draw"],
       effects: [{ op: 'draw', value: 2 }],
       up: { desc: '抽 3 张牌。消耗。', effects: [{ op: 'draw', value: 3 }] }
     },
@@ -204,6 +223,7 @@
       name: '装死', cost: 2, type: 'skill', rarity: 'uncommon',
       exhaust: true,
       desc: '获得 14 点格挡。消耗。',
+      tags: ["block"],
       effects: [{ op: 'block', value: 14 }],
       up: { desc: '获得 18 点格挡。消耗。', effects: [{ op: 'block', value: 18 }] }
     },
@@ -245,6 +265,7 @@
       name: '猛男寨集结', cost: 2, type: 'skill', rarity: 'rare',
       exhaust: true,
       desc: '力量 +2，抽 2 张牌。消耗。',
+      tags: ["grow"],
       effects: [{ op: 'strength', value: 2 }, { op: 'draw', value: 2 }],
       up: { desc: '力量 +3，抽 2 张牌。消耗。',
         effects: [{ op: 'strength', value: 3 }, { op: 'draw', value: 2 }] }
@@ -254,6 +275,7 @@
     scarf_power: {
       name: '红围巾', cost: 2, type: 'power', rarity: 'uncommon',
       desc: '每回合开始时获得 3 点格挡。',
+      tags: ["block"],
       effects: [{ op: 'power', id: 'scarf_power', value: 3 }],
       up: { desc: '每回合开始时获得 4 点格挡。',
         effects: [{ op: 'power', id: 'scarf_power', value: 4 }] }
@@ -267,6 +289,7 @@
     leftover_shield: {
       name: '剩饭护体', cost: 1, type: 'power', rarity: 'uncommon',
       desc: '每次被攻击时反弹 3 点伤害。',
+      tags: ["block"],
       effects: [{ op: 'power', id: 'leftover_shield', value: 3 }],
       up: { desc: '每次被攻击时反弹 4 点伤害。',
         effects: [{ op: 'power', id: 'leftover_shield', value: 4 }] }
@@ -281,6 +304,7 @@
     rebound: {
       name: '反弹式离职', cost: 2, type: 'power', rarity: 'rare',
       desc: '每次被攻击反弹 4 点伤害；每回合开始获得 2 点格挡。',
+      tags: ["block"],
       effects: [{ op: 'power', id: 'leftover_shield', value: 4 },
         { op: 'power', id: 'scarf_power', value: 2 }],
       up: { desc: '每次被攻击反弹 5 点伤害；每回合开始获得 3 点格挡。',
@@ -290,6 +314,7 @@
     master: {
       name: '摸鱼宗师', cost: 3, type: 'power', rarity: 'rare',
       desc: '力量 +1；每回合开始获得 4 点格挡。',
+      tags: ["grow"],
       effects: [{ op: 'strength', value: 1 },
         { op: 'power', id: 'scarf_power', value: 4 }],
       up: { desc: '力量 +1；每回合开始获得 6 点格挡。',
@@ -301,6 +326,7 @@
     ganfan: {
       name: '干饭', cost: 1, type: 'skill', rarity: 'common', char: 'shengfan',
       desc: '回复 2 点精力，获得 4 点格挡。',
+      tags: ["heal"],
       effects: [{ op: 'heal', value: 2 }, { op: 'block', value: 4 }],
       up: { desc: '回复 3 点精力，获得 6 点格挡。',
         effects: [{ op: 'heal', value: 3 }, { op: 'block', value: 6 }] }
@@ -308,6 +334,7 @@
     stockpile: {
       name: '囤粮', cost: 1, type: 'skill', rarity: 'common', char: 'shengfan',
       desc: '最大精力 +2（本局有效）。',
+      tags: ["selfhp"],
       effects: [{ op: 'maxHpUp', value: 2 }],
       up: { desc: '最大精力 +4（本局有效）。', effects: [{ op: 'maxHpUp', value: 4 }] }
     },
@@ -315,6 +342,7 @@
       name: '满汉全席', cost: 2, type: 'skill', rarity: 'uncommon', char: 'shengfan',
       exhaust: true,
       desc: '最大精力 +6 并回复 6 点精力。消耗。',
+      tags: ["heal"],
       effects: [{ op: 'maxHpUp', value: 6 }, { op: 'heal', value: 6 }],
       up: { desc: '最大精力 +9 并回复 9 点精力。消耗。',
         effects: [{ op: 'maxHpUp', value: 9 }, { op: 'heal', value: 9 }] }
@@ -323,12 +351,14 @@
       name: '回锅肉', cost: 1, type: 'skill', rarity: 'common', char: 'shengfan',
       exhaust: true,
       desc: '回复 6 点精力。消耗。',
+      tags: ["heal"],
       effects: [{ op: 'heal', value: 6 }],
       up: { desc: '回复 8 点精力。消耗。', effects: [{ op: 'heal', value: 8 }] }
     },
     bpmanage: {
       name: '血压管理', cost: 1, type: 'skill', rarity: 'uncommon', char: 'shengfan',
       desc: '失去 6 点精力，抽 2 张牌。',
+      tags: ["selfhp"],
       effects: [{ op: 'selfDamage', value: 6 }, { op: 'draw', value: 2 }],
       up: { desc: '失去 4 点精力，抽 2 张牌。',
         effects: [{ op: 'selfDamage', value: 4 }, { op: 'draw', value: 2 }] }
@@ -336,6 +366,7 @@
     hunger: {
       name: '饥饿咆哮', cost: 2, type: 'attack', rarity: 'uncommon', char: 'shengfan',
       desc: '造成已损失精力 20% 的伤害（最低 8）。',
+      tags: ["selfhp"],
       effects: [{ op: 'special', kind: 'hunger', pct: 0.2, min: 8 }],
       up: { desc: '造成已损失精力 28% 的伤害（最低 10）。',
         effects: [{ op: 'special', kind: 'hunger', pct: 0.28, min: 10 }] }
@@ -343,6 +374,7 @@
     holdstill: {
       name: '按兵不动', cost: 1, type: 'skill', rarity: 'common', char: 'jihuang',
       desc: '获得 6 点格挡，抽 1 张牌。',
+      tags: ["draw"],
       effects: [{ op: 'block', value: 6 }, { op: 'draw', value: 1 }],
       up: { desc: '获得 8 点格挡，抽 1 张牌。',
         effects: [{ op: 'block', value: 8 }, { op: 'draw', value: 1 }] }
@@ -358,6 +390,7 @@
     prepare: {
       name: '备战', cost: 0, type: 'skill', rarity: 'common', char: 'jihuang',
       desc: '抽 1 张牌；若本回合只打出过这一张牌，再抽 1 张。',
+      tags: ["draw"],
       effects: [{ op: 'special', kind: 'prepare', draw: 1, bonus: 1 }],
       up: { desc: '抽 2 张牌；若本回合只打出过这一张牌，再抽 1 张。',
         effects: [{ op: 'special', kind: 'prepare', draw: 2, bonus: 1 }] }
@@ -366,12 +399,14 @@
       name: '资本运作', cost: 1, type: 'skill', rarity: 'uncommon', char: 'shuanglaoya',
       exhaust: true,
       desc: '获得 25 金币。消耗。',
+      tags: ["gold"],
       effects: [{ op: 'gainGold', value: 25 }],
       up: { desc: '获得 35 金币。消耗。', effects: [{ op: 'gainGold', value: 35 }] }
     },
     spendall: {
       name: '挥金如土', cost: 1, type: 'attack', rarity: 'uncommon', char: 'shuanglaoya',
       desc: '失去 15 金币，造成 20 点伤害。',
+      tags: ["gold"],
       effects: [{ op: 'loseGold', value: 15 }, { op: 'damage', value: 20 }],
       up: { desc: '失去 15 金币，造成 26 点伤害。',
         effects: [{ op: 'loseGold', value: 15 }, { op: 'damage', value: 26 }] }
@@ -379,6 +414,7 @@
     binge: {
       name: '暴食', cost: 2, type: 'attack', rarity: 'uncommon', char: 'shengfan',
       desc: '造成 10 点伤害，自己损失 2 点精力。',
+      tags: ["selfhp"],
       effects: [{ op: 'damage', value: 10 }, { op: 'selfDamage', value: 2 }],
       up: { desc: '造成 14 点伤害，自己损失 2 点精力。',
         effects: [{ op: 'damage', value: 14 }, { op: 'selfDamage', value: 2 }] }
@@ -386,6 +422,7 @@
     calc: {
       name: '严谨计算', cost: 1, type: 'attack', rarity: 'common', char: 'jihuang',
       desc: '造成 6 点伤害；若敌人意图是攻击，获得 5 点格挡。',
+      tags: ["block"],
       effects: [{ op: 'special', kind: 'calc', dmg: 6, blk: 5 }],
       up: { desc: '造成 8 点伤害；若敌人意图是攻击，获得 7 点格挡。',
         effects: [{ op: 'special', kind: 'calc', dmg: 8, blk: 7 }] }
@@ -393,12 +430,14 @@
     optimize: {
       name: '链路优化', cost: 1, type: 'skill', rarity: 'common', char: 'jihuang',
       desc: '抽 2 张牌。',
+      tags: ["draw"],
       effects: [{ op: 'draw', value: 2 }],
       up: { desc: '抽 3 张牌。', effects: [{ op: 'draw', value: 3 }] }
     },
     money: {
       name: '钞能力', cost: 2, type: 'attack', rarity: 'uncommon', char: 'shuanglaoya',
       desc: '造成 12 点伤害；每有 50 金币，伤害再 +1。',
+      tags: ["gold"],
       effects: [{ op: 'goldDamage', value: 12, per: 50, bonus: 1 }],
       up: { desc: '造成 15 点伤害；每有 50 金币，伤害再 +1。',
         effects: [{ op: 'goldDamage', value: 15, per: 50, bonus: 1 }] }
@@ -990,6 +1029,55 @@
         { text: '加份香香鸡（获得卡牌「香香鸡」）', effect: 'getChicken' }
       ]
     },
+    teamvote: {
+      name: '团建投票', img: 'taer',
+      text: '行政发来团建投票接龙：爬山、聚餐、还是装死请假？全组都在等你这一票。',
+      options: [
+        { text: '爬山（最大精力 +3）', effect: 'maxHp3' },
+        { text: '聚餐（回复 10 点精力）', effect: 'heal10' },
+        { text: '请假（失去 5 点精力，获得 1 张随机牌）', effect: 'lose5randomCard' }
+      ]
+    },
+    encourager: {
+      name: '程序员鼓励师', img: 'taer',
+      text: '公司新请的程序员鼓励师端着咖啡走过来：「看你最近加班辛苦了，需要点什么吗？」',
+      options: [
+        { text: '来句鼓励（升级随机 1 张牌）', effect: 'upgrade1' },
+        { text: '要个拥抱（回复 6 点精力）', effect: 'heal6' }
+      ]
+    },
+    lottery: {
+      name: '楼下彩票站', img: 'shuanglaoya',
+      text: '楼下彩票站老板热情地招呼：「20 金币一张，头奖 80！搏一搏，单车变摩托？」',
+      options: [
+        { text: '买一张（20 金币，50% 中 80 金币）', effect: 'lottery', gold: 20 },
+        { text: '不买走人', effect: 'leave' }
+      ]
+    },
+    charger: {
+      name: '同事借充电器', img: 'kenni',
+      text: '隔壁工位的同事探过头：「充电器借我用一下午呗？桌上那包小玩意你随便挑一个当谢礼。」',
+      options: [
+        { text: '借（失去 15 金币，获得随机圣物）', effect: 'buyRelic15', gold: 15 },
+        { text: '不借，离开', effect: 'leave' }
+      ]
+    },
+    senpai: {
+      name: '摸鱼前辈的传承', img: 'jihuang',
+      text: '即将离职的摸鱼前辈神秘兮兮地递来一个 U 盘：「这是我毕生摸鱼心得，10 金币就卖给你。」',
+      options: [
+        { text: '接受传承（10 金币，获得 1 张随机稀有牌）', effect: 'buyRare10', gold: 10 },
+        { text: '婉拒离开', effect: 'leave' }
+      ]
+    },
+    acremote: {
+      name: '空调遥控器', img: 'jihuang',
+      text: '全办公室争夺的空调遥控器就躺在无人桌上。拿走它，你就是今天最让人恨的人。',
+      options: [
+        { text: '抢走（失去 4 点精力，获得卡牌「摸鱼禁止」）', effect: 'lose4getNoding' },
+        { text: '冷静离开', effect: 'leave' }
+      ]
+    },
     bosspatrol: {
       name: '老板巡视', img: 'kenni',
       text: '老板突然从背后走过！你的屏幕上还开着游戏……',
@@ -1018,6 +1106,14 @@
   var TOTAL_ACTS = acts.length;
 
   // 节点类型权重：小怪 / 精英 / 事件 / 商店 / 休息
+  /* 角色卡牌倾向权重（仅影响奖励/商店抽牌出现率，不改变卡池构成） */
+  var CHAR_CARD_WEIGHTS = {
+    xiaoq: { grow: 2.5, draw: 1.8 },
+    shengfan: { heal: 1.7, selfhp: 1.7, block: 1.3 },
+    jihuang: { draw: 2.2, block: 1.5 },
+    shuanglaoya: { gold: 1.5 }
+  };
+
   var NODE_WEIGHTS = [
     { type: 'monster', w: 45 },
     { type: 'event', w: 20 },
@@ -1042,6 +1138,7 @@
     STEPS_PER_ACT: STEPS_PER_ACT,
     TOTAL_ACTS: TOTAL_ACTS,
     NODE_WEIGHTS: NODE_WEIGHTS,
+    CHAR_CARD_WEIGHTS: CHAR_CARD_WEIGHTS,
     NODE_NAMES: NODE_NAMES
   };
 })(typeof window !== 'undefined' ? window : globalThis);

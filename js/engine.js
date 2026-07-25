@@ -57,11 +57,28 @@
 
   Engine.prototype._weightedCard = function () {
     var pool = Engine.cardPool(this.state.charId);
-    var roll = this.rng() * 100;
-    var want = roll < 60 ? 'common' : (roll < 93 ? 'uncommon' : 'rare');
-    var sub = pool.filter(function (id) { return D.cards[id].rarity === want; });
-    if (!sub.length) sub = pool;
-    return this.rng.pick(sub);
+    // 稀有度基础权重 × 角色标签倾向倍率（仅影响出现率，不改变卡池构成）
+    var RARITY_W = { common: 60, uncommon: 33, rare: 7 };
+    var charW = (D.CHAR_CARD_WEIGHTS && D.CHAR_CARD_WEIGHTS[this.state.charId]) || {};
+    var total = 0, items = [];
+    for (var i = 0; i < pool.length; i++) {
+      var def = D.cards[pool[i]];
+      var w = RARITY_W[def.rarity] || 10;
+      // 攻击类型视为 'attack' 标签
+      if (charW.attack && def.type === 'attack') w *= charW.attack;
+      var tags = def.tags || [];
+      for (var t = 0; t < tags.length; t++) {
+        if (charW[tags[t]]) w *= charW[tags[t]];
+      }
+      items.push({ id: pool[i], w: w });
+      total += w;
+    }
+    var roll = this.rng() * total;
+    for (var j = 0; j < items.length; j++) {
+      roll -= items[j].w;
+      if (roll < 0) return items[j].id;
+    }
+    return items[items.length - 1].id;
   };
 
   /* ---------- 开局 ---------- */
@@ -184,7 +201,13 @@
     } else if (type === 'boss') {
       node.enemyId = actCfg.boss;
     } else if (type === 'event') {
-      node.eventId = this.rng.pick(Object.keys(D.events));
+      // 事件去重：优先未遇过的事件，全部遇过后才重置可重复（不跨局）；同层绝对不重复
+      if (!st.seenEvents) st.seenEvents = [];
+      var allEv = Object.keys(D.events);
+      var fresh = allEv.filter(function (id) { return st.seenEvents.indexOf(id) < 0; });
+      if (!fresh.length) { st.seenEvents = []; fresh = allEv; }
+      node.eventId = this.rng.pick(fresh);
+      st.seenEvents.push(node.eventId);
     } else if (type === 'shop') {
       node.shop = this._genShop();
     }
@@ -707,8 +730,26 @@
       cards: cards,
       relics: relicItems,
       removePrice: removeFree ? 0 : price(75),
-      removeUsed: false
+      removeUsed: false,
+      copyUsed: false      // 复制牌服务：每店 1 次，价格按所选牌稀有度
     };
+  };
+
+  // 复制一张牌：付费按稀有度（普通 70 / 罕见 100 / 稀有 150，墨镜 8 折），升级状态一并复制
+  Engine.prototype.shopCopyCard = function (shop, cardUid) {
+    var st = this.state;
+    var inst = st.deck.filter(function (c) { return c.uid === cardUid; })[0];
+    if (!inst || shop.copyUsed) return false;
+    var rarity = D.cards[inst.id].rarity;
+    var base = rarity === 'common' ? 70 : rarity === 'uncommon' ? 100 : 150;
+    var cost = Math.round(base * (this.hasRelic('sunglasses') ? 0.8 : 1));
+    if (st.gold < cost) return false;
+    st.gold -= cost;
+    shop.copyUsed = true;
+    var copy = { uid: st.uidCounter++, id: inst.id, up: inst.up };
+    st.deck.push(copy);
+    this._seeCard(copy);
+    return true;
   };
 
   Engine.prototype.shopBuyCard = function (shop, idx) {
@@ -823,6 +864,71 @@
         var ni = { uid: st.uidCounter++, id: nid, up: false };
         st.deck.splice(idx, 1, ni); this._seeCard(ni);
         res.text = '一张牌变换成了「' + D.cards[nid].name + '」！';
+        break;
+      }
+      case 'maxHp3':
+        st.maxHp += 3; st.hp = Math.min(st.maxHp, st.hp + 3);
+        res.text = '最大精力 +3！';
+        break;
+      case 'lose5randomCard': {
+        st.hp = Math.max(1, st.hp - 5);
+        var cid5 = this._weightedCard();
+        var inst5 = { uid: st.uidCounter++, id: cid5, up: false };
+        st.deck.push(inst5); this._seeCard(inst5);
+        res.text = '失去了 5 点精力，获得卡牌「' + D.cards[cid5].name + '」！';
+        break;
+      }
+      case 'upgrade1': {
+        var ups = st.deck.filter(function (cc) { return !cc.up; });
+        if (ups.length) {
+          var pick1 = this.rng.pick(ups);
+          pick1.up = true;
+          res.text = '升级了「' + D.cards[pick1.id].name + '」！';
+        } else res.text = '没有可升级的牌。';
+        break;
+      }
+      case 'heal6':
+        st.hp = Math.min(st.maxHp, st.hp + 6);
+        res.text = '回复了 6 点精力。';
+        break;
+      case 'lottery':
+        if (st.gold < (opt.gold || 0)) { res.text = '金币不够，你尴尬地离开了。'; break; }
+        st.gold -= opt.gold;
+        if (this.rng() < 0.5) {
+          st.gold += 80;
+          res.text = '中了！获得 80 金币！';
+        } else {
+          res.text = '谢谢惠顾……20 金币打水漂了。';
+        }
+        break;
+      case 'buyRelic15': {
+        if (st.gold < (opt.gold || 0)) { res.text = '金币不够，你尴尬地离开了。'; break; }
+        var rp15 = Object.keys(D.relics).filter(function (r) { return st.relics.indexOf(r) < 0; });
+        if (!rp15.length) { res.text = '同事的小玩意被你挑完了。'; break; }
+        st.gold -= opt.gold;
+        var rid15 = this.rng.pick(rp15);
+        st.relics.push(rid15);
+        st.seen.relics[rid15] = true;
+        res.text = '失去了 15 金币，获得圣物「' + D.relics[rid15].name + '」！';
+        break;
+      }
+      case 'buyRare10': {
+        if (st.gold < (opt.gold || 0)) { res.text = '金币不够，你尴尬地离开了。'; break; }
+        var rares10 = Engine.cardPool(st.charId).filter(function (id) {
+          return D.cards[id].rarity === 'rare';
+        });
+        var rid10 = this.rng.pick(rares10);
+        var inst10 = { uid: st.uidCounter++, id: rid10, up: false };
+        st.deck.push(inst10); this._seeCard(inst10);
+        st.gold -= opt.gold;
+        res.text = '失去了 10 金币，获得稀有牌「' + D.cards[rid10].name + '」！';
+        break;
+      }
+      case 'lose4getNoding': {
+        st.hp = Math.max(1, st.hp - 4);
+        var inst4 = { uid: st.uidCounter++, id: 'noding', up: false };
+        st.deck.push(inst4); this._seeCard(inst4);
+        res.text = '失去了 4 点精力，获得卡牌「摸鱼禁止」！';
         break;
       }
       case 'nothing': res.text = '老板满意地点点头，走了。'; break;

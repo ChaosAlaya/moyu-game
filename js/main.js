@@ -442,6 +442,11 @@
     S.screen = 'deckSelect';
     render();
   };
+  Game.shopCopyMode = function () {
+    S.selecting = 'shopCopy';
+    S.screen = 'deckSelect';
+    render();
+  };
   Game.shopLeave = function () { finishNode(); };
 
   /* ---------- 休息 ---------- */
@@ -466,10 +471,14 @@
   };
   Game.eventContinue = function () { finishNode(); };
 
-  /* ---------- 选牌（删牌/升级） ---------- */
+  /* ---------- 选牌（删牌/升级/复制） ---------- */
   Game.deckSelectPick = function (uid) {
     if (S.selecting === 'shopRemove') {
       S.engine.shopRemoveCard(S.shop, uid);
+      S.selecting = null;
+      S.screen = 'shop';
+    } else if (S.selecting === 'shopCopy') {
+      S.engine.shopCopyCard(S.shop, uid);
       S.selecting = null;
       S.screen = 'shop';
     } else if (S.selecting === 'restUpgrade') {
@@ -487,7 +496,7 @@
     render();
   };
   Game.deckSelectCancel = function () {
-    if (S.selecting === 'shopRemove') { S.selecting = null; S.screen = 'shop'; }
+    if (S.selecting === 'shopRemove' || S.selecting === 'shopCopy') { S.selecting = null; S.screen = 'shop'; }
     else if (S.selecting === 'eventRemove') { S.selecting = null; S.screen = 'event'; }
     render();
   };

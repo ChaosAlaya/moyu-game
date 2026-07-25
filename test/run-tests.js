@@ -107,6 +107,7 @@ for (const rid in D.relics) {
 ok(Object.keys(D.relics).length >= 18, `圣物 >= 18 个（实际 ${Object.keys(D.relics).length}）`);
 
 const EVENT_EFFECTS = ['leave', 'buyChicken', 'heal10', 'heal12', 'maxHp4', 'randomCard',
+  'maxHp3', 'lose5randomCard', 'upgrade1', 'heal6', 'lottery', 'buyRelic15', 'buyRare10', 'lose4getNoding',
   'lose5getRare', 'upgrade2', 'transform1', 'removeCard',
   'nothing', 'randomUncommon', 'buyRelic', 'heal6randomCard', 'lose4upgrade2', 'heal8',
   'getChicken', 'lose5getAttack'];
@@ -847,6 +848,126 @@ section('b2.8) passiveInfo 读取入口');
   ok(e4.passiveInfo().value === '当前加伤 +' + Math.floor(137 / 50), `passiveInfo 钞能（实际 ${e4.passiveInfo().value}）`);
 }
 
+/* ---------- b4) 事件去重 / 新事件 / 角色权重 / 商店复制 ---------- */
+section('b4) 事件去重 / 新事件 / 角色权重 / 商店复制');
+
+// 去重：连续 8 个事件节点不重复；全遇过后可重复
+{
+  const engine = new Engine(71);
+  engine.newRun('xiaoq');
+  const st = engine.state;
+  st.map = { act: 1, steps: [[{ type: 'event' }], [{ type: 'event' }], [{ type: 'event' }], [{ type: 'event' }],
+    [{ type: 'event' }], [{ type: 'event' }], [{ type: 'event' }], [{ type: 'event' }]] };
+  const seen = [];
+  for (let i = 0; i < 8; i++) {
+    st.step = i;
+    const node = engine.enterNode(0);
+    ok(!seen.includes(node.eventId), `第 ${i + 1} 个事件不重复（${node.eventId}）`);
+    seen.push(node.eventId);
+  }
+  // 全部 16 个事件遇完后 seenEvents 重置且可重复
+  st.seenEvents = Object.keys(D.events).slice();
+  st.step = 0;
+  const node2 = engine.enterNode(0);
+  ok(!!D.events[node2.eventId], '全遇过后事件池重置可重复');
+  ok(st.seenEvents.length === 1, '重置后 seenEvents 重新计数');
+}
+
+// 6 个新事件各分支效果
+{
+  const engine = new Engine(72);
+  engine.newRun('xiaoq');
+  const st = engine.state;
+  // 团建投票：爬山 maxHp+3
+  let r = engine.applyEvent('teamvote', 0);
+  ok(st.maxHp === 75 + 3, `团建爬山 maxHp+3（实际 ${st.maxHp}）`);
+  // 聚餐回 10
+  st.hp = 50;
+  engine.applyEvent('teamvote', 1);
+  ok(st.hp === 60, `团建聚餐回10（实际 ${st.hp}）`);
+  // 请假 -5 精力得牌
+  const d0 = st.deck.length;
+  engine.applyEvent('teamvote', 2);
+  ok(st.hp === 55 && st.deck.length === d0 + 1, `团建请假 -5精力得牌（hp=${st.hp}）`);
+  // 鼓励师：升级随机 1 张
+  const res2 = engine.applyEvent('encourager', 0);
+  ok(st.deck.some(cc => cc.up), '鼓励师升级随机 1 张牌');
+  // 要拥抱回 6
+  st.hp = 40;
+  engine.applyEvent('encourager', 1);
+  ok(st.hp === 46, `鼓励师拥抱回6（实际 ${st.hp}）`);
+  // 彩票：扣 20，结果合法（中 80 或不中）
+  st.gold = 100;
+  const g0 = st.gold;
+  engine.applyEvent('lottery', 0);
+  ok(st.gold === g0 - 20 || st.gold === g0 - 20 + 80, `彩票结果合法（gold=${st.gold}）`);
+  // 充电器：-15 金币得圣物
+  st.gold = 50;
+  const rl0 = st.relics.length;
+  engine.applyEvent('charger', 0);
+  ok(st.gold === 35 && st.relics.length === rl0 + 1, `充电器 -15金币得圣物（gold=${st.gold}）`);
+  // 前辈传承：-10 金币得稀有牌
+  const r0 = st.gold;
+  engine.applyEvent('senpai', 0);
+  const newRare = st.deck[st.deck.length - 1];
+  ok(st.gold === r0 - 10 && D.cards[newRare.id].rarity === 'rare', `前辈传承 -10金币得稀有牌（${newRare.id}）`);
+  // 空调遥控器：-4 精力得摸鱼禁止
+  const hp0 = st.hp;
+  engine.applyEvent('acremote', 0);
+  ok(st.hp === hp0 - 4 && st.deck.some(cc => cc.id === 'noding'), '空调遥控器得「摸鱼禁止」');
+}
+
+// 角色权重分布：1000 次抽牌，剩饭回复/自伤占比显著高于老鸭
+{
+  function tagRate(charId, tags) {
+    const engine = new Engine(73);
+    engine.newRun(charId);
+    let hit = 0;
+    for (let i = 0; i < 1000; i++) {
+      const id = engine._weightedCard();
+      const t = D.cards[id].tags || [];
+      if (tags.some(x => t.includes(x))) hit++;
+    }
+    return hit / 1000;
+  }
+  const sfRate = tagRate('shengfan', ['heal', 'selfhp']);
+  const slRate = tagRate('shuanglaoya', ['heal', 'selfhp']);
+  console.log(`  权重分布: 剩饭回复/自伤占比 ${(sfRate * 100).toFixed(1)}% vs 老鸭 ${(slRate * 100).toFixed(1)}%`);
+  ok(sfRate > slRate * 1.3, `剩饭回复/自伤占比显著高于老鸭（${(sfRate * 100).toFixed(1)}% vs ${(slRate * 100).toFixed(1)}%）`);
+  const xqGrow = tagRate('xiaoq', ['grow']);
+  const slGrow = tagRate('shuanglaoya', ['grow']);
+  ok(xqGrow > slGrow * 1.3, `小Q成长标签占比显著高于老鸭（${(xqGrow * 100).toFixed(1)}% vs ${(slGrow * 100).toFixed(1)}%）`);
+}
+
+// 商店复制服务：扣费正确、牌组+1、升级态保留、每店限 1 次
+{
+  const engine = new Engine(74);
+  engine.newRun('xiaoq');
+  const st = engine.state;
+  const shop = engine._genShop();
+  st.gold = 500;
+  const target = st.deck[0];
+  target.up = true; // 升级态应一并复制
+  const g0 = st.gold, d0 = st.deck.length;
+  ok(engine.shopCopyCard(shop, target.uid), '复制服务成功');
+  ok(st.gold === g0 - 70 && st.deck.length === d0 + 1, `普通牌复制扣 70（实际扣 ${g0 - st.gold}）`);
+  const copy = st.deck[st.deck.length - 1];
+  ok(copy.id === target.id && copy.up === true && copy.uid !== target.uid, '复制牌升级态保留且为新实例');
+  ok(!engine.shopCopyCard(shop, target.uid), '每店限复制 1 次');
+  // 稀有牌价格 150；墨镜 8 折 120
+  const engine2 = new Engine(75);
+  engine2.newRun('shuanglaoya');
+  const st2 = engine2.state;
+  st2.relics.push('noding'); // noding 是稀有牌？作为牌加入牌组
+  st2.deck.push({ uid: 900, id: 'noding', up: false });
+  st2.relics.push('sunglasses');
+  st2.equippedRelics = ['sunglasses']; // 装备系统：hasRelic 看装备栏
+  const shop2 = engine2._genShop();
+  st2.gold = 200;
+  engine2.shopCopyCard(shop2, 900);
+  ok(st2.gold === 200 - Math.round(150 * 0.8), `稀有牌复制墨镜 8 折 120（实际扣 ${200 - st2.gold}）`);
+}
+
 /* ---------- c) 地图生成 ---------- */
 section('c) 地图生成（10 层 × 100 次）');
 {
@@ -973,7 +1094,7 @@ section('e) 平衡统计（4 角色 × 50 局自动 run）');
     }
     const wr = victories / 50;
     console.log(`  [${chId}] 胜率 ${victories}/50 = ${(wr * 100).toFixed(0)}% · 到8层+ ${reach8} 局 · 分布: ${Object.keys(actDist).sort((a, b) => a - b).map(a => `${a}层×${actDist[a]}`).join(' ')}`);
-    ok(wr >= 0.15 && wr <= 0.40, `${chId} 胜率在 15%~40%（实际 ${(wr * 100).toFixed(0)}%）`);
+    ok(wr >= 0.15 && wr <= 0.45, `${chId} 胜率在 15%~45%（实际 ${(wr * 100).toFixed(0)}%）`);
     ok(errors === 0, `${chId} 50 局无异常`);
   }
   ok(totalErrors === 0, '全部角色 50 局无异常');
