@@ -1047,6 +1047,156 @@
     setTimeout(function () { app.classList.remove('appshake'); }, 450);
   }
 
+  /* ---------- 敌方攻击分级演出（重击/大招；素材接口 FX_ART，缺失自动 CSS 兜底） ---------- */
+  // 可选美术素材（docs/摸鱼大作战-敌方攻击打击感美术需求.docx）：
+  //   speed-trail_1~3.png 速度线拖尾 / danger-ring_1~3.png 危险预警环 / pow-boom_1~3.png 拟声词「砰！轰！咚！」
+  var FX_ART = { trail: false, ring: false, pow: false };
+  function probeArt(group, base, n) {
+    var im = new Image();
+    im.onload = function () { FX_ART[group] = true; };
+    im.src = FX_DIR + base + '_1.png';
+    for (var i = 2; i <= n; i++) { var x = new Image(); x.src = FX_DIR + base + '_' + i + '.png'; }
+  }
+  // 播可选帧图；素材缺失返回 false（调用方走 CSS 兜底）
+  function playArtFrames(group, base, n, cls, rect, ms) {
+    if (!FX_ART[group]) return false;
+    var fx = document.getElementById('fx');
+    if (!fx) return false;
+    var d = document.createElement('img');
+    d.className = cls;
+    d.style.left = rect.left + 'px';
+    d.style.top = rect.top + 'px';
+    d.style.width = rect.width + 'px';
+    d.style.height = rect.height + 'px';
+    d.src = FX_DIR + base + '_1.png';
+    fx.appendChild(d);
+    var idx = 0;
+    var timer = setInterval(function () {
+      idx++;
+      if (idx >= n) { clearInterval(timer); d.remove(); return; }
+      d.src = FX_DIR + base + '_' + (idx + 1) + '.png';
+    }, Math.max(50, Math.floor(ms / n)));
+    setTimeout(function () { clearInterval(timer); if (d.parentNode) d.remove(); }, ms + 120);
+    return true;
+  }
+
+  // 重击冲撞：敌人整体平移到主角脸上（~200ms，大招 140ms），命中停顿后弹回；带速度线拖尾
+  function chargeLunge(targetId, opts) {
+    opts = opts || {};
+    var t = document.getElementById(targetId);
+    var p = document.getElementById('player-img');
+    if (!t || !p) return 0;
+    var r1 = t.getBoundingClientRect(), r2 = p.getBoundingClientRect();
+    var dx = (r2.left + r2.width / 2) - (r1.left + r1.width / 2);
+    var ms = opts.fast ? 140 : 200;
+    var stopMs = opts.stopMs == null ? 90 : opts.stopMs;
+    // 速度线拖尾：有素材播 speed-trail 帧，没有走 CSS 速度线兜底
+    var trailRect = { left: r1.left, top: r1.top + r1.height * 0.15, width: r1.width * 1.4, height: r1.height * 0.7 };
+    if (!playArtFrames('trail', 'speed-trail', 3, 'fx-trail', trailRect, ms + 160)) {
+      var fx = document.getElementById('fx');
+      if (fx) {
+        var d = document.createElement('div');
+        d.className = 'fx-trail css';
+        d.style.left = trailRect.left + 'px';
+        d.style.top = trailRect.top + 'px';
+        d.style.width = trailRect.width + 'px';
+        d.style.height = trailRect.height + 'px';
+        fx.appendChild(d);
+        setTimeout(function () { d.remove(); }, ms + 200);
+      }
+    }
+    t.style.transition = 'transform ' + ms + 'ms cubic-bezier(.55,.02,.85,.36)';
+    t.style.transform = 'translate(' + Math.round(dx * 0.82) + 'px,0) scale(1.06)';
+    setTimeout(function () {
+      t.style.transition = 'transform 240ms ease-out';
+      t.style.transform = '';
+      setTimeout(function () { t.style.transition = ''; }, 260);
+    }, ms + stopMs);
+    return ms;
+  }
+
+  // 命中停顿（hit-stop）：全场 CSS 动画冻结一瞬
+  function hitStop(ms) {
+    var app = document.getElementById('app');
+    if (!app) return;
+    app.classList.add('hitstop');
+    setTimeout(function () { app.classList.remove('hitstop'); }, ms);
+  }
+
+  // 主角后仰击退（向左 30px 回弹）
+  function knockback(targetId) {
+    var t = document.getElementById(targetId);
+    if (!t) return;
+    t.classList.remove('knockback');
+    void t.offsetWidth;
+    t.classList.add('knockback');
+    setTimeout(function () { t.classList.remove('knockback'); }, 480);
+  }
+
+  // 大幅震屏（±10px 0.25s）
+  function bigShake() {
+    var app = document.getElementById('app');
+    if (!app) return;
+    app.classList.remove('bigshake');
+    void app.offsetWidth;
+    app.classList.add('bigshake');
+    setTimeout(function () { app.classList.remove('bigshake'); }, 280);
+  }
+
+  // 全屏红闪（大招命中）
+  function redFlash() {
+    var fx = document.getElementById('fx');
+    if (!fx) return;
+    var d = document.createElement('div');
+    d.className = 'fx-redflash';
+    fx.appendChild(d);
+    setTimeout(function () { d.remove(); }, 380);
+  }
+
+  // 大招危险预警：敌人红环脉冲 + 头顶「危险！」（有 danger-ring 素材用帧图，否则 CSS 环）
+  function dangerWarn(targetId, ms) {
+    ms = ms || 500;
+    var t = document.getElementById(targetId);
+    var fx = document.getElementById('fx');
+    if (!t || !fx) return;
+    var r = t.getBoundingClientRect();
+    var size = Math.max(r.width, r.height) * 1.5;
+    var rect = { left: r.left + r.width / 2 - size / 2, top: r.top + r.height / 2 - size / 2, width: size, height: size };
+    if (!playArtFrames('ring', 'danger-ring', 3, 'fx-dring', rect, ms)) {
+      var d = document.createElement('div');
+      d.className = 'fx-dring css';
+      d.style.left = rect.left + 'px';
+      d.style.top = rect.top + 'px';
+      d.style.width = size + 'px';
+      d.style.height = size + 'px';
+      fx.appendChild(d);
+      setTimeout(function () { d.remove(); }, ms);
+    }
+    var txt = document.createElement('div');
+    txt.className = 'fx-danger-text';
+    txt.textContent = '危险！';
+    txt.style.left = (r.left + r.width / 2) + 'px';
+    txt.style.top = (r.top - 14) + 'px';
+    fx.appendChild(txt);
+    setTimeout(function () { txt.remove(); }, ms + 80);
+  }
+
+  // 漫画拟声词「砰！」：有 pow-boom 素材用图，否则 CSS 描边大字
+  function powBurst(targetId) {
+    var p = targetPos(targetId);
+    var fx = document.getElementById('fx');
+    if (!p || !fx) return;
+    var rect = { left: p.x - 130, top: p.rect.top + p.rect.height / 2 - 130, width: 260, height: 260 };
+    if (playArtFrames('pow', 'pow-boom', 3, 'fx-pow', rect, 500)) return;
+    var d = document.createElement('div');
+    d.className = 'fx-pow css';
+    d.textContent = '砰！';
+    d.style.left = p.x + 'px';
+    d.style.top = (p.rect.top + p.rect.height / 2) + 'px';
+    fx.appendChild(d);
+    setTimeout(function () { d.remove(); }, 520);
+  }
+
   /* ---------- 特效序列帧（v2/fx） ---------- */
   var FX_DIR = 'assets/v2/fx/';
   var FX_SEQS = { hit: 4, crit: 5, combo: 3, death: 4, block: 2, heal: 3, rare: 4, celebrate: 3,
@@ -1069,6 +1219,10 @@
     ['shockwave.png', 'rededge.png', 'bosscut_noword.jpg', 'boss_death_scene.jpg', 'golden_flash.jpg'].forEach(function (f) {
       load(FX_DIR + f);
     });
+    // 打击感可选素材探测（有则启用帧图，无则 CSS 兜底）
+    probeArt('trail', 'speed-trail', 3);
+    probeArt('ring', 'danger-ring', 3);
+    probeArt('pow', 'pow-boom', 3);
   }
 
   // 通用序列帧播放器：在指定坐标播完后自动移除
@@ -1226,6 +1380,8 @@
     bigText: bigText, deathAnim: deathAnim, goldFlash: goldFlash,
     impactFlash: impactFlash, miniShake: miniShake,
     preloadFx: preloadFx, playFxAt: playFxAt, playFxFrames: playFxFrames,
-    shockRing: shockRing, bossCut: bossCut, bossDeathScene: bossDeathScene, goldenFlash: goldenFlash
+    shockRing: shockRing, bossCut: bossCut, bossDeathScene: bossDeathScene, goldenFlash: goldenFlash,
+    chargeLunge: chargeLunge, hitStop: hitStop, knockback: knockback, bigShake: bigShake,
+    redFlash: redFlash, dangerWarn: dangerWarn, powBurst: powBurst, FX_ART: FX_ART
   };
 })(typeof window !== 'undefined' ? window : globalThis);

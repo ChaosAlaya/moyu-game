@@ -712,8 +712,12 @@
       switch (mv.type) {
         case 'attack': {
           result.attacked = true;
+          var hStart = result.hits.length; // 打击感演出：记录本次行动的命中区间
           var times = mv.times || 1;
           for (var i = 0; i < times; i++) enemyHit(mv.value);
+          (result.actions = result.actions || []).push({
+            id: e.id, name: mv.name, special: !!mv.every, hs: hStart, he: result.hits.length
+          });
           if (mv.weak) c.playerWeak += mv.weak;
           if (mv.vulnerable) c.playerVuln += mv.vulnerable;
           if (mv.strength) e.strength += mv.strength;
@@ -746,7 +750,11 @@
         }
         case 'counter': { // 高级VP「秋后算账」：玩家本回合未造成伤害则重锤
           result.attacked = true;
+          var hStart2 = result.hits.length;
           enemyHit(c.playerDealtDmgThisTurn === 0 ? mv.value : mv.fallback);
+          (result.actions = result.actions || []).push({
+            id: e.id, name: mv.name, special: !!mv.every, hs: hStart2, he: result.hits.length
+          });
           break;
         }
       }
