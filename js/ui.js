@@ -83,9 +83,8 @@
   /* ---------- 标题（横版主视觉 + 右侧竖排按钮） ---------- */
   function renderTitle(S) {
     var sv = S.save;
-    var rushBtn = (sv.wins > 0 || sv.lastWinBuild)
-      ? '<button class="tbtn rush-btn" onclick="Game.enterRush()"><img class="rush-logo-mini" src="assets/v2/rush/rush_logo.png" alt="">总部连续作战！</button>'
-      : '';
+    // 调试期：无条件显示 Rush 入口（进入时用默认调试构筑）
+    var rushBtn = '<button class="tbtn rush-btn" onclick="Game.enterRush()"><img class="rush-logo-mini" src="assets/v2/rush/rush_logo.png" alt="">总部连续作战！</button>';
     var godTitle = sv.godTitle
       ? '<div class="god-title">👑 称号：摸鱼之神</div>' : '';
     return '<div class="screen title-bg2" id="screen-title">' +
