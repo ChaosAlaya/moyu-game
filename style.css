@@ -613,14 +613,14 @@ button.yellow { background: var(--yellow); }
   0% { opacity: 1; transform: translateY(0) rotate(0); }
   100% { opacity: 0; transform: translateY(-260px) rotate(38deg); }
 }
-/* 敌人死亡消散（先爆裂闪白再缩没） */
+/* 敌人本体消散（放大 1.15 闪白爆裂 → 缩小旋转消散；全敌人类型统一走本体路径） */
 .dying {
-  animation: dying .7s forwards !important;
+  animation: dying .8s forwards !important;
 }
 @keyframes dying {
-  0% { opacity: 1; transform: scale(1) translateY(0); filter: brightness(1); }
-  28% { opacity: 1; transform: scale(1.18) translateY(-6px); filter: brightness(3); }
-  100% { opacity: 0; transform: scale(.4) translateY(-56px); filter: brightness(1); }
+  0% { opacity: 1; transform: scale(1) translateY(0) rotate(0); filter: brightness(1); }
+  28% { opacity: 1; transform: scale(1.15) translateY(-6px) rotate(0); filter: brightness(3); }
+  100% { opacity: 0; transform: scale(.3) translateY(-48px) rotate(32deg); filter: brightness(1); }
 }
 /* 稀有牌金边 */
 .goldflash { animation: goldflash .7s; }
@@ -1305,4 +1305,34 @@ img.fx-pow { animation: powpop .5s cubic-bezier(.2,1.4,.4,1) forwards; }
 @media (max-width: 820px) {
   .fx-danger-text { font-size: 34px; }
   .fx-pow.css { font-size: 68px; }
+}
+
+/* ---------- BOSS 倒地定格特写 ---------- */
+.fx-closeup { position: absolute; inset: 0; pointer-events: none; z-index: 60; }
+.fx-closeup img {
+  position: absolute; object-fit: cover; border-radius: 12px;
+  border: 4px solid var(--ink);
+  box-shadow: 0 18px 60px rgba(0,0,0,.55), 0 0 0 4px rgba(255,210,63,.35);
+  transition: left .6s cubic-bezier(.25,.9,.3,1), top .6s cubic-bezier(.25,.9,.3,1),
+    width .6s cubic-bezier(.25,.9,.3,1), height .6s cubic-bezier(.25,.9,.3,1);
+}
+.fx-closeup img.on { animation: closeupPush 1.7s ease-out forwards; }
+@keyframes closeupPush { from { transform: scale(1); } to { transform: scale(1.06); } }
+/* 底部打光 */
+.fx-closeup-light {
+  position: absolute; left: 50%; bottom: 4%; width: 70vw; height: 34vh;
+  transform: translateX(-50%); opacity: 0; transition: opacity .5s;
+  background: radial-gradient(ellipse 50% 100% at 50% 100%, rgba(255,214,90,.4), transparent 70%);
+}
+.fx-closeup-light.on { opacity: 1; }
+.fx-closeup-cap {
+  position: absolute; left: 50%; bottom: 12%; transform: translateX(-50%) scale(.6);
+  font-size: 34px; font-weight: 900; color: var(--yellow);
+  text-shadow: 3px 3px 0 var(--ink), 0 0 22px rgba(245,194,66,.8);
+  opacity: 0; transition: opacity .3s, transform .3s;
+}
+.fx-closeup-cap.show { opacity: 1; transform: translateX(-50%) scale(1); }
+.fx-closeup.out { transition: opacity .3s; opacity: 0; }
+@media (max-width: 820px) {
+  .fx-closeup-cap { font-size: 26px; bottom: 16%; }
 }

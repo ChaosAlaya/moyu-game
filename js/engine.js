@@ -238,7 +238,7 @@
     var st = this.state;
     opts = opts || {};
     var enemy = {
-      id: edef.id || 'rush',
+      id: opts.enemyId || edef.id || 'rush',
       name: edef.name,
       hp: edef.hp, maxHp: edef.hp,
       block: 0, strength: 0, weak: 0, vulnerable: 0,
@@ -295,7 +295,7 @@
     var edef = D.enemies[enemyId];
     if (!edef) throw new Error('未知敌人: ' + enemyId);
     this.state.seen.enemies[enemyId] = true;
-    return this._makeCombat(edef);
+    return this._makeCombat(edef, { enemyId: enemyId }); // 主游戏敌人 id 透传（boss3 打断/倒地立绘用）
   };
 
   // Boss Rush 单体 BOSS 战
@@ -589,7 +589,7 @@
     this._afterDamageChecks(result);
     // 摸鱼强总专属：血量跌破 50% 瞬间强行打断玩家回合——立即进二阶段并以二阶段招式反击一轮，
     // 之后才恢复正常回合交替（1v1 boss3 专属，不影响其他 BOSS 与 1vN）
-    if (!c.over && !c.multi && c.enemy && edef2.id === 'boss3' && c.enemy.phase === 0 &&
+    if (!c.over && !c.multi && c.enemy && c.enemy.id === 'boss3' && c.enemy.phase === 0 &&
         c.enemy.hp > 0 && c.enemy.hp < c.enemy.maxHp * 0.5) {
       c.enemy.phase = 1;
       c.log.push({ t: 'phase', text: edef2.phases[1].phaseName || '第二阶段' });

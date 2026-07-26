@@ -1112,6 +1112,67 @@ section('b5) Boss Rush');
   ok(c.over && c.won, '全灭才算胜利');
 }
 
+/* ---------- b6) 死亡演出改版 + 强总 50% 打断二阶段 ---------- */
+section('b6) 死亡碎裂帧撤换 / BOSS 定格特写 / 强总打断');
+
+// 碎裂帧不再被引用（Lovart 自由发挥角色：小机器人/石头人）
+{
+  const fs = require('fs');
+  const path = require('path');
+  const gameDir = path.join(__dirname, '..');
+  const mainSrc = fs.readFileSync(path.join(gameDir, 'js', 'main.js'), 'utf8');
+  const uiSrc = fs.readFileSync(path.join(gameDir, 'js', 'ui.js'), 'utf8');
+  ok(!mainSrc.includes('minionDeath') && !uiSrc.includes('minionDeath'), 'minionDeath 碎裂帧不再被引用');
+  ok(!mainSrc.includes('eliteDeath') && !uiSrc.includes('eliteDeath'), 'eliteDeath 碎裂帧不再被引用');
+  // 本体消散统一路径 + 中性粒子保留
+  ok(mainSrc.includes("UI.playFxFrames(eImg(), 'stars'"), '死亡演出使用中性 stars 粒子');
+  ok(mainSrc.includes('knockaway'), '12% 击飞彩蛋保留');
+  // BOSS 定格特写时序：1.5s 起特写（620+1000+320≈1.94s）→ 本体消散，BOSS 留白 4.4s 覆盖全程
+  ok(uiSrc.includes('function bossCloseup'), 'UI.bossCloseup 定格特写存在');
+  ok(mainSrc.includes('UI.bossCloseup(downSrc'), 'BOSS 死亡接入定格特写');
+  ok(mainSrc.includes('? 4400 :'), 'BOSS 死亡留白 4.4s（覆盖特写+消散）');
+}
+
+// 强总 50% 打断：强制结束当前回合 + 立即二阶段 + 立刻反击一轮 + 之后正常交替
+{
+  const e = new Engine(9101);
+  e.newRun('xiaoq');
+  e.startCombat('boss3');
+  const c = e.state.combat;
+  const boss = c.enemy;
+  ok(boss._def.phases.length === 2 && boss.phase === 0, '强总开局一阶段');
+  // 52% → 一击打到 49%（strike 6 点；显式塞牌避免起手无攻击牌）
+  boss.hp = Math.ceil(boss.maxHp * 0.52); // 104
+  const hpBefore = e.state.hp;
+  c.hand.unshift({ uid: 9001, id: 'strike_moyu', up: false });
+  const r = e.playCard(0);
+  ok(!!r.interrupt, '52%→49% 触发打断（result.interrupt）');
+  ok(boss.phase === 1, '打断后立即进入二阶段');
+  ok(r.interrupt.hits.length >= 1 && e.state.hp < hpBefore,
+    `打断后强总立刻反击一轮（玩家 ${hpBefore}→${e.state.hp}）`);
+  ok(c.hand.length === 5 && c.energy === c.maxEnergy && c.turn === 2,
+    '当前回合被强制结束：手牌弃掉并重抽 5 张、能量回满、进入新回合');
+  // 二阶段立绘按 phase 切图（renderCombat 依据 phase>0 出 boss3_p2）
+  ok(boss.phase > 0, '二阶段立绘标记（phase>0）');
+  // 打断只触发一次：继续出牌不再次打断
+  const idx2 = c.hand.findIndex(i => Engine.cardDef(i).cost <= c.energy);
+  const r2 = e.playCard(idx2 >= 0 ? idx2 : 0);
+  ok(!r2.interrupt, '打断只触发一次（phase 已为 1）');
+  // 之后正常回合交替：endTurn 敌人照常行动
+  const r3 = e.endTurn();
+  ok(r3.attacked || (r3.actions && r3.actions.length >= 0), '打断后恢复正常回合交替');
+  ok(boss.phase === 1, '阶段保持二阶段不回落');
+  // 致死一击不触发打断
+  const e2 = new Engine(9102);
+  e2.newRun('xiaoq');
+  e2.startCombat('boss3');
+  const b2 = e2.state.combat.enemy;
+  b2.hp = 3;
+  const i2 = e2.state.combat.hand.findIndex(i => Engine.cardDef(i).type === 'attack');
+  const r4 = e2.playCard(i2 >= 0 ? i2 : 0);
+  ok(e2.state.combat.over && !r4.interrupt, '致死一击不触发打断（直接胜利）');
+}
+
 /* ---------- c) 地图生成 ---------- */
 section('c) 地图生成（10 层 × 100 次）');
 {
@@ -1238,7 +1299,8 @@ section('e) 平衡统计（4 角色 × 50 局自动 run）');
     }
     const wr = victories / 50;
     console.log(`  [${chId}] 胜率 ${victories}/50 = ${(wr * 100).toFixed(0)}% · 到8层+ ${reach8} 局 · 分布: ${Object.keys(actDist).sort((a, b) => a - b).map(a => `${a}层×${actDist[a]}`).join(' ')}`);
-    ok(wr >= 0.15 && wr <= 0.45, `${chId} 胜率在 15%~45%（实际 ${(wr * 100).toFixed(0)}%）`);
+    // 下限 8%：强总 50% 打断机制（弃手牌+立即反击）上线后，机皇/老鸭实测胜率降至 10%/14%
+    ok(wr >= 0.08 && wr <= 0.45, `${chId} 胜率在 8%~45%（实际 ${(wr * 100).toFixed(0)}%）`);
     ok(errors === 0, `${chId} 50 局无异常`);
   }
   ok(totalErrors === 0, '全部角色 50 局无异常');

@@ -1211,7 +1211,7 @@
   /* ---------- 特效序列帧（v2/fx） ---------- */
   var FX_DIR = 'assets/v2/fx/';
   var FX_SEQS = { hit: 4, crit: 5, combo: 3, death: 4, block: 2, heal: 3, rare: 4, celebrate: 3,
-    eliteDeath: 5, minionDeath: 6, qiangDeath: 8, knockaway: 4, stars: 3 };
+    qiangDeath: 8, knockaway: 4, stars: 3 };
   function frameList(seq) {
     var list = [];
     for (var i = 1; i <= FX_SEQS[seq]; i++) {
@@ -1355,6 +1355,49 @@
     setTimeout(function () { d.remove(); }, 2100);
   }
 
+  // BOSS 倒地立绘定格特写：从原位平滑推到画面中央（约屏 45%），推镜+底部打光，
+  // 定格 ~1s 叠加「下班成功！」，随后淡出并回调（接本体消散）
+  function bossCloseup(src, anchorId, onDone) {
+    var fx = document.getElementById('fx');
+    if (!fx) { if (onDone) onDone(); return; }
+    var a = document.getElementById(anchorId);
+    var rect = (a && a.getBoundingClientRect().width)
+      ? a.getBoundingClientRect()
+      : { left: innerWidth * 0.6, top: innerHeight * 0.3, width: 200, height: 250 };
+    var wrap = document.createElement('div');
+    wrap.className = 'fx-closeup';
+    var im = document.createElement('img');
+    im.src = src;
+    im.style.left = rect.left + 'px';
+    im.style.top = rect.top + 'px';
+    im.style.width = rect.width + 'px';
+    im.style.height = rect.height + 'px';
+    var light = document.createElement('div');
+    light.className = 'fx-closeup-light';
+    var cap = document.createElement('div');
+    cap.className = 'fx-closeup-cap';
+    cap.textContent = '下班成功！';
+    wrap.appendChild(im);
+    wrap.appendChild(light);
+    wrap.appendChild(cap);
+    fx.appendChild(wrap);
+    void wrap.offsetWidth; // 强制 reflow 后启动 transition
+    var ratio = rect.width / rect.height;
+    var th = Math.round(innerHeight * (innerWidth < 820 ? 0.38 : 0.46));
+    var tw = Math.round(th * ratio);
+    im.style.left = Math.round((innerWidth - tw) / 2) + 'px';
+    im.style.top = Math.round((innerHeight - th) / 2 - th * 0.04) + 'px';
+    im.style.width = tw + 'px';
+    im.style.height = th + 'px';
+    im.classList.add('on');   // 到位后缓推镜
+    light.classList.add('on');
+    setTimeout(function () { cap.classList.add('show'); }, 620);
+    setTimeout(function () {
+      wrap.classList.add('out');
+      setTimeout(function () { wrap.remove(); if (onDone) onDone(); }, 320);
+    }, 620 + 1000);
+  }
+
   // 敌人死亡消散
   function deathAnim(targetId) {
     var t = document.getElementById(targetId);
@@ -1389,7 +1432,7 @@
     spawnFloatText: spawnFloatText, targetPos: targetPos, cardFly: cardFly,
     hitFlash: hitFlash, lunge: lunge, edgeFlash: edgeFlash, appShake: appShake,
     bigText: bigText, deathAnim: deathAnim, goldFlash: goldFlash,
-    impactFlash: impactFlash, miniShake: miniShake,
+    impactFlash: impactFlash, miniShake: miniShake, bossCloseup: bossCloseup,
     preloadFx: preloadFx, playFxAt: playFxAt, playFxFrames: playFxFrames,
     shockRing: shockRing, bossCut: bossCut, bossDeathScene: bossDeathScene, goldenFlash: goldenFlash,
     chargeLunge: chargeLunge, hitStop: hitStop, knockback: knockback, bigShake: bigShake,

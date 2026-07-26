@@ -209,8 +209,9 @@
   Game.cancelCard = function () { S.cardConfirm = null; render(); };
 
   /* ---------- 敌人死亡演出 ---------- */
-  // BOSS：换倒地立绘+全屏过场+下班大字+星星绕头，2.2s 后消散（强总走专属演出）
-  // 精英：大消散+冲击波；小怪：大消散+闪白，12% 概率击飞上天彩蛋
+  // BOSS：倒地立绘 →「下班！」大字 → 定格特写（推镜+打光+「下班成功！」）→ 本体消散（强总/资本加专属金爆）
+  // 小怪/精英：本体消散（放大闪白 → 缩小旋转 + 中性粒子）；12% 击飞彩蛋保留
+  // 已撤下 Lovart 自由发挥的角色碎裂序列帧（小机器人/石头人那两组），不再引用
   // 当前集火目标的元素 id（1vN 时按 target）
   function eImg() {
     var c = S.run.combat;
@@ -219,41 +220,40 @@
   function enemyDeathAnim(edef, e) {
     if (edef.boss || (S.run.combat && S.run.combat.rushBoss && !S.run.combat.multi)) {
       var img = document.getElementById(eImg());
-      if (img) {
-        // rush BOSS 用 rush 倒地立绘；主游戏 BOSS 用 boss_down
-        img.src = (S.run.combat && S.run.combat.rushBoss)
-          ? 'assets/v2/rush/down_' + S.run.combat.rushBoss.id + '.jpg'
-          : 'assets/v2/enemy/boss_down_' + S.run.act +
-            (e.id === 'boss3' ? (e.phase > 0 ? '_p2' : '_p1') : '') + '.jpg';
-      }
+      // rush BOSS 用 rush 倒地立绘；主游戏 BOSS 用 boss_down
+      var downSrc = (S.run.combat && S.run.combat.rushBoss)
+        ? 'assets/v2/rush/down_' + S.run.combat.rushBoss.id + '.jpg'
+        : 'assets/v2/enemy/boss_down_' + S.run.act +
+          (e.id === 'boss3' ? (e.phase > 0 ? '_p2' : '_p1') : '') + '.jpg';
+      if (img) img.src = downSrc;
       UI.bossDeathScene();
       UI.bigText('下班！');
       UI.playFxFrames(eImg(), 'stars', { size: 280, fps: 7, loops: 3 });
+      // 1.5s 后倒地立绘定格特写（约 1.9s），定格结束再本体消散
       setTimeout(function () {
-        UI.deathAnim(eImg());
-        if (e.id === 'boss3' || (S.run.combat && S.run.combat.rushBoss && S.run.combat.rushBoss.id === 'capital')) {
-          UI.playFxFrames(eImg(), 'qiangDeath', { size: 460, fps: 8 });
-          UI.goldenFlash();
-        } else {
-          UI.playFxFrames(eImg(), 'eliteDeath', { size: 420, fps: 12, holdLast: 700 });
-        }
-      }, 2200);
+        UI.bossCloseup(downSrc, eImg(), function () {
+          UI.deathAnim(eImg());
+          UI.playFxFrames(eImg(), 'stars', { size: 320, fps: 8, loops: 2 });
+          if (e.id === 'boss3' || (S.run.combat && S.run.combat.rushBoss && S.run.combat.rushBoss.id === 'capital')) {
+            UI.playFxFrames(eImg(), 'qiangDeath', { size: 460, fps: 8 });
+            UI.goldenFlash();
+          }
+        });
+      }, 1500);
       return;
     }
-    // 消散瞬间加一次短促冲击波环+闪白
+    // 本体消散：冲击波环 + 闪白 + dying（放大1.15闪白→缩小旋转）+ 中性星星粒子
     UI.shockRing(eImg());
     UI.hitFlash(eImg());
-    UI.deathAnim(eImg());
-    if (edef.elite) {
-      UI.playFxFrames(eImg(), 'eliteDeath', { size: 480, fps: 8, holdLast: 1300 });
-    } else if (Math.random() < 0.12) {
-      // 击飞彩蛋：飞更高+旋转
+    if (!edef.elite && Math.random() < 0.12) {
+      // 击飞彩蛋：飞更高+旋转（中性速度线，保留）
       UI.playFxFrames(eImg(), 'knockaway', { size: 420, fps: 10, holdLast: 1300 });
       var km = document.getElementById(eImg());
       if (km) km.classList.add('knockfly');
-    } else {
-      UI.playFxFrames(eImg(), 'minionDeath', { size: 420, fps: 8, holdLast: 900 });
+      return;
     }
+    UI.deathAnim(eImg());
+    UI.playFxFrames(eImg(), 'stars', { size: edef.elite ? 320 : 260, fps: 8, loops: 2 });
   }
 
   // 敌方行动分级演出时间线（docs/摸鱼大作战-敌方攻击打击感美术需求.docx）：
@@ -430,11 +430,25 @@
         setTimeout(function () { UI.floater(eImg(), egg, 'text'); }, flyMs);
       }
       var endMs = midMs + (r.hits.length ? 180 : 0);
+      // 摸鱼强总 50% 打断：变身过场（二阶段立绘+全屏过场图+「都给我加班」+金爆）→ 立即反击一轮
+      // 演出编排：打断-变身-反击连续播放，动画锁覆盖全程（endMs 顺延）
+      if (r.interrupt) {
+        var itBase = endMs + 150;
+        setTimeout(function () {
+          UI.bossCut();
+          UI.bigText('都给我加班！');
+          UI.goldenFlash();
+          UI.appShake();
+          Sfx.play('hit');
+          render(); // 重绘：二阶段立绘 + 打断后的新回合手牌
+        }, itBase);
+        endMs = playEnemyActionShow(c, r.interrupt, itBase + 1400);
+      }
       var deathExtra = 0;
       if (c.over) {
         var edefE = c.enemy._def;
-        // 胜利：演出时长 小怪≥1.2s / 精英≥1.6s / BOSS≥3.2s；玩家阵亡同样留白
-        deathExtra = c.won ? ((edefE.boss || c.rushBoss) ? 3200 : edefE.elite ? 1600 : 1200) : 700;
+        // 胜利：演出时长 小怪≥1.2s / 精英≥1.6s / BOSS≥4.4s（含定格特写）；玩家阵亡同样留白
+        deathExtra = c.won ? ((edefE.boss || c.rushBoss) ? 4400 : edefE.elite ? 1600 : 1200) : 700;
         if (c.won) setTimeout(function () { enemyDeathAnim(edefE, c.enemy); }, endMs);
       }
       // 玩家阵亡（自伤牌）：暴击爆裂 + 全屏震动 + 红闪 + 立绘消散
@@ -479,7 +493,7 @@
     }
     var deathExtra = 0;
     if (c.over) {
-      deathExtra = c.won ? (edef.boss ? 3200 : edef.elite ? 1600 : 1200) : 700;
+      deathExtra = c.won ? (edef.boss ? 4400 : edef.elite ? 1600 : 1200) : 700;
       if (c.won) setTimeout(function () { enemyDeathAnim(edef, c.enemy); }, endMs);
     }
     // 玩家阵亡：暴击爆裂 + 全屏震动 + 红闪 + 立绘消散
