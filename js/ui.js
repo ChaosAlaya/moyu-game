@@ -1181,20 +1181,31 @@
     setTimeout(function () { txt.remove(); }, ms + 80);
   }
 
-  // 漫画拟声词「砰！」：有 pow-boom 素材用图，否则 CSS 描边大字
+  // 漫画拟声词「砰！」：有 pow-boom 素材随机选一张（砰/轰/咚为三张字图非序列帧），否则 CSS 描边大字
+  var POW_WORDS = ['pow-boom_1.png', 'pow-boom_2.png', 'pow-boom_3.png'];
   function powBurst(targetId) {
     var p = targetPos(targetId);
     var fx = document.getElementById('fx');
     if (!p || !fx) return;
-    var rect = { left: p.x - 130, top: p.rect.top + p.rect.height / 2 - 130, width: 260, height: 260 };
-    if (playArtFrames('pow', 'pow-boom', 3, 'fx-pow', rect, 500)) return;
-    var d = document.createElement('div');
-    d.className = 'fx-pow css';
-    d.textContent = '砰！';
-    d.style.left = p.x + 'px';
-    d.style.top = (p.rect.top + p.rect.height / 2) + 'px';
-    fx.appendChild(d);
-    setTimeout(function () { d.remove(); }, 520);
+    if (FX_ART.pow) {
+      var d = document.createElement('img');
+      d.className = 'fx-pow';
+      d.src = FX_DIR + POW_WORDS[Math.floor(Math.random() * POW_WORDS.length)];
+      d.style.left = (p.x - 130) + 'px';
+      d.style.top = (p.rect.top + p.rect.height / 2 - 130) + 'px';
+      d.style.width = '260px';
+      d.style.height = '260px';
+      fx.appendChild(d);
+      setTimeout(function () { d.remove(); }, 520);
+      return;
+    }
+    var d2 = document.createElement('div');
+    d2.className = 'fx-pow css';
+    d2.textContent = '砰！';
+    d2.style.left = p.x + 'px';
+    d2.style.top = (p.rect.top + p.rect.height / 2) + 'px';
+    fx.appendChild(d2);
+    setTimeout(function () { d2.remove(); }, 520);
   }
 
   /* ---------- 特效序列帧（v2/fx） ---------- */

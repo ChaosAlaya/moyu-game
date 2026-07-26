@@ -1244,6 +1244,10 @@ button.yellow { background: var(--yellow); }
 @keyframes redflash { 0% { opacity: 0; } 18% { opacity: .55; } 100% { opacity: 0; } }
 /* 速度线拖尾（CSS 兜底：水平漫画速度线，从右向左） */
 .fx-trail { position: absolute; pointer-events: none; }
+/* 美术素材为白底 PNG：multiply 混合让白底隐形、保留黑线/红图 */
+img.fx-trail, img.fx-dring, img.fx-pow { mix-blend-mode: multiply; animation: trailzip .34s ease-out forwards; }
+img.fx-dring { animation: dringpulse .5s ease-in-out infinite; }
+img.fx-pow { animation: powpop .5s cubic-bezier(.2,1.4,.4,1) forwards; }
 .fx-trail.css {
   background: repeating-linear-gradient(90deg,
     rgba(20,20,20,.85) 0 3px, transparent 3px 14px,
