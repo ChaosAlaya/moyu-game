@@ -632,7 +632,7 @@
       result.deaths = result.deaths || [];
       result.deaths.push(i);
       for (var j = 0; j < c.enemies.length; j++) {
-        if (!c.enemies[j].dead) c.enemies[j].strength += 1;
+        if (!c.enemies[j].dead) c.enemies[j].strength += 3; // 孤注一掷 v5
       }
     }
     var alive = c.enemies.filter(function (e2) { return !e2.dead; });
