@@ -703,6 +703,7 @@
 
   // 进入 Rush（有存档续打，否则用通关构筑新开）
   Game.enterRush = function () {
+    if (!S.engine) S.engine = new Engine(); // 标题页直接进入时引擎尚未创建
     var saved = rushLoadSave();
     if (saved && saved.build) {
       S.engine.rushStart(saved.build);
