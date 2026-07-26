@@ -587,6 +587,27 @@
     else c.discard.push(inst);
 
     this._afterDamageChecks(result);
+    // 摸鱼强总专属：血量跌破 50% 瞬间强行打断玩家回合——立即进二阶段并以二阶段招式反击一轮，
+    // 之后才恢复正常回合交替（1v1 boss3 专属，不影响其他 BOSS 与 1vN）
+    if (!c.over && !c.multi && c.enemy && edef2.id === 'boss3' && c.enemy.phase === 0 &&
+        c.enemy.hp > 0 && c.enemy.hp < c.enemy.maxHp * 0.5) {
+      c.enemy.phase = 1;
+      c.log.push({ t: 'phase', text: edef2.phases[1].phaseName || '第二阶段' });
+      // 强行打断：弃掉玩家剩余手牌（能量/未出的牌全部作废）
+      while (c.hand.length) c.discard.push(c.hand.pop());
+      // 强总立刻行动一轮（打个措手不及）
+      var ir = { dmgToPlayer: 0, enemyBlock: 0, skipped: false, over: false, hits: [], absorbed: [],
+        reflected: 0, scarf: false, attacked: false, interrupt: true };
+      this._chooseIntent(c.enemy); // 二阶段招式池
+      this._enemyAct(c.enemy, ir);
+      this._afterDamageChecks(ir);
+      result.interrupt = ir;
+      // 玩家存活则直接进入新回合（重新抽牌），之后正常交替
+      if (!c.over) {
+        this._chooseIntent(c.enemy);
+        this._startPlayerTurn();
+      }
+    }
     return result;
   };
 

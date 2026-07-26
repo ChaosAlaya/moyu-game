@@ -256,6 +256,96 @@
     }
   }
 
+  // 敌方行动分级演出时间线（docs/摸鱼大作战-敌方攻击打击感美术需求.docx）：
+  // 普通：短前冲+红屏边+红字；重击（单段≥15或多段总伤≥20）：冲撞+90ms停顿+爆裂+击退+大震屏；
+  // 大招（每N回合招式）：0.5s危险预警 → 更快冲撞+140ms停顿+全屏红闪+「砰！」
+  // 1vN 按行动归属逐个董事排队播放；多段命中排队不叠加拉长。endTurn 与强总打断反击共用。
+  function playEnemyActionShow(c, r, baseMs) {
+    function eElId(id) {
+      if (!c.multi) return 'enemy-img';
+      for (var ei = 0; ei < c.enemies.length; ei++) if (c.enemies[ei].id === id) return 'enemy-img-' + ei;
+      return eImg();
+    }
+    function impactFx(h, absorbed, tier) {
+      var p = UI.targetPos('player-img');
+      if (h <= 0 && absorbed > 0) {
+        // 完全格挡：盾光罩 + 蓝字，不红屏不震屏
+        UI.playFxFrames('player-img', 'block', { size: 260, fps: 12 });
+        if (p) UI.spawnFloatText(p.x, p.y, '格挡 ' + absorbed, 'block');
+        Sfx.play('block');
+        return;
+      }
+      var heavy = tier !== 'normal';
+      playPose('hit', 400); // 受击姿势
+      UI.hitFlash('player-img');
+      UI.edgeFlash();
+      if (heavy) setTimeout(function () { UI.edgeFlash(); }, 120); // 重击红屏边框加强
+      UI.shockRing('player-img');
+      if (heavy) { UI.knockback('player-img'); UI.bigShake(); }
+      else if (h >= 15) UI.appShake(); else UI.miniShake();
+      var seq = h >= 15 ? 'crit' : (r.hits.length > 1 ? 'combo' : 'hit');
+      UI.playFxFrames('player-img', heavy ? 'crit' : seq,
+        { size: heavy ? 380 : (h >= 15 ? 340 : (r.hits.length > 1 ? 210 : 280)), fps: 13 });
+      if (p) UI.spawnFloatText(p.x, p.y, '-' + h, (heavy || h >= 15) ? 'dmg big' : 'dmg');
+      if (absorbed > 0 && p) UI.spawnFloatText(p.x, p.y - 30, '格挡 ' + absorbed, 'block');
+      if (tier === 'ult') UI.powBurst('player-img'); // 漫画拟声词「砰！」（有素材用图，无则 CSS）
+      Sfx.play('hit');
+    }
+    var acts = (r.actions || []).map(function (a) {
+      var hits = r.hits.slice(a.hs, a.he);
+      var maxH = Math.max.apply(null, hits.concat([0]));
+      var totH = hits.reduce(function (s2, x) { return s2 + x; }, 0);
+      return {
+        elId: eElId(a.id),
+        tier: a.special ? 'ult' : (maxH >= 15 || totH >= 20 ? 'heavy' : 'normal'),
+        hits: hits, absorbed: r.absorbed.slice(a.hs, a.he)
+      };
+    });
+    if (r.scarf) setTimeout(function () {
+      UI.playFxFrames('player-img', 'block', { size: 260, fps: 12 });
+      UI.floater('player-img', '红围巾挡下了攻击！', 'block');
+    }, baseMs);
+    var tl = baseMs; // 时间线游标：各实体/各段命中顺序排队
+    acts.forEach(function (a) {
+      if (a.tier === 'normal') {
+        setTimeout(function () { UI.lunge(a.elId); }, tl);
+        tl += 220;
+        a.hits.forEach(function (h, i) {
+          setTimeout(function () { impactFx(h, a.absorbed[i] || 0, 'normal'); }, tl + i * 200);
+        });
+        tl += Math.max(0, a.hits.length - 1) * 200 + (a.hits.length ? 200 : 0);
+      } else if (a.tier === 'heavy') {
+        // 冲撞 200ms → 90ms 停顿 → 爆裂命中（全程 ≤0.9s）
+        setTimeout(function () { UI.chargeLunge(a.elId, { stopMs: 90 }); }, tl);
+        setTimeout(function () { UI.hitStop(90); }, tl + 200);
+        var imp = tl + 290;
+        a.hits.forEach(function (h, i) {
+          setTimeout(function () { impactFx(h, a.absorbed[i] || 0, 'heavy'); }, imp + i * 180);
+        });
+        tl = imp + Math.max(0, a.hits.length - 1) * 180 + 450;
+      } else {
+        // 大招：0.5s 危险预警 → 冲撞 140ms → 140ms 停顿+全屏红闪 → 爆裂命中（全程 ≤1.5s）
+        setTimeout(function () { UI.dangerWarn(a.elId, 500); }, tl);
+        tl += 500;
+        setTimeout(function () { UI.chargeLunge(a.elId, { fast: true, stopMs: 140 }); UI.redFlash(); }, tl);
+        setTimeout(function () { UI.hitStop(140); }, tl + 140);
+        var imp2 = tl + 280;
+        a.hits.forEach(function (h, i) {
+          setTimeout(function () { impactFx(h, a.absorbed[i] || 0, 'ult'); }, imp2 + i * 180);
+        });
+        tl = imp2 + Math.max(0, a.hits.length - 1) * 180 + 500;
+      }
+    });
+    // 剩饭护体反弹：敌人头顶飘字
+    if (r.reflected > 0) setTimeout(function () {
+      UI.hitFlash(eImg());
+      UI.floater(eImg(), '反弹 -' + r.reflected, 'dmg');
+    }, baseMs + 220);
+    if (r.skipped) UI.floater(eImg(), '跳过了行动！', 'text');
+    if (r.enemyBlock > 0) UI.floater(eImg(), '+' + r.enemyBlock + ' 格挡', 'block');
+    return tl;
+  }
+
   Game.playCard = function (i) {
     var c = S.run.combat;
     if (!c || c.over || S.animating) return; // 动画编排期间锁输入
@@ -372,93 +462,8 @@
     S.dealAnim = true;           // 新手牌入场动画
     render();
     S.dealAnim = false;
-    // 敌人行动 → 玩家受击分级演出（docs/摸鱼大作战-敌方攻击打击感美术需求.docx）：
-    // 普通：短前冲+红屏边+红字（现状）；重击（单段≥15或多段总伤≥20）：冲撞+90ms停顿+爆裂+击退+大震屏；
-    // 大招（每N回合招式）：0.5s危险预警 → 更快冲撞+140ms停顿+全屏红闪+「砰！」
-    // 1vN 按行动归属逐个董事排队播放；多段命中排队不叠加拉长
-    function eElId(id) {
-      if (!c.multi) return 'enemy-img';
-      for (var ei = 0; ei < c.enemies.length; ei++) if (c.enemies[ei].id === id) return 'enemy-img-' + ei;
-      return eImg();
-    }
-    function impactFx(h, absorbed, tier) {
-      var p = UI.targetPos('player-img');
-      if (h <= 0 && absorbed > 0) {
-        // 完全格挡：盾光罩 + 蓝字，不红屏不震屏
-        UI.playFxFrames('player-img', 'block', { size: 260, fps: 12 });
-        if (p) UI.spawnFloatText(p.x, p.y, '格挡 ' + absorbed, 'block');
-        Sfx.play('block');
-        return;
-      }
-      var heavy = tier !== 'normal';
-      playPose('hit', 400); // 受击姿势
-      UI.hitFlash('player-img');
-      UI.edgeFlash();
-      if (heavy) setTimeout(function () { UI.edgeFlash(); }, 120); // 重击红屏边框加强
-      UI.shockRing('player-img');
-      if (heavy) { UI.knockback('player-img'); UI.bigShake(); }
-      else if (h >= 15) UI.appShake(); else UI.miniShake();
-      var seq = h >= 15 ? 'crit' : (r.hits.length > 1 ? 'combo' : 'hit');
-      UI.playFxFrames('player-img', heavy ? 'crit' : seq,
-        { size: heavy ? 380 : (h >= 15 ? 340 : (r.hits.length > 1 ? 210 : 280)), fps: 13 });
-      if (p) UI.spawnFloatText(p.x, p.y, '-' + h, (heavy || h >= 15) ? 'dmg big' : 'dmg');
-      if (absorbed > 0 && p) UI.spawnFloatText(p.x, p.y - 30, '格挡 ' + absorbed, 'block');
-      if (tier === 'ult') UI.powBurst('player-img'); // 漫画拟声词「砰！」（有素材用图，无则 CSS）
-      Sfx.play('hit');
-    }
-    var acts = (r.actions || []).map(function (a) {
-      var hits = r.hits.slice(a.hs, a.he);
-      var maxH = Math.max.apply(null, hits.concat([0]));
-      var totH = hits.reduce(function (s2, x) { return s2 + x; }, 0);
-      return {
-        elId: eElId(a.id),
-        tier: a.special ? 'ult' : (maxH >= 15 || totH >= 20 ? 'heavy' : 'normal'),
-        hits: hits, absorbed: r.absorbed.slice(a.hs, a.he)
-      };
-    });
-    if (r.scarf) setTimeout(function () {
-      UI.playFxFrames('player-img', 'block', { size: 260, fps: 12 });
-      UI.floater('player-img', '红围巾挡下了攻击！', 'block');
-    }, 0);
-    var tl = 0; // 时间线游标：各实体/各段命中顺序排队
-    acts.forEach(function (a) {
-      if (a.tier === 'normal') {
-        setTimeout(function () { UI.lunge(a.elId); }, tl);
-        tl += 220;
-        a.hits.forEach(function (h, i) {
-          setTimeout(function () { impactFx(h, a.absorbed[i] || 0, 'normal'); }, tl + i * 200);
-        });
-        tl += Math.max(0, a.hits.length - 1) * 200 + (a.hits.length ? 200 : 0);
-      } else if (a.tier === 'heavy') {
-        // 冲撞 200ms → 90ms 停顿 → 爆裂命中（全程 ≤0.9s）
-        setTimeout(function () { UI.chargeLunge(a.elId, { stopMs: 90 }); }, tl);
-        setTimeout(function () { UI.hitStop(90); }, tl + 200);
-        var imp = tl + 290;
-        a.hits.forEach(function (h, i) {
-          setTimeout(function () { impactFx(h, a.absorbed[i] || 0, 'heavy'); }, imp + i * 180);
-        });
-        tl = imp + Math.max(0, a.hits.length - 1) * 180 + 450;
-      } else {
-        // 大招：0.5s 危险预警 → 冲撞 140ms → 140ms 停顿+全屏红闪 → 爆裂命中（全程 ≤1.5s）
-        setTimeout(function () { UI.dangerWarn(a.elId, 500); }, tl);
-        tl += 500;
-        setTimeout(function () { UI.chargeLunge(a.elId, { fast: true, stopMs: 140 }); UI.redFlash(); }, tl);
-        setTimeout(function () { UI.hitStop(140); }, tl + 140);
-        var imp2 = tl + 280;
-        a.hits.forEach(function (h, i) {
-          setTimeout(function () { impactFx(h, a.absorbed[i] || 0, 'ult'); }, imp2 + i * 180);
-        });
-        tl = imp2 + Math.max(0, a.hits.length - 1) * 180 + 500;
-      }
-    });
-    // 剩饭护体反弹：敌人头顶飘字
-    if (r.reflected > 0) setTimeout(function () {
-      UI.hitFlash(eImg());
-      UI.floater(eImg(), '反弹 -' + r.reflected, 'dmg');
-    }, 220);
-    if (r.skipped) UI.floater(eImg(), '跳过了行动！', 'text');
-    if (r.enemyBlock > 0) UI.floater(eImg(), '+' + r.enemyBlock + ' 格挡', 'block');
-    var endMs = tl;
+    // 敌人行动 → 玩家受击分级演出（普通/重击/大招，1vN 按归属排队；与强总打断反击共用时间线）
+    var endMs = playEnemyActionShow(c, r, 0);
     // BOSS 阶段切换：全屏震动 + 红闪 + 阶段名大字
     var phaseChanged = edef.phases && c.enemy.phase !== phaseBefore;
     if (phaseChanged) {
@@ -690,8 +695,24 @@
       S.run.rush.fight = saved.fight || 1;
       if (saved.entry) S.run.rush.entry = saved.entry;
     } else {
-      if (!S.save.lastWinBuild) { UI.toast('需要先通关 10 层才能挑战总部！'); return; }
-      S.engine.rushStart(S.save.lastWinBuild);
+      if (!S.save.lastWinBuild) {
+        // 临时调试：无通关构筑时用默认卡组进入 Rush（不写存档，方便体验）
+        var dbgChar = 'xiaoq';
+        var base = D.characters[dbgChar];
+        var uid = 1;
+        S.engine.rushStart({
+          charId: dbgChar,
+          deck: base.deck.map(function (id) { return { uid: uid++, id: id, up: false }; }),
+          relics: ['doll', 'gamepad'],
+          equippedRelics: ['doll', 'gamepad'],
+          gold: 99,
+          hp: base.maxHp,
+          maxHp: base.maxHp
+        });
+        UI.toast('调试入口：使用默认构筑进入总部');
+      } else {
+        S.engine.rushStart(S.save.lastWinBuild);
+      }
     }
     S.run = S.engine.state; // rushStart 会重建 run，同步引用
     S.screen = 'rush';
