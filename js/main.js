@@ -47,6 +47,8 @@
       selecting: null, screenBeforeCodex: null, codexTab: 'cards',
       newUnlocks: [],
       animating: false,       // 战斗动画编排期间锁输入
+      runSave: null,          // 未完成对局快照（标题【继续游戏】按钮）
+      showRushConfirm: false, // Rush 继承确认弹层
       playerPose: 'stage',    // 当前玩家立绘姿势（stage/attack/hit/low）
       touch: (typeof matchMedia !== 'undefined') && matchMedia('(hover: none)').matches,
       cardConfirm: null       // 移动端：待确认出牌的手牌下标
@@ -54,6 +56,75 @@
   };
 
   var S = Game.state;
+
+  /* ---------- 对局实时存档（节点级快照，防误关丢进度） ---------- */
+  // 粒度：每完成一个节点（战斗领奖/商店离开/事件结束/休息结束）持久化一次；
+  // 战斗中误关 = 该节点未完成，回到上一快照（节点开始前）。独立 key，与元数据存档分离。
+  var RUN_SAVE_KEY = 'moyu_run_save';
+  function runSnapshot() {
+    var r = S.run;
+    return {
+      v: 1,
+      charId: r.charId, act: r.act, step: r.step,
+      hp: r.hp, maxHp: r.maxHp, gold: r.gold,
+      deck: r.deck.map(function (c) { return { uid: c.uid, id: c.id, up: c.up, costMod: c.costMod || 0 }; }),
+      relics: r.relics.slice(),
+      equippedRelics: (r.equippedRelics || []).slice(),
+      seenEvents: (r.seenEvents || []).slice(),
+      seen: JSON.parse(JSON.stringify(r.seen)),
+      map: r.map, lastNodeType: r.lastNodeType || null,
+      floorsCleared: r.floorsCleared, path: (r.path || []).slice(),
+      uidCounter: r.uidCounter
+    };
+  }
+  function runPersist() {
+    if (!S.run || S.run.over || (S.run.rush && S.run.rush.active)) return;
+    var snap = runSnapshot();
+    try { localStorage.setItem(RUN_SAVE_KEY, JSON.stringify(snap)); } catch (e) { /* 写失败静默容错 */ }
+    S.runSave = snap;
+  }
+  function runLoadSave() {
+    try {
+      var raw = localStorage.getItem(RUN_SAVE_KEY);
+      return raw ? JSON.parse(raw) : null;
+    } catch (e) { return null; }
+  }
+  function runClearSave() {
+    try { localStorage.removeItem(RUN_SAVE_KEY); } catch (e) {}
+    S.runSave = null;
+  }
+  // 标题【继续游戏】：恢复到对应层地图界面
+  Game.continueRun = function () {
+    var snap = runLoadSave();
+    if (!snap || !snap.charId || !snap.deck || !snap.map || !D.characters[snap.charId]) {
+      runClearSave();
+      UI.toast('没有可继续的对局');
+      return;
+    }
+    try {
+      S.engine = new Engine();
+      S.engine.newRun(snap.charId); // 建完整 state 骨架后用快照覆盖持久化字段
+      var st = S.engine.state;
+      ['act', 'step', 'hp', 'maxHp', 'gold', 'deck', 'relics', 'equippedRelics',
+        'seenEvents', 'seen', 'map', 'lastNodeType', 'floorsCleared', 'uidCounter'].forEach(function (k) {
+        if (snap[k] !== undefined) st[k] = snap[k];
+      });
+      st.path = snap.path || [];
+      st.combat = null; // 战斗中误关：该节点重新挑战
+      S.run = st;
+      S.animating = false;
+      S.playerPose = 'stage';
+      S.runSave = snap;
+      syncSave();
+      S.screen = 'map';
+      render();
+    } catch (e) {
+      console.warn('run 存档恢复失败', e);
+      runClearSave();
+      UI.toast('对局存档损坏，已清除');
+    }
+  };
+
 
   function render() {
     // 低血姿势常驻（仅在 stage/low 两态间自动切换，不打断 attack/hit 演出）
@@ -106,6 +177,7 @@
 
   Game.pickChar = function (cid) {
     if (!S.save.unlocks[cid]) return;
+    runClearSave(); // 开始新游戏：清除旧 run 存档
     S.engine = new Engine();
     S.engine.newRun(cid);
     S.run = S.engine.state;
@@ -512,7 +584,8 @@
   function finishNode() {
     S.engine.advance();
     syncSave();
-    if (S.run.over) { gameOver(); return; }
+    if (S.run.over) { gameOver(); return; } // 完结（胜/负）由 gameOver 清除 run 存档
+    runPersist(); // 节点完成：对局实时存档
     S.screen = 'map';
     render();
   }
@@ -601,6 +674,7 @@
 
   /* ---------- 结算 ---------- */
   function gameOver() {
+    runClearSave(); // run 完结（胜/负）：清除对局实时存档
     if (S.run.victory) {
       S.save.wins++;
       // 记录通关构筑快照（Boss Rush 入口用）
@@ -667,7 +741,24 @@
   function endCutscene() {
     clearCutsceneTimers();
     S.cutsceneStep = 0;
-    Game.enterRush();
+    rushClearSave(); // 新通关：清掉旧 Rush 进度存档，防止污染本次构筑继承
+    // 兜底：任何异常都不能卡在白屏，先直进 Rush 大厅，再退而回标题
+    try {
+      Game.enterRush();
+    } catch (e) {
+      console.warn('过场结束进入 Rush 异常，兜底直进大厅', e);
+      try {
+        S.engine = S.engine || new Engine();
+        S.engine.rushStart(sanitizeBuild(S.save.lastWinBuild));
+        S.run = S.engine.state;
+        S.screen = 'rush';
+        render();
+      } catch (e2) {
+        console.warn('兜底失败，回标题', e2);
+        S.screen = 'title';
+        render();
+      }
+    }
   }
 
   /* ---------- Boss Rush：总部连续作战 ---------- */
@@ -701,17 +792,51 @@
     try { localStorage.removeItem(RUSH_SAVE_KEY); } catch (e) {}
   }
 
-  // 进入 Rush（有存档续打，否则用通关构筑新开）
-  Game.enterRush = function () {
+  // 构筑快照健壮化：补齐旧存档缺失字段（装备系统前的 lastWinBuild 无 equippedRelics 等）
+  function sanitizeBuild(b) {
+    b = b || {};
+    var charId = D.characters[b.charId] ? b.charId : 'xiaoq';
+    var base = D.characters[charId];
+    var deck = (Array.isArray(b.deck) && b.deck.length ? b.deck : base.deck).map(function (c, i) {
+      return typeof c === 'string'
+        ? { uid: i + 1, id: c, up: false, costMod: 0 }
+        : { uid: c.uid == null ? i + 1 : c.uid, id: c.id, up: !!c.up, costMod: c.costMod || 0 };
+    });
+    var relics = Array.isArray(b.relics) ? b.relics.slice() : [];
+    var eq = (Array.isArray(b.equippedRelics) && b.equippedRelics.length)
+      ? b.equippedRelics.slice() : relics.slice(0, 4);
+    return {
+      charId: charId, deck: deck, relics: relics, equippedRelics: eq,
+      gold: b.gold | 0,
+      hp: (b.hp > 0 ? b.hp : base.maxHp),
+      maxHp: (b.maxHp > 0 ? b.maxHp : base.maxHp)
+    };
+  }
+
+  // 进入 Rush（有存档续打，否则用通关构筑新开；lastWinBuild 需先过继承确认）
+  Game.enterRush = function (skipConfirm) {
     if (!S.engine) S.engine = new Engine(); // 标题页直接进入时引擎尚未创建
     var saved = rushLoadSave();
     if (saved && saved.build) {
-      S.engine.rushStart(saved.build);
-      S.run.rush.fight = saved.fight || 1;
-      if (saved.entry) S.run.rush.entry = saved.entry;
-    } else {
-      if (!S.save.lastWinBuild) {
-        // 临时调试：无通关构筑时用默认卡组进入 Rush（不写存档，方便体验）
+      try {
+        S.engine.rushStart(sanitizeBuild(saved.build));
+        S.run = S.engine.state; // rushStart 会重建 run，先同步引用再恢复进度
+        S.run.rush.fight = saved.fight || 1;
+        if (saved.entry) S.run.rush.entry = saved.entry;
+        S.screen = 'rush';
+        render();
+      } catch (e) {
+        console.warn('Rush 进度存档损坏，已清除', e);
+        rushClearSave();
+        UI.toast('Rush 存档损坏，已重置');
+      }
+      return;
+    }
+    if (!S.save.lastWinBuild) {
+      // 有通关记录但没有构筑快照（旧版存档）：明确告知，不用调试卡组冒充
+      if (S.save.wins > 0) { UI.toast('需要再通关一次记录构筑，才能挑战总部！'); return; }
+      // 调试入口（从未通关）：默认卡组体验，不写存档
+      try {
         var dbgChar = 'xiaoq';
         var base = D.characters[dbgChar];
         var uid = 1;
@@ -724,15 +849,34 @@
           hp: base.maxHp,
           maxHp: base.maxHp
         });
+        S.run = S.engine.state;
+        S.screen = 'rush';
+        render();
         UI.toast('调试入口：使用默认构筑进入总部');
-      } else {
-        S.engine.rushStart(S.save.lastWinBuild);
-      }
+      } catch (e) { console.warn('enterRush 调试入口失败', e); }
+      return;
     }
-    S.run = S.engine.state; // rushStart 会重建 run，同步引用
-    S.screen = 'rush';
-    render();
+    // 继承确认：展示通关构筑摘要（角色/牌数/圣物数/金币/精力），确认后才真正进入
+    if (!skipConfirm) {
+      if (S.screen === 'cutscene') S.screen = 'title'; // 过场结束：确认框叠在标题上，避免白屏
+      S.showRushConfirm = true;
+      render();
+      return;
+    }
+    try {
+      S.engine.rushStart(sanitizeBuild(S.save.lastWinBuild));
+      S.run = S.engine.state;
+      S.screen = 'rush';
+      render();
+    } catch (e) {
+      console.warn('enterRush 失败', e);
+      UI.toast('进入总部失败，请重试');
+      S.screen = 'title';
+      render();
+    }
   };
+  Game.rushConfirmGo = function () { S.showRushConfirm = false; Game.enterRush(true); };
+  Game.rushConfirmBack = function () { S.showRushConfirm = false; S.screen = 'title'; render(); };
 
   // 开始当前场战斗
   Game.rushFight = function () {
@@ -984,6 +1128,7 @@
   g.Game = Game;
   // 启动
   if (typeof document !== 'undefined') {
+    S.runSave = runLoadSave(); // 未完成对局（标题显示继续游戏按钮）
     // 全局按钮点击音（首次交互时即触发 AudioContext 创建/恢复，符合自动播放策略）
     document.addEventListener('click', function (e) {
       if (e.target && e.target.closest && e.target.closest('button')) Sfx.play('click');

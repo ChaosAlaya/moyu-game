@@ -1173,6 +1173,104 @@ section('b6) 死亡碎裂帧撤换 / BOSS 定格特写 / 强总打断');
   ok(e2.state.combat.over && !r4.interrupt, '致死一击不触发打断（直接胜利）');
 }
 
+/* ---------- b7) 对局实时存档 + Rush 继承（DOM 垫片驱动真实 main.js） ---------- */
+section('b7) 实时存档 / Rush 继承确认 / 存档清除');
+
+{
+  // 最小 DOM/localStorage 垫片
+  function stubEl() {
+    const t = {
+      style: {}, classList: { add() {}, remove() {}, contains() { return false; } },
+      children: [], textContent: '', innerHTML: '', src: '',
+      appendChild() {}, remove() {}, closest() { return null; },
+      getBoundingClientRect() { return { left: 0, top: 0, width: 100, height: 100 }; },
+      addEventListener() {}, setAttribute() {}, getAttribute() { return ''; }
+    };
+    return new Proxy(t, {
+      get(o, k) { return k in o ? o[k] : function () { return stubEl(); }; },
+      set(o, k, v) { o[k] = v; return true; }
+    });
+  }
+  const els = {};
+  global.document = {
+    getElementById(id) { return els[id] || (els[id] = stubEl()); },
+    querySelector() { return null; },
+    querySelectorAll() { return []; },
+    createElement() { return stubEl(); },
+    addEventListener() {},
+    body: stubEl()
+  };
+  global.matchMedia = () => ({ matches: false });
+  const store = {};
+  global.localStorage = {
+    getItem: k => (k in store ? store[k] : null),
+    setItem: (k, v) => { store[k] = String(v); },
+    removeItem: k => { delete store[k]; }
+  };
+  global.Image = function () { return { set src(v) {}, onload: null, onerror: null }; };
+  require('../js/ui.js');
+  require('../js/sfx.js');
+  require('../js/main.js');
+  const G = globalThis.Game;
+
+  // 节点边界：战斗领奖 / 商店离开后快照存在且推进
+  G.pickChar('xiaoq');
+  ok(!store['moyu_run_save'], '新开一局时旧 run 存档已清除');
+  G.state.run.hp = 55;
+  G.debug.reward();
+  G.rewardSkip(); // 战斗胜利领奖 → finishNode → runPersist
+  const snap1 = JSON.parse(store['moyu_run_save'] || 'null');
+  ok(!!snap1, '战斗领奖后快照存在（节点边界）');
+  ok(snap1 && snap1.act === 1 && snap1.step === 1 && snap1.hp === 55 &&
+    snap1.deck.length === G.state.run.deck.length,
+    `快照字段一致（act/step/hp/deck ${snap1 && snap1.deck.length}）`);
+  G.debug.shop();
+  G.shopLeave();
+  const snap2 = JSON.parse(store['moyu_run_save'] || 'null');
+  ok(snap2 && snap2.step === 2, '商店离开后快照推进到下一节点');
+
+  // 恢复一致性：改乱当前状态后 continueRun 回到快照
+  G.state.run.hp = 1;
+  G.state.run.deck.push({ uid: 9999, id: 'rua', up: true });
+  G.continueRun();
+  ok(G.state.run.hp === 55 && G.state.run.deck.length === snap2.deck.length &&
+    G.state.run.step === 2 && G.state.screen === 'map',
+    'continueRun 恢复 hp/deck/step 并回到地图');
+
+  // 通关：run 存档清除 + lastWinBuild 写入 + 过场 → 继承确认 → 大厅带自己卡组
+  G.state.run.over = true;
+  G.state.run.victory = true;
+  G.state.run.combat = { enemy: { name: '强总' } };
+  G.debug.reward();
+  G.rewardSkip();
+  ok(!store['moyu_run_save'], '通关后 run 存档被清除');
+  ok(!!G.state.save.lastWinBuild, '通关构筑 lastWinBuild 已写入');
+  G.skipCutscene(); // endCutscene：清 rush 存档 → enterRush → 继承确认
+  ok(G.state.showRushConfirm === true, '过场结束弹出继承确认（不落白屏）');
+  const myDeck = G.state.save.lastWinBuild.deck.map(c => c.id).join(',');
+  G.rushConfirmGo();
+  ok(G.state.screen === 'rush' && G.state.run.deck.map(c => c.id).join(',') === myDeck,
+    '确认后进入 Rush 大厅且卡组=通关卡组');
+
+  // wins>0 但缺 lastWinBuild：toast 拒绝，不用调试卡组冒充
+  delete store['moyu_rush_save'];
+  G.state.save.lastWinBuild = null;
+  G.state.screen = 'title';
+  G.enterRush();
+  ok(G.state.screen === 'title' && G.state.showRushConfirm === false,
+    'wins>0 缺构筑：明确拒绝（toast）不静默进入');
+
+  // rush 旧存档污染防护：endCutscene 会清旧 rush 进度（由上文 skipCutscene 路径覆盖，此处验证续打入口）
+  store['moyu_rush_save'] = JSON.stringify({ fight: 3, build: {
+    charId: 'xiaoq',
+    deck: [{ uid: 1, id: 'strike_moyu', up: false, costMod: 0 }],
+    relics: [], equippedRelics: [], gold: 10, hp: 50, maxHp: 75 } });
+  G.state.save.lastWinBuild = { charId: 'shengfan', deck: [{ uid: 2, id: 'rua', up: false, costMod: 0 }],
+    relics: [], equippedRelics: [], gold: 20, hp: 60, maxHp: 80 };
+  G.enterRush(); // 有 rush 存档：直接续打，不弹确认
+  ok(G.state.screen === 'rush' && G.state.run.rush.fight === 3, 'Rush 进度存档续打（fight 3）');
+}
+
 /* ---------- c) 地图生成 ---------- */
 section('c) 地图生成（10 层 × 100 次）');
 {

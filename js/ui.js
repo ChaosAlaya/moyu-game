@@ -83,12 +83,18 @@
   /* ---------- 标题（横版主视觉 + 右侧竖排按钮） ---------- */
   function renderTitle(S) {
     var sv = S.save;
+    // 未完成对局：继续游戏按钮置于最上
+    var contBtn = S.runSave
+      ? '<button class="tbtn primary continue-btn" onclick="Game.continueRun()">⏩ 继续游戏 · 第 ' +
+        S.runSave.act + ' 层 第 ' + (S.runSave.step + 1) + ' 步</button>'
+      : '';
     // 调试期：无条件显示 Rush 入口（进入时用默认调试构筑）
     var rushBtn = '<button class="tbtn rush-btn" onclick="Game.enterRush()"><img class="rush-logo-mini" src="assets/v2/rush/rush_logo.png" alt="">总部连续作战！</button>';
     var godTitle = sv.godTitle
       ? '<div class="god-title">👑 称号：摸鱼之神</div>' : '';
     return '<div class="screen title-bg2" id="screen-title">' +
       '<div class="title-menu2">' +
+      contBtn +
       '<button class="tbtn primary" onclick="Game.toChars()">▶ 开始摸鱼</button>' +
       rushBtn +
       '<button class="tbtn" onclick="Game.showCodex()">📖 图鉴</button>' +
@@ -775,6 +781,24 @@
     return html;
   }
 
+  /* ---------- Rush 继承确认（通关构筑摘要） ---------- */
+  function renderRushConfirm(S) {
+    var b = S.save.lastWinBuild || { charId: 'xiaoq', deck: [], relics: [], equippedRelics: [], gold: 0, hp: 0, maxHp: 0 };
+    var ch = D.characters[b.charId] ? D.characters[b.charId].name : b.charId;
+    return '<div class="dv-backdrop"><div class="dv-panel guide-panel rush-confirm-panel">' +
+      '<h3>🏢 继承通关构筑，挑战总部？</h3>' +
+      '<div class="guide-body rush-confirm">' +
+      '<p>角色：<b>' + ch + '</b></p>' +
+      '<p>牌组 <b>' + b.deck.length + '</b> 张 · 圣物 <b>' +
+      (b.equippedRelics || []).length + '/' + b.relics.length + '</b> 件</p>' +
+      '<p>金币 <b>' + b.gold + '</b> · 精力 <b>' + b.hp + '/' + b.maxHp + '</b></p>' +
+      '</div>' +
+      '<div class="guide-nav">' +
+      '<button onclick="Game.rushConfirmBack()">返回</button>' +
+      '<button class="primary" onclick="Game.rushConfirmGo()">开始挑战！</button>' +
+      '</div></div></div>';
+  }
+
   /* ---------- 新手指南（5 页弹层） ---------- */
   var GUIDE_PAGES = [
     {
@@ -913,7 +937,7 @@
       case 'cutscene': html = renderCutscene(S); break;
       default: html = '<div class="screen">未知界面</div>';
     }
-    el().innerHTML = html + (S.deckView ? deckViewHtml(S) : '') + (S.relicView ? relicViewHtml(S) : '') + (S.showGuide ? renderGuide(S) : '');
+    el().innerHTML = html + (S.deckView ? deckViewHtml(S) : '') + (S.relicView ? relicViewHtml(S) : '') + (S.showGuide ? renderGuide(S) : '') + (S.showRushConfirm ? renderRushConfirm(S) : '');
     // 界面切换时统一清理动画临时元素，防止飘字跨屏残留（同屏重绘保留进行中的动画）
     if (S.screen !== lastScreen) {
       var fx = document.getElementById('fx');

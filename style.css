@@ -1336,3 +1336,9 @@ img.fx-pow { animation: powpop .5s cubic-bezier(.2,1.4,.4,1) forwards; }
 @media (max-width: 820px) {
   .fx-closeup-cap { font-size: 26px; bottom: 16%; }
 }
+
+/* ---------- 继续游戏按钮 / Rush 继承确认 ---------- */
+.continue-btn { background: linear-gradient(180deg, #ffd23f, #f0a83c); }
+.rush-confirm-panel h3 { color: var(--red); font-size: 22px; margin-bottom: 10px; }
+.rush-confirm p { font-size: 16px; line-height: 2; }
+.rush-confirm b { color: var(--red); }
