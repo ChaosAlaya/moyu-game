@@ -303,7 +303,19 @@
       return '<div class="intent debuff" title="摸鱼禁止生效中">' + ico('debuff') +
         ' 被禁止摸鱼：跳过下一次行动</div>';
     }
+    var edef = e._def;
+    var hasGlasses = runHasRelic(S.run, 'glasses');
+    // 【微笑欺骗】展示意图可能是假情报；肯尼镜片识破显示真实意图
     var mv = e.intent;
+    var fakeBadge = '';
+    if (edef.mechanic === 'fakeIntent') {
+      if (hasGlasses) {
+        fakeBadge = '<span class="fake-badge seen" title="肯尼的镜片：已识破，这是真实意图">✓识破</span>';
+      } else {
+        mv = e.shownIntent || e.intent;
+        fakeBadge = '<span class="fake-badge" title="这条情报可能是假的！">?</span>';
+      }
+    }
     if (!mv) return '<div class="intent">…</div>';
     var ic = 'buff';
     if (mv.type === 'attack') ic = 'intent_attack';
@@ -312,15 +324,20 @@
     else if (mv.type === 'charge') ic = 'charge';
     else if (mv.type === 'heal') ic = 'heal';
     var text = mv.name + '：' + moveDesc(mv);
-    // 肯尼的镜片：tooltip 里给精确结算数值
+    // 肯尼的镜片：tooltip 里给精确结算数值（先算 tip，再拼预算角标，避免 HTML 进 title）
     var tip = text;
-    if (runHasRelic(S.run, 'glasses') && mv.type === 'attack') {
+    if (hasGlasses && mv.type === 'attack') {
       var v = mv.value + e.strength + (e.dmgBonus || 0);
       if (e.weak > 0) v = Math.floor(v * 0.75);
       if (c.playerVuln > 0) v = Math.floor(v * 1.5);
       tip += '（精确：每段 ' + v + ' 点）';
     }
-    return '<div class="intent ' + mv.type + '" title="' + tip + '">' + ico(ic) + ' ' + text + '</div>';
+    // 【预算审核】意图气泡附带剩余预算
+    if (edef.mechanic === 'budget') {
+      text += '　<span class="budget-left">预算剩 ' + Math.max(0, 4 - c.spentThisTurn) + '/4</span>';
+      tip += '（预算剩 ' + Math.max(0, 4 - c.spentThisTurn) + '/4）';
+    }
+    return '<div class="intent ' + mv.type + '" title="' + tip + '">' + ico(ic) + ' ' + text + fakeBadge + '</div>';
   }
 
   function statusBadges(list) {
@@ -352,10 +369,12 @@
         var hpPct = Math.max(0, me.hp / me.maxHp * 100);
         var dead = me.dead ? ' dead' : '';
         var tgt = (mi === c.target && !me.dead) ? ' target' : '';
+        var chair = (mi === c.chairIdx && !me.dead) ? ' chair' : ''; // 【轮值主席】金框
         var onclick = me.dead ? '' : ' onclick="Game.pickTarget(' + mi + ')"';
         var mArt = 'assets/v2/rush/' + me.id + '.jpg';
-        var mIntent = me.dead ? '' : '<div class="intent mini">' + (me.intent ? (me.intent.name || '') : '…') + '</div>';
-        return '<div class="multi-enemy' + dead + tgt + '"' + onclick + '>' +
+        var mIntent = me.dead ? '' : '<div class="intent mini">' + (me.intent ? (me.intent.name || '') : '…') +
+          (chair ? '<span class="chair-tag">轮值</span>' : '') + '</div>';
+        return '<div class="multi-enemy' + dead + tgt + chair + '"' + onclick + '>' +
           mIntent +
           '<img class="enemy-img v2" id="enemy-img-' + mi + '" src="' + mArt + '" alt="' + me.name + '">' +
           '<div class="enemy-name">' + me.name + '</div>' +
@@ -366,7 +385,7 @@
           '</div>';
       }).join('');
       enemyZoneHtml = '<div class="multi-enemies">' + members + '</div>' +
-        '<div class="multi-tip">点击敌人切换集火目标（金框为当前目标）</div>';
+        '<div class="multi-tip">点击敌人切换集火目标 · 金框为轮值主席（非轮值伤害减半）</div>';
     } else {
       var eStatus = statusBadges([
         e.strength ? { cls: 'str', txt: '力量+' + e.strength } : null,
@@ -392,11 +411,13 @@
     })));
 
     var hasGamepad = runHasRelic(run, 'gamepad');
+    // 【预算审核】费用合计超 4 的牌变灰
+    var budgetLeft = (!c.multi && c.enemy._def.mechanic === 'budget') ? (4 - c.spentThisTurn) : Infinity;
     var hand = c.hand.map(function (inst, i) {
       var def = Engine.cardDef(inst);
       var cost = def.cost + (inst.costMod || 0); // 「成本核算」附加费用
       if (def.type === 'skill' && hasGamepad && !c.flags.gamepadUsed) cost = Math.max(0, cost - 1);
-      var playable = cost <= c.energy && !c.over;
+      var playable = cost <= c.energy && cost <= budgetLeft && !c.over;
       // 抽牌入场动画（仅在 endTurn 后的那次渲染开启）
       var dealAttr = S.dealAnim
         ? ' style="animation-delay:' + (i * 45) + 'ms"'
@@ -593,11 +614,31 @@
     var title = S.selecting === 'shopRemove' ? '选择要移除的牌'
       : S.selecting === 'shopCopy' ? '选择要复制的牌（按稀有度付费）'
       : S.selecting === 'eventRemove' ? '选择要移除的牌'
-      : '选择要升级的牌';
+      : '选择要升级的牌（悬停预览升级效果）';
     var list = S.run.deck.filter(function (inst) {
       return S.selecting === 'restUpgrade' ? !inst.up : true;
     });
+    var isCopy = S.selecting === 'shopCopy';
+    var isUp = S.selecting === 'restUpgrade';
+    var sunglasses = isCopy && runHasRelic(S.run, 'sunglasses');
     var cardsHtml = list.map(function (inst) {
+      if (isCopy) {
+        // 复制价格：普通 70 / 罕见 100 / 稀有 150（墨镜 8 折），金币不够置灰
+        var rarity = D.cards[inst.id].rarity;
+        var base = rarity === 'common' ? 70 : rarity === 'uncommon' ? 100 : 150;
+        var price = Math.round(base * (sunglasses ? 0.8 : 1));
+        var afford = S.run.gold >= price;
+        return '<div class="copy-cell' + (afford ? '' : ' poor') + '">' +
+          cardHtml(inst, { onclick: afford ? 'Game.deckSelectPick(' + inst.uid + ')' : '' }) +
+          '<div class="copy-price">' + ico('gold') + ' ' + price + '</div></div>';
+      }
+      if (isUp) {
+        // 升级预览：悬停（移动端长按）浮出升级后卡面
+        return '<div class="up-cell" onmouseenter="Game.showUpPreview(' + inst.uid + ')"' +
+          ' onmouseleave="Game.hideUpPreview()" ontouchstart="Game.upPreviewTouch(' + inst.uid + ')"' +
+          ' ontouchend="Game.hideUpPreview()">' +
+          cardHtml(inst, { onclick: 'Game.deckSelectPick(' + inst.uid + ')' }) + '</div>';
+      }
       return cardHtml(inst, { onclick: 'Game.deckSelectPick(' + inst.uid + ')' });
     }).join('') || '<div>没有可选择的牌</div>';
     var cancelBtn = (S.selecting === 'shopRemove' || S.selecting === 'shopCopy')
@@ -606,7 +647,23 @@
       '<div class="center-wrap"><div class="panel">' +
       '<h2>' + title + '</h2>' +
       '<div class="deck-select">' + cardsHtml + '</div>' + cancelBtn +
-      '</div></div></div>';
+      '</div></div>' +
+      ((isUp && S.upPreviewUid != null) ? renderUpPreview(S) : '') +
+      '</div>';
+  }
+
+  // 升级预览浮层：升级后完整卡面 + 升级前描述对照
+  function renderUpPreview(S) {
+    var inst = S.run.deck.filter(function (x) { return x.uid === S.upPreviewUid; })[0];
+    if (!inst) return '';
+    var def = Engine.cardDef(inst);
+    if (!D.cards[inst.id].up) return ''; // 无升级形态（如议题废牌）
+    var upInst = { uid: inst.uid, id: inst.id, up: true, costMod: inst.costMod || 0 };
+    return '<div class="up-preview">' +
+      '<div class="up-preview-tag">升级后</div>' +
+      cardHtml(upInst) +
+      '<div class="up-preview-old">升级前：' + def.desc + '</div>' +
+      '</div>';
   }
 
   /* ---------- 结算 ---------- */

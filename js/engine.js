@@ -45,11 +45,12 @@
     return merged;
   };
 
-  // 该角色可用的奖励牌池（通用牌 + 本角色专属牌）
+  // 该角色可用的奖励牌池（通用牌 + 本角色专属牌；noReward 废牌不入池）
   Engine.cardPool = function (charId) {
     var pool = [];
     for (var id in D.cards) {
       var c = D.cards[id];
+      if (c.noReward) continue;
       if (!c.char || c.char === charId) pool.push(id);
     }
     return pool;
@@ -275,7 +276,14 @@
       easterEgg: null,       // UI 彩蛋文字
       rushBoss: opts.rushBoss || null,
       rushFight: opts.fightIdx || 0,
-      multi: false
+      multi: false,
+      // Rush 专属机制状态
+      stolenCards: [],      // 偷男【妙手空空】暂存
+      spentThisTurn: 0,     // 财务【预算审核】已用费用
+      reviewCount: 0,       // 人力【绩效考核】本周期出牌数
+      lastAttack: null,     // 本回合最后打出的攻击牌（VP【影子决策】）
+      prevAttack: null,     // 上一回合最后打出的攻击牌
+      chairIdx: 0           // 董事会【轮值主席】
     };
     // BOSS 战：黑暗剑柄
     if ((edef.boss || opts.rushBoss) && this.hasRelic('sword_hilt')) combat.playerStrength += 2;
@@ -361,6 +369,13 @@
     var edef = enemy._def;
     var moves = this._moves(enemy);
     var mv = null;
+    // 【市场波动】资本化身 P3：牛（18×2）/熊（自加15格挡）/平（自回15）按回合轮换
+    if (edef.mechanic === 'market' && enemy.phase === 2) {
+      mv = moves[enemy.turnCount % moves.length];
+      enemy.intent = mv;
+      enemy.shownIntent = null;
+      return;
+    }
     // every 型招式优先
     var nextTurn = enemy.turnCount + 1;
     for (var i = 0; i < moves.length; i++) {
@@ -383,6 +398,13 @@
       }
     }
     enemy.intent = mv;
+    // 【微笑欺骗】前台：展示的意图有 50% 是假情报（真实意图照常执行；肯尼镜片可识破）
+    if (edef.mechanic === 'fakeIntent' && mv) {
+      var others = moves.filter(function (m) { return m !== mv && !m.every; });
+      enemy.shownIntent = (others.length && this.rng() < 0.5) ? others[this.rng.int(others.length)] : mv;
+    } else {
+      enemy.shownIntent = null;
+    }
   };
 
   Engine.prototype._draw = function (n) {
@@ -414,6 +436,24 @@
     // 洞洞板：第一回合多抽 1 张
     if (c.turn === 1 && this.hasRelic('pegboard')) drawN += 1;
     this._draw(drawN);
+    // 【临时议题】会议室秘书长：每回合开始往玩家手牌塞 1 张「议题」废牌
+    if (!c.multi && c.enemy._def.mechanic === 'junkCard') {
+      c.hand.push({ uid: st.uidCounter++, id: 'yiti', up: false });
+    }
+    // 【预算审核】财务总监：每回合出牌费用合计 ≤4
+    c.spentThisTurn = 0;
+    // 【轮值主席】董事会：每回合轮换，仅轮值董事可被正常攻击
+    if (c.multi && c.enemies) {
+      var alive2 = c.enemies.filter(function (x) { return !x.dead; });
+      if (alive2.length) {
+        var cur = c.enemies[c.chairIdx];
+        if (!cur || cur.dead) c.chairIdx = c.enemies.indexOf(alive2[0]);
+        else if (c.turn > 1) {
+          var ai = alive2.indexOf(cur);
+          c.chairIdx = c.enemies.indexOf(alive2[(ai + 1) % alive2.length]);
+        }
+      }
+    }
     // 深谋/备战/摸鱼之道的每回合计数
     c.cardsThisTurn = 0;
     c.attacksThisTurn = 0;
@@ -437,7 +477,12 @@
       cost = Math.max(0, cost - 1);
     }
     if (c.energy < cost) return { ok: false, error: '能量不足' };
+    // 【预算审核】财务总监在场：每回合出牌费用合计不能超过 4 点
+    if (!c.multi && c.enemy._def.mechanic === 'budget' && c.spentThisTurn + cost > 4) {
+      return { ok: false, error: '超出预算！本回合剩余预算 ' + (4 - c.spentThisTurn) + ' 点' };
+    }
     c.energy -= cost;
+    c.spentThisTurn += cost;
     if (def.type === 'skill' && this.hasRelic('gamepad') && !c.flags.gamepadUsed) {
       c.flags.gamepadUsed = true;
     }
@@ -466,6 +511,10 @@
       if (st.charId === 'shengfan') dmg += Math.min(Engine.BLOODRAGE_CAP, Math.floor((st.maxHp - st.hp) / Engine.BLOODRAGE_PER));
       if (c.playerWeak > 0) dmg = Math.floor(dmg * 0.75);
       if (c.enemy.vulnerable > 0) dmg = Math.floor(dmg * 1.5);
+      // 【轮值主席】董事会：打非轮值董事伤害减半
+      if (c.multi && c.enemies && c.enemies[c.chairIdx] && c.enemy !== c.enemies[c.chairIdx]) {
+        dmg = Math.floor(dmg / 2);
+      }
       if (dmg < 0) dmg = 0;
       // 敌人格挡
       var absorbed = Math.min(c.enemy.block, dmg);
@@ -572,7 +621,19 @@
     // 统计
     c.cardsPlayed++;
     c.cardsThisTurn++;
+    c.reviewCount++; // 【绩效考核】计数
     if (def.type === 'attack') { c.attacksPlayed++; c.attacksThisTurn++; }
+    // 【内卷光环】卷王在场：玩家每打出 1 张牌，卷王力量 +1
+    if (!c.multi && c.enemy._def.mechanic === 'juanAura') {
+      c.enemy.strength += 1;
+      result.auraStr = true;
+    }
+    // 【影子决策】记录本回合最后打出的攻击牌（供 VP 下回合复制）
+    if (def.type === 'attack') {
+      var atkVal = 0;
+      def.effects.forEach(function (ef) { if (ef.op === 'damage') atkVal += ef.value * (ef.times || 1); });
+      if (atkVal > 0) c.lastAttack = { name: def.name, value: atkVal };
+    }
     if (inst.id === 'darksword') c.darkswordPlays++;
     // 摸鱼之道：每打出 5 张牌恢复 1 点能量（允许临时超过上限）
     if (st.charId === 'xiaoq' && c.cardsPlayed % Engine.ENERGY_CYCLE === 0) c.energy += 1;
@@ -674,6 +735,12 @@
   Engine.prototype._winCombat = function () {
     var st = this.state, c = st.combat;
     c.over = true; c.won = true;
+    // 【妙手空空】击败偷男：归还被偷的牌进弃牌堆
+    if (c.stolenCards && c.stolenCards.length) {
+      c.stolenCards.forEach(function (sc) { c.discard.push(sc); });
+      c.log.push({ t: 'relic', text: '被偷的牌全部归还！' });
+      c.stolenCards = [];
+    }
     // 胜利回复
     if (this.hasRelic('chicken_bucket')) st.hp = Math.min(st.maxHp, st.hp + 2);
   };
@@ -684,7 +751,7 @@
     st.over = true; st.victory = false;
   };
 
-  // 单个敌人行动（1v1 与 1vN 共用）：应用被动 → 执行意图 → debuff 衰减
+  // 单个敌人行动（1v1 与 1vN 共用）：机制钩子 → 应用被动 → 执行意图 → 机制结算 → debuff 衰减
   Engine.prototype._enemyAct = function (e, result) {
     var st = this.state, c = st.combat;
     var edef = e._def;
@@ -693,49 +760,50 @@
     // rush BOSS 被动：每回合自动加力量/格挡
     if (edef.passiveStrength) e.strength += edef.passiveStrength;
     if (edef.passiveBlock) { e.block += edef.passiveBlock; result.enemyBlock = (result.enemyBlock || 0) + edef.passiveBlock; }
+    var self = this;
+    function enemyHit(base, mvRef) {
+      // 精英随层数成长的攻击加成（dmgBonus）在此结算；销赃镜像（perGold）按玩家金币加伤
+      var mv = mvRef || {};
+      var dmg = base + e.strength + (e.dmgBonus || 0) + (mv.perGold ? Math.floor(st.gold / mv.perGold) : 0);
+      if (e.weak > 0) dmg = Math.floor(dmg * 0.75);
+      if (c.playerVuln > 0) dmg = Math.floor(dmg * 1.5);
+      if (dmg < 0) dmg = 0;
+      // 红围巾圣物：首次受伤为 0
+      if (self.hasRelic('scarf_relic') && !c.flags.scarfUsed) {
+        c.flags.scarfUsed = true;
+        c.log.push({ t: 'relic', text: '红围巾挡下了攻击！' });
+        dmg = 0;
+        result.scarf = true;
+      }
+      var absorbed = mv.unblockable ? 0 : Math.min(c.playerBlock, dmg); // 【急速下坠】必中：无视格挡
+      c.playerBlock -= absorbed;
+      var through = dmg - absorbed;
+      st.hp -= through;
+      result.dmgToPlayer += through;
+      result.hits.push(through);
+      result.absorbed.push(absorbed);
+      // 剩饭护体：反弹（打当前行动的敌人）
+      c.powers.forEach(function (p) {
+        if (p.id === 'leftover_shield') {
+          var ref = p.value;
+          var ra = Math.min(e.block, ref);
+          e.block -= ra;
+          e.hp -= (ref - ra);
+          result.reflected += ref;
+        }
+      });
+    }
     if (e.skipTurns > 0) {
       e.skipTurns--;
       result.skipped = true;
     } else if (e.intent) {
       var mv = e.intent;
-      var self = this;
-      function enemyHit(base) {
-        // 精英随层数成长的攻击加成（dmgBonus）在此结算；销赃镜像（perGold）按玩家金币加伤
-        var dmg = base + e.strength + (e.dmgBonus || 0) + (mv.perGold ? Math.floor(st.gold / mv.perGold) : 0);
-        if (e.weak > 0) dmg = Math.floor(dmg * 0.75);
-        if (c.playerVuln > 0) dmg = Math.floor(dmg * 1.5);
-        if (dmg < 0) dmg = 0;
-        // 红围巾圣物：首次受伤为 0
-        if (self.hasRelic('scarf_relic') && !c.flags.scarfUsed) {
-          c.flags.scarfUsed = true;
-          c.log.push({ t: 'relic', text: '红围巾挡下了攻击！' });
-          dmg = 0;
-          result.scarf = true;
-        }
-        var absorbed = Math.min(c.playerBlock, dmg);
-        c.playerBlock -= absorbed;
-        var through = dmg - absorbed;
-        st.hp -= through;
-        result.dmgToPlayer += through;
-        result.hits.push(through);
-        result.absorbed.push(absorbed);
-        // 剩饭护体：反弹（打当前行动的敌人）
-        c.powers.forEach(function (p) {
-          if (p.id === 'leftover_shield') {
-            var ref = p.value;
-            var ra = Math.min(e.block, ref);
-            e.block -= ra;
-            e.hp -= (ref - ra);
-            result.reflected += ref;
-          }
-        });
-      }
       switch (mv.type) {
         case 'attack': {
           result.attacked = true;
           var hStart = result.hits.length; // 打击感演出：记录本次行动的命中区间
           var times = mv.times || 1;
-          for (var i = 0; i < times; i++) enemyHit(mv.value);
+          for (var i = 0; i < times; i++) enemyHit(mv.value, mv);
           (result.actions = result.actions || []).push({
             id: e.id, name: mv.name, special: !!mv.every, hs: hStart, he: result.hits.length
           });
@@ -772,13 +840,39 @@
         case 'counter': { // 高级VP「秋后算账」：玩家本回合未造成伤害则重锤
           result.attacked = true;
           var hStart2 = result.hits.length;
-          enemyHit(c.playerDealtDmgThisTurn === 0 ? mv.value : mv.fallback);
+          enemyHit(c.playerDealtDmgThisTurn === 0 ? mv.value : mv.fallback, mv);
           (result.actions = result.actions || []).push({
             id: e.id, name: mv.name, special: !!mv.every, hs: hStart2, he: result.hits.length
           });
           break;
         }
       }
+    }
+    // 【影子决策】高级VP：复制玩家上一回合最后打出的攻击牌（按其数值）打回
+    if (edef.mechanic === 'mirror' && c.prevAttack && !e.dead) {
+      result.attacked = true;
+      var mh = result.hits.length;
+      enemyHit(c.prevAttack.value, {});
+      (result.actions = result.actions || []).push({
+        id: e.id, name: '影子决策·' + c.prevAttack.name, special: false, hs: mh, he: result.hits.length
+      });
+      result.mirrored = c.prevAttack.name;
+    }
+    // 【绩效考核】人力总监：每 3 回合结算——前 3 回合出牌 <9 张罚 24，≥9 张自伤 12
+    if (edef.mechanic === 'review' && e.turnCount % 3 === 0 && !e.dead) {
+      if (c.reviewCount < 9) {
+        result.attacked = true;
+        var rh = result.hits.length;
+        enemyHit(24, {});
+        (result.actions = result.actions || []).push({
+          id: e.id, name: '绩效考核·不合格', special: true, hs: rh, he: result.hits.length
+        });
+        result.reviewPen = 24;
+      } else {
+        e.hp -= 12;
+        result.reviewSelf = 12;
+      }
+      c.reviewCount = 0; // 进入下一考核周期
     }
     // 敌人 debuff 衰减
     if (e.weak > 0) e.weak--;
@@ -791,12 +885,22 @@
     var st = this.state, c = st.combat;
     if (!c || c.over) return { over: true };
     var result = { dmgToPlayer: 0, enemyBlock: 0, skipped: false, over: false, hits: [], absorbed: [], reflected: 0, scarf: false, attacked: false };
+    // 【妙手空空】偷男：敌方回合开始（弃牌前）偷走玩家随机 1 张手牌，击败他归还
+    if (!c.multi && c.enemy._def.mechanic === 'stealCard' && !c.enemy.dead && c.hand.length) {
+      var si = this.rng.int(c.hand.length);
+      var stolenC = c.hand.splice(si, 1)[0];
+      c.stolenCards.push(stolenC);
+      result.stolenCardName = Engine.cardDef(stolenC).name;
+    }
     // 深谋：机皇本回合没打出过攻击牌时，手牌全部保留到下回合；否则照常弃牌
     var keepHand = st.charId === 'jihuang' && c.attacksThisTurn === 0;
     if (!keepHand) while (c.hand.length) c.discard.push(c.hand.pop());
     // 玩家 debuff 衰减
     if (c.playerWeak > 0) c.playerWeak--;
     if (c.playerVuln > 0) c.playerVuln--;
+    // 【影子决策】快照本回合最后攻击牌，供 VP 下回合复制
+    c.prevAttack = c.lastAttack;
+    c.lastAttack = null;
 
     if (c.multi) {
       // 1vN：存活董事按顺序各自行动

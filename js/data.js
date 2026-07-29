@@ -80,12 +80,17 @@
         effects: [{ op: 'damage', value: 4, times: 3 }] }
     },
     pie: {
-      name: '老板画的饼', cost: 0, type: 'attack', rarity: 'common',
+      name: '老板画的饼', cost: 0, type: 'attack', rarity: 'rare',
       desc: '造成 2 点伤害，抽 1 张牌。',
       tags: ["draw"],
       effects: [{ op: 'damage', value: 2 }, { op: 'draw', value: 1 }],
       up: { desc: '造成 3 点伤害，抽 1 张牌。',
         effects: [{ op: 'damage', value: 3 }, { op: 'draw', value: 1 }] }
+    },
+    yiti: {
+      name: '议题', cost: 1, type: 'skill', rarity: 'common', noReward: true,
+      desc: '会议室秘书长塞进来的废牌，没有任何效果。',
+      effects: []
     },
     weekly: {
       name: '周报轰炸', cost: 2, type: 'attack', rarity: 'uncommon',
@@ -197,7 +202,7 @@
       up: { desc: '回复 6 点精力。消耗。', effects: [{ op: 'heal', value: 6 }] }
     },
     tarot: {
-      name: '獭罗牌占卜', cost: 0, type: 'skill', rarity: 'uncommon',
+      name: '獭罗牌占卜', cost: 0, type: 'skill', rarity: 'rare',
       desc: '抽 1 张牌；若敌人意图是攻击，获得 4 点格挡。',
       tags: ["block"],
       effects: [{ op: 'special', kind: 'tarot', draw: 1, blk: 4 }],
@@ -212,7 +217,7 @@
       up: { desc: '抽 4 张牌。', effects: [{ op: 'draw', value: 4 }] }
     },
     quantum: {
-      name: '量子波动速读', cost: 0, type: 'skill', rarity: 'uncommon',
+      name: '量子波动速读', cost: 0, type: 'skill', rarity: 'rare',
       exhaust: true,
       desc: '抽 2 张牌。消耗。',
       tags: ["draw"],
@@ -235,7 +240,7 @@
         effects: [{ op: 'weak', value: 2 }, { op: 'vulnerable', value: 2 }] }
     },
     coffee: {
-      name: '咖啡因续命', cost: 0, type: 'skill', rarity: 'uncommon',
+      name: '咖啡因续命', cost: 0, type: 'skill', rarity: 'rare',
       exhaust: true,
       desc: '获得 1 点能量。消耗。',
       effects: [{ op: 'energy', value: 1 }],
@@ -388,7 +393,7 @@
         effects: [{ op: 'special', kind: 'allout', per: 4 }] }
     },
     prepare: {
-      name: '备战', cost: 0, type: 'skill', rarity: 'common', char: 'jihuang',
+      name: '备战', cost: 0, type: 'skill', rarity: 'uncommon', char: 'jihuang',
       desc: '抽 1 张牌；若本回合只打出过这一张牌，再抽 1 张。',
       tags: ["draw"],
       effects: [{ op: 'special', kind: 'prepare', draw: 1, bonus: 1 }],
@@ -1137,7 +1142,8 @@
   /* Boss Rush 数值：策划案 v5 原始定稿（docs/摸鱼大作战-BossRush策划案.docx §三/§四） */
   var rushBosses = [
     {
-      id: 'front', name: '总部前台·微笑杀手', hp: 220, ai: 'loop',
+      id: 'front', name: '总部前台·微笑杀手', hp: 220, ai: 'loop', mechanic: 'fakeIntent', // 【微笑欺骗】意图可能是假情报
+
       moves: [
         { name: '职业微笑', type: 'block', value: 8 },
         { name: '前台问候', type: 'attack', value: 10 },
@@ -1148,13 +1154,14 @@
     {
       id: 'elevator', name: '电梯战神', hp: 260,
       moves: [
-        { name: '负重深蹲', type: 'attack', value: 28, every: 3 },
-        { name: '关门', type: 'charge', w: 2 },
-        { name: '急速下坠', type: 'attack', value: 22, w: 3 }
+        { name: '急速下坠', type: 'attack', value: 22, every: 3, unblockable: true }, // 【急速下坠】必中重击
+        { name: '负重深蹲', type: 'attack', value: 28, w: 2 },
+        { name: '关门', type: 'charge', w: 2 }
       ]
     },
     {
-      id: 'secretary', name: '会议室秘书长', hp: 300,
+      id: 'secretary', name: '会议室秘书长', hp: 300, mechanic: 'junkCard', // 【临时议题】每回合塞废牌
+
       moves: [
         { name: '议题发散', type: 'attack', value: 12, w: 3 },
         { name: '主持议程', type: 'buff', strength: 2, w: 2 },
@@ -1162,7 +1169,8 @@
       ]
     },
     {
-      id: 'thief', name: '神秘偷男', hp: 340,
+      id: 'thief', name: '神秘偷男', hp: 340, mechanic: 'stealCard', // 【妙手空空】偷手牌，击败归还
+
       moves: [
         { name: '顺手牵羊', type: 'stealGold', value: 15, w: 2 },
         { name: '黑吃黑', type: 'attack', value: 14, w: 3 },
@@ -1170,7 +1178,8 @@
       ]
     },
     {
-      id: 'findir', name: '财务总监', hp: 390,
+      id: 'findir', name: '财务总监', hp: 390, mechanic: 'budget', // 【预算审核】每回合费用合计≤4
+
       moves: [
         { name: '成本核算', type: 'costUp', value: 2, w: 2 },
         { name: '预算收紧', type: 'attack', value: 16, w: 3 },
@@ -1178,14 +1187,16 @@
       ]
     },
     {
-      id: 'juan', name: '卷王之王', hp: 440, passiveStrength: 2, // 「开始卷」每回合力量+2
+      id: 'juan', name: '卷王之王', hp: 440, mechanic: 'juanAura', // 【内卷光环】玩家每出1牌力量+1
+
       moves: [
         { name: 'KPI 冲刺', type: 'attack', value: 32, every: 4 },
         { name: '凌晨四点', type: 'attack', value: 16, w: 3 }
       ]
     },
     {
-      id: 'hrdir', name: '人力总监', hp: 500,
+      id: 'hrdir', name: '人力总监', hp: 500, mechanic: 'review', // 【绩效考核】每3回合结算
+
       moves: [
         { name: '绩效改进计划', type: 'attack', value: 18, w: 3 },
         { name: '微笑面谈', type: 'debuff', weak: 2, vulnerable: 1, w: 2 },
@@ -1193,7 +1204,8 @@
       ]
     },
     {
-      id: 'vp', name: '高级VP', hp: 560, passiveBlock: 12,
+      id: 'vp', name: '高级VP', hp: 560, passiveBlock: 12, mechanic: 'mirror', // 【影子决策】复制上回合攻击牌
+
       moves: [
         { name: '代理决策', type: 'attack', value: 18, w: 3 },
         { name: '影子护卫', type: 'block', value: 12, w: 2 },
@@ -1201,7 +1213,8 @@
       ]
     },
     {
-      id: 'board', name: '董事会', hp: 550, multi: true,
+      id: 'board', name: '董事会', hp: 550, multi: true, mechanic: 'rotate', // 【轮值主席】非轮值伤害减半
+
       members: [
         {
           id: 'b_fin', name: '财务董事', hp: 180,
@@ -1231,7 +1244,8 @@
       ]
     },
     {
-      id: 'capital', name: '资本化身', hp: 999,
+      id: 'capital', name: '资本化身', hp: 999, mechanic: 'market', // 【市场波动】P3 牛/熊/平轮换
+
       phases: [
         {
           until: 0.66, phaseName: '市场规律',
@@ -1246,10 +1260,11 @@
           ]
         },
         {
-          until: 0, phaseName: '最终收割',
+          until: 0, phaseName: '市场波动',
           moves: [
-            { name: '最终收割', type: 'attack', value: 40, weak: 2, every: 3 },
-            { name: '常态输出', type: 'attack', value: 18, times: 2, w: 1 }
+            { name: '牛市·猛攻', type: 'attack', value: 18, times: 2 },
+            { name: '熊市·防御', type: 'block', value: 15 },
+            { name: '平市·休整', type: 'heal', value: 15 }
           ]
         }
       ],

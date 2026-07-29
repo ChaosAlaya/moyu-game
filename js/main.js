@@ -413,6 +413,13 @@
       UI.hitFlash(eImg());
       UI.floater(eImg(), '反弹 -' + r.reflected, 'dmg');
     }, baseMs + 220);
+    // Rush 机制反馈飘字：偷牌 / 绩效考核
+    if (r.stolenCardName) setTimeout(function () {
+      UI.floater('player-img', '被偷走「' + r.stolenCardName + '」！', 'dmg');
+    }, baseMs + 100);
+    if (r.reviewSelf) setTimeout(function () {
+      UI.floater(eImg(), '考核达标！自伤 -' + r.reviewSelf, 'heal');
+    }, baseMs + 100);
     if (r.skipped) UI.floater(eImg(), '跳过了行动！', 'text');
     if (r.enemyBlock > 0) UI.floater(eImg(), '+' + r.enemyBlock + ' 格挡', 'block');
     return tl;
@@ -427,7 +434,7 @@
     var inst = c.hand[i];
     var def0 = inst ? Engine.cardDef(inst) : null;
     var r = S.engine.playCard(i);
-    if (!r.ok) return;
+    if (!r.ok) { if (r.error) UI.toast(r.error); return; } // 能量/预算不足等反馈
     S.cardConfirm = null;
     S.animating = true; // 手牌已 splice，动画结束前禁止再点牌/结束回合
     Sfx.play('card');
@@ -670,6 +677,24 @@
     if (S.selecting === 'shopRemove' || S.selecting === 'shopCopy') { S.selecting = null; S.screen = 'shop'; }
     else if (S.selecting === 'eventRemove') { S.selecting = null; S.screen = 'event'; }
     render();
+  };
+
+  /* ---------- 升级预览悬停（移动端长按） ---------- */
+  Game.showUpPreview = function (uid) {
+    if (S.selecting !== 'restUpgrade') return;
+    S.upPreviewUid = uid;
+    render();
+  };
+  var upTouchTimer = null;
+  Game.hideUpPreview = function () {
+    if (upTouchTimer) { clearTimeout(upTouchTimer); upTouchTimer = null; }
+    if (S.upPreviewUid == null) return;
+    S.upPreviewUid = null;
+    render();
+  };
+  Game.upPreviewTouch = function (uid) {
+    if (upTouchTimer) clearTimeout(upTouchTimer);
+    upTouchTimer = setTimeout(function () { Game.showUpPreview(uid); }, 450); // 长按 450ms
   };
 
   /* ---------- 结算 ---------- */
