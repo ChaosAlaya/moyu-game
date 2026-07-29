@@ -655,7 +655,9 @@
       c.enemy.phase = 1;
       c.log.push({ t: 'phase', text: edef2.phases[1].phaseName || '第二阶段' });
       // 强行打断：弃掉玩家剩余手牌（能量/未出的牌全部作废）
-      while (c.hand.length) c.discard.push(c.hand.pop());
+      // 机皇【攻略制定】：早有准备，可保留至多 3 张手牌（保手牌流不被完全清零）
+      var keepN = st.charId === 'jihuang' ? 3 : 0;
+      while (c.hand.length > keepN) c.discard.push(c.hand.pop());
       // 强总立刻行动一轮（打个措手不及）
       var ir = { dmgToPlayer: 0, enemyBlock: 0, skipped: false, over: false, hits: [], absorbed: [],
         reflected: 0, scarf: false, attacked: false, interrupt: true };
