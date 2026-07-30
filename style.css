@@ -1369,3 +1369,14 @@ img.fx-pow { animation: powpop .5s cubic-bezier(.2,1.4,.4,1) forwards; }
   box-shadow: 2px 2px 0 var(--ink); pointer-events: none;
 }
 .up-cell:hover .up-hint { display: block; }
+
+/* ---------- ≥30 超重击数字 / 击飞出屏 ---------- */
+.floater.dmg.super {
+  font-size: 88px; color: #FF5A3C;
+  text-shadow: 5px 5px 0 var(--ink), 0 0 34px rgba(255,90,60,.9);
+}
+.knockfly-far { animation: knockflyfar .8s forwards !important; }
+@keyframes knockflyfar {
+  0% { opacity: 1; transform: translate(0, 0) rotate(0); }
+  100% { opacity: 0; transform: translate(32vw, -110vh) rotate(720deg); }
+}

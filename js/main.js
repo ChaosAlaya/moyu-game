@@ -289,7 +289,16 @@
     var c = S.run.combat;
     return (c && c.multi) ? 'enemy-img-' + c.target : 'enemy-img';
   }
-  function enemyDeathAnim(edef, e) {
+  function enemyDeathAnim(edef, e, killDmg) {
+    // 终结重击（≥30）：不论 BOSS 小怪，直接打飞出屏幕（替代一切常规击败演出）
+    if ((killDmg || 0) >= 30) {
+      UI.appShake();
+      UI.playFxFrames(eImg(), 'knockaway', { size: 460, fps: 10, holdLast: 1300 });
+      UI.bigText((edef.boss || (S.run.combat && S.run.combat.rushBoss)) ? '击飞下班！' : '击飞！');
+      var kf = document.getElementById(eImg());
+      if (kf) kf.classList.add('knockfly-far');
+      return;
+    }
     if (edef.boss || (S.run.combat && S.run.combat.rushBoss && !S.run.combat.multi)) {
       var img = document.getElementById(eImg());
       // rush BOSS 用 rush 倒地立绘；主游戏 BOSS 用 boss_down
@@ -463,17 +472,19 @@
         }
       }
       render();
-      // 命中帧：敌人抖动+闪白+星环+冲击波，序列帧增强（大伤 crit / 多段 combo / 普通 hit）
+      // 命中帧三档：<15 普通（hit/combo+小震）、≥15 重击（crit+全屏震）、≥30 超重击（大crit+双冲击波+特大数字）
       r.hits.forEach(function (h, idx) {
         setTimeout(function () {
           UI.hitFlash(eImg());
           UI.impactFlash(eImg());
           UI.shockRing(eImg());
-          UI.miniShake();
-          var seq = h >= 15 ? 'crit' : (r.hits.length > 1 ? 'combo' : 'hit');
-          UI.playFxFrames(eImg(), seq, { size: h >= 15 ? 360 : r.hits.length > 1 ? 220 : 300, fps: 13 });
+          var super30 = h >= 30, big15 = h >= 15;
+          if (big15) { UI.appShake(); if (super30) setTimeout(function () { UI.shockRing(eImg()); }, 90); }
+          else UI.miniShake();
+          var seq = big15 ? 'crit' : (r.hits.length > 1 ? 'combo' : 'hit');
+          UI.playFxFrames(eImg(), seq, { size: super30 ? 460 : big15 ? 360 : (r.hits.length > 1 ? 220 : 300), fps: 13 });
           var p = UI.targetPos(eImg());
-          if (p) UI.spawnFloatText(p.x, p.y, '-' + h, h >= 15 ? 'dmg big' : 'dmg');
+          if (p) UI.spawnFloatText(p.x, p.y, '-' + h, super30 ? 'dmg super' : big15 ? 'dmg big' : 'dmg');
           Sfx.play('hit');
         }, flyMs + idx * 180);
       });
@@ -532,7 +543,7 @@
         var edefE = c.enemy._def;
         // 胜利：演出时长 小怪≥1.2s / 精英≥1.6s / BOSS≥4.4s（含定格特写）；玩家阵亡同样留白
         deathExtra = c.won ? ((edefE.boss || c.rushBoss) ? 4400 : edefE.elite ? 1600 : 1200) : 700;
-        if (c.won) setTimeout(function () { enemyDeathAnim(edefE, c.enemy); }, endMs);
+        if (c.won) setTimeout(function () { enemyDeathAnim(edefE, c.enemy, r.hits[r.hits.length - 1] || 0); }, endMs);
       }
       // 玩家阵亡（自伤牌）：暴击爆裂 + 全屏震动 + 红闪 + 立绘消散
       if (c.over && !c.won) setTimeout(function () {
@@ -577,7 +588,7 @@
     var deathExtra = 0;
     if (c.over) {
       deathExtra = c.won ? (edef.boss ? 4400 : edef.elite ? 1600 : 1200) : 700;
-      if (c.won) setTimeout(function () { enemyDeathAnim(edef, c.enemy); }, endMs);
+      if (c.won) setTimeout(function () { enemyDeathAnim(edef, c.enemy, r.reflected || 0); }, endMs);
     }
     // 玩家阵亡：暴击爆裂 + 全屏震动 + 红闪 + 立绘消散
     if (c.over && !c.won) setTimeout(function () {
