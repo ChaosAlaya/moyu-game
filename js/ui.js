@@ -614,7 +614,7 @@
     var title = S.selecting === 'shopRemove' ? '选择要移除的牌'
       : S.selecting === 'shopCopy' ? '选择要复制的牌（按稀有度付费）'
       : S.selecting === 'eventRemove' ? '选择要移除的牌'
-      : '选择要升级的牌（悬停预览升级效果）';
+      : '选择要升级的牌（悬停查看升级数值）';
     var list = S.run.deck.filter(function (inst) {
       return S.selecting === 'restUpgrade' ? !inst.up : true;
     });
@@ -633,11 +633,10 @@
           '<div class="copy-price">' + ico('gold') + ' ' + price + '</div></div>';
       }
       if (isUp) {
-        // 升级预览：悬停（移动端长按）浮出升级后卡面
-        return '<div class="up-cell" onmouseenter="Game.showUpPreview(' + inst.uid + ')"' +
-          ' onmouseleave="Game.hideUpPreview()" ontouchstart="Game.upPreviewTouch(' + inst.uid + ')"' +
-          ' ontouchend="Game.hideUpPreview()">' +
-          cardHtml(inst, { onclick: 'Game.deckSelectPick(' + inst.uid + ')' }) + '</div>';
+        // 升级提示：纯 CSS 悬停显示数值变化（无 JS 重绘，避免无限重绘卡死）
+        return '<div class="up-cell">' +
+          cardHtml(inst, { onclick: 'Game.deckSelectPick(' + inst.uid + ')' }) +
+          '<div class="up-hint">' + upgradeHints(inst) + '</div></div>';
       }
       return cardHtml(inst, { onclick: 'Game.deckSelectPick(' + inst.uid + ')' });
     }).join('') || '<div>没有可选择的牌</div>';
@@ -647,23 +646,31 @@
       '<div class="center-wrap"><div class="panel">' +
       '<h2>' + title + '</h2>' +
       '<div class="deck-select">' + cardsHtml + '</div>' + cancelBtn +
-      '</div></div>' +
-      ((isUp && S.upPreviewUid != null) ? renderUpPreview(S) : '') +
-      '</div>';
+      '</div></div></div>';
   }
 
-  // 升级预览浮层：升级后完整卡面 + 升级前描述对照
-  function renderUpPreview(S) {
-    var inst = S.run.deck.filter(function (x) { return x.uid === S.upPreviewUid; })[0];
-    if (!inst) return '';
-    var def = Engine.cardDef(inst);
-    if (!D.cards[inst.id].up) return ''; // 无升级形态（如议题废牌）
-    var upInst = { uid: inst.uid, id: inst.id, up: true, costMod: inst.costMod || 0 };
-    return '<div class="up-preview">' +
-      '<div class="up-preview-tag">升级后</div>' +
-      cardHtml(upInst) +
-      '<div class="up-preview-old">升级前：' + def.desc + '</div>' +
-      '</div>';
+  // 升级数值变化提示：对比基础版与升级版，生成"升级后：费用-1，伤害+3"式短句
+  var UP_LABELS = { damage: '伤害', goldDamage: '伤害', block: '格挡', heal: '回复', draw: '抽牌',
+    energy: '能量', weak: '虚弱', vulnerable: '易伤', strength: '力量' };
+  function upgradeHints(inst) {
+    var base = D.cards[inst.id], up = base.up;
+    if (!up) return '';
+    var hints = [];
+    var upCost = up.cost != null ? up.cost : base.cost;
+    if (upCost !== base.cost) hints.push('费用' + (upCost > base.cost ? '+' : '') + (upCost - base.cost));
+    var sum = function (effects, key) {
+      var t = 0;
+      (effects || []).forEach(function (ef) {
+        var k = ef.op === 'special' ? 'damage' : ef.op;
+        if (k === key) t += (ef.value != null ? ef.value : (ef.base || 0)) * (ef.times || 1);
+      });
+      return t;
+    };
+    ['damage', 'goldDamage', 'block', 'heal', 'draw', 'energy', 'weak', 'vulnerable', 'strength'].forEach(function (k) {
+      var d = sum(up.effects || base.effects, k) - sum(base.effects, k);
+      if (d) hints.push(UP_LABELS[k] + (d > 0 ? '+' : '') + d);
+    });
+    return hints.length ? '升级后：' + hints.join('，') : '升级后：效果增强';
   }
 
   /* ---------- 结算 ---------- */

@@ -679,24 +679,6 @@
     render();
   };
 
-  /* ---------- 升级预览悬停（移动端长按） ---------- */
-  Game.showUpPreview = function (uid) {
-    if (S.selecting !== 'restUpgrade') return;
-    S.upPreviewUid = uid;
-    render();
-  };
-  var upTouchTimer = null;
-  Game.hideUpPreview = function () {
-    if (upTouchTimer) { clearTimeout(upTouchTimer); upTouchTimer = null; }
-    if (S.upPreviewUid == null) return;
-    S.upPreviewUid = null;
-    render();
-  };
-  Game.upPreviewTouch = function (uid) {
-    if (upTouchTimer) clearTimeout(upTouchTimer);
-    upTouchTimer = setTimeout(function () { Game.showUpPreview(uid); }, 450); // 长按 450ms
-  };
-
   /* ---------- 结算 ---------- */
   function gameOver() {
     runClearSave(); // run 完结（胜/负）：清除对局实时存档
