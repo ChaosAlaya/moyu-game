@@ -622,6 +622,13 @@
         case 'special': {
           if (ef.kind === 'rua') dealDamage(ef.base + ef.per * c.attacksPlayed);
           else if (ef.kind === 'darksword') dealDamage(ef.base + ef.per * c.darkswordPlays);
+          else if (ef.kind === 'spendall') {
+            // 挥金如土：失去当前 pct 金币，造成失去金币 × per 的伤害（先扣金币再结算，钞能按剩余金币算）
+            var spent = Math.floor(st.gold * (ef.pct || 0));
+            st.gold -= spent;
+            result.goldLost = (result.goldLost || 0) + spent;
+            dealDamage(spent * ef.per);
+          }
           else if (ef.kind === 'breakdown') {
             var lost = Math.max(0, c.combatStartHp - st.hp);
             dealDamage(Math.max(ef.min, Math.floor(lost * ef.pct)));
@@ -1523,11 +1530,17 @@
     if (!st || !c) return null;
     var def = Engine.cardDef(inst);
     var base = null;
+    var goldAvail = st.gold; // 挥金如土先扣金币：钞能按剩余金币预览
     for (var i = 0; i < def.effects.length; i++) {
       var ef = def.effects[i];
       if (ef.op === 'special') {
         if (ef.kind === 'rua') base = ef.base + ef.per * c.attacksPlayed;
         else if (ef.kind === 'darksword') base = ef.base + ef.per * c.darkswordPlays;
+        else if (ef.kind === 'spendall') {
+          var pvSpent = Math.floor(st.gold * (ef.pct || 0));
+          base = pvSpent * ef.per;
+          goldAvail = st.gold - pvSpent;
+        }
         else if (ef.kind === 'allout') base = Math.max(0, c.hand.length - 1) * ef.per; // 打出时本牌已离手
         else if (ef.kind === 'hunger') base = Math.max(ef.min, Math.floor((st.maxHp - st.hp) * ef.pct));
       } else if (ef.op === 'goldDamage') {
@@ -1544,7 +1557,7 @@
     if (def.type === 'attack' && this.hasRelic('keyboard_rel')) dmg += 1;
     if (this.hasRelic('sword_tassel') && edef && (edef.elite || edef.boss)) dmg += 2;
     if (def.type === 'attack' && st.charId === 'jihuang') dmg += Math.floor(Math.max(0, c.hand.length - 1) / 2);
-    if (st.charId === 'shuanglaoya') dmg += Math.floor(st.gold / 50);
+    if (st.charId === 'shuanglaoya') dmg += Math.floor(goldAvail / 50);
     if (st.charId === 'shengfan') dmg += Math.min(Engine.BLOODRAGE_CAP, Math.floor((st.maxHp - st.hp) / Engine.BLOODRAGE_PER));
     if (c.playerWeak > 0) dmg = Math.floor(dmg * 0.75);
     if (c.enemy.vulnerable > 0) dmg = Math.floor(dmg * 1.5);

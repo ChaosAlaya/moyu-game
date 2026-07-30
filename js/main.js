@@ -514,6 +514,10 @@
           UI.hitFlash('player-img');
         }, Math.floor(midMs / 2));
       }
+      // 挥金如土：金币消耗飘字
+      if (r.goldLost > 0) {
+        setTimeout(function () { UI.floater('player-img', '-' + r.goldLost + ' 金币', 'text'); }, Math.floor(midMs / 2));
+      }
       if (c.easterEgg) {
         var egg = c.easterEgg;
         c.easterEgg = null;

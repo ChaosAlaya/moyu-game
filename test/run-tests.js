@@ -24,7 +24,7 @@ section('a) 数据完整性');
 
 const CARD_TYPES = ['attack', 'skill', 'power'];
 const RARITIES = ['common', 'uncommon', 'rare'];
-const SPECIAL_KINDS = ['rua', 'darksword', 'breakdown', 'calc', 'tarot', 'shuangdao', 'hunger', 'allout', 'prepare'];
+const SPECIAL_KINDS = ['rua', 'darksword', 'breakdown', 'calc', 'tarot', 'shuangdao', 'hunger', 'allout', 'prepare', 'spendall'];
 
 let cardCount = 0;
 for (const id in D.cards) {
@@ -467,16 +467,22 @@ function mkCombat(charId, hp, maxHp) {
   c11.hand.unshift({ uid: 11, id: 'capitalop', up: false });
   e11.playCard(0);
   ok(s11.gold === g11 + 25 && c11.exhausted.length === 1, `资本运作：+25金币消耗（gold=${s11.gold}）`);
-  // 挥金如土：-15 金币打 20
+  // 挥金如土：失去当前 10% 金币，造成失去金币 ×2 伤害
   let [e12, s12, c12] = mkCombat('shuanglaoya');
-  s12.gold = 20;
-  const g12 = s12.gold;
+  s12.gold = 200;
   c12.hand.unshift({ uid: 12, id: 'spendall', up: false });
   let hb12 = c12.enemy.hp;
   e12.playCard(0);
-  ok(s12.gold === g12 - 15, `挥金如土：-15金币（gold=${s12.gold}）`);
-  // 伤害含被动钞能 floor(20/50)=0 → 20
-  ok(c12.enemy.hp === hb12 - 20, `挥金如土：打20（实际 ${hb12 - c12.enemy.hp}）`);
+  ok(s12.gold === 180, `挥金如土：200金币失去10%=20（gold=${s12.gold}）`);
+  // 伤害 = 20×2 + 钞能 floor(180/50)=3 → 43
+  ok(c12.enemy.hp === hb12 - 43, `挥金如土：打 40+3（实际 ${hb12 - c12.enemy.hp}）`);
+  // 升级版 ×3：gold 100 → 失去 10，打 30+钞能 floor(90/50)=1 → 31
+  let [e13, s13, c13] = mkCombat('shuanglaoya');
+  s13.gold = 100;
+  c13.hand.unshift({ uid: 13, id: 'spendall', up: true });
+  let hb13 = c13.enemy.hp;
+  e13.playCard(0);
+  ok(c13.enemy.hp === hb13 - 31 && s13.gold === 90, `挥金如土+：打 30+1（实际 ${hb13 - c13.enemy.hp}）`);
 }
 
 // ============ 实时角标（previewDamage） ============

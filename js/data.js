@@ -417,11 +417,11 @@
     },
     spendall: {
       name: '挥金如土', cost: 1, type: 'attack', rarity: 'uncommon', char: 'shuanglaoya',
-      desc: '失去 15 金币，造成 20 点伤害。',
+      desc: '失去当前 10% 金币，造成失去金币 ×2 的伤害。',
       tags: ["gold"],
-      effects: [{ op: 'loseGold', value: 15 }, { op: 'damage', value: 20 }],
-      up: { desc: '失去 15 金币，造成 26 点伤害。',
-        effects: [{ op: 'loseGold', value: 15 }, { op: 'damage', value: 26 }] }
+      effects: [{ op: 'special', kind: 'spendall', pct: 0.1, per: 2 }],
+      up: { desc: '失去当前 10% 金币，造成失去金币 ×3 的伤害。',
+        effects: [{ op: 'special', kind: 'spendall', pct: 0.1, per: 3 }] }
     },
     binge: {
       name: '暴食', cost: 2, type: 'attack', rarity: 'uncommon', char: 'shengfan',
