@@ -394,10 +394,10 @@
     allout: {
       name: '全力以赴', cost: 2, type: 'attack', rarity: 'uncommon', char: 'jihuang',
       exhaust: true,
-      desc: '造成当前手牌数 ×3 的伤害。消耗。',
-      effects: [{ op: 'special', kind: 'allout', per: 3 }],
-      up: { desc: '造成当前手牌数 ×4 的伤害。消耗。',
-        effects: [{ op: 'special', kind: 'allout', per: 4 }] }
+      desc: '造成当前手牌数 ×2 的伤害。消耗。',
+      effects: [{ op: 'special', kind: 'allout', per: 2 }],
+      up: { desc: '造成当前手牌数 ×3 的伤害。消耗。',
+        effects: [{ op: 'special', kind: 'allout', per: 3 }] }
     },
     prepare: {
       name: '备战', cost: 0, type: 'skill', rarity: 'uncommon', char: 'jihuang',

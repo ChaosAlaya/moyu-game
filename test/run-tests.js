@@ -441,13 +441,13 @@ function mkCombat(charId, hp, maxHp) {
   c7.hand.unshift({ uid: 7, id: 'holdstill', up: false });
   e7.playCard(0);
   ok(c7.playerBlock === 6 && c7.hand.length === handB7 + 1, `按兵不动：6格挡抽1（blk=${c7.playerBlock}）`);
-  // 全力以赴：手牌 3（不含本牌）×3=9，消耗
+  // 全力以赴：手牌 3（不含本牌）×2=6，消耗
   let [e8, s8, c8] = mkCombat('jihuang');
   c8.hand = [{ uid: 8, id: 'allout', up: false },
     { uid: 81, id: 'defend_moyu', up: false }, { uid: 82, id: 'defend_moyu', up: false }, { uid: 83, id: 'defend_moyu', up: false }];
   let hb8 = c8.enemy.hp;
   e8.playCard(0);
-  ok(c8.enemy.hp === hb8 - 10 && c8.exhausted.length === 1, `全力以赴：3手牌×3=9+深谋1=10（实际 ${hb8 - c8.enemy.hp}）`);
+  ok(c8.enemy.hp === hb8 - 7 && c8.exhausted.length === 1, `全力以赴：3手牌×2=6+深谋1=7（实际 ${hb8 - c8.enemy.hp}）`);
   // 备战：首打抽 1+1；非首打只抽 1
   let [e9, s9, c9] = mkCombat('jihuang');
   c9.hand = [{ uid: 9, id: 'prepare', up: false }];
@@ -497,11 +497,11 @@ section('b2.7) 实时伤害角标');
   c.attacksPlayed = 3;
   ok(engine.previewDamage({ id: 'rua', up: false }) === 10 + Math.floor(120 / 50),
     `角标RUA含被动（实际 ${engine.previewDamage({ id: 'rua', up: false })}）`);
-  // 全力以赴：手牌 5 含本牌 → (5-1)×3=12
+  // 全力以赴：手牌 5 含本牌 → (5-1)×2=8
   c.hand = [{ uid: 1, id: 'allout', up: false }, { uid: 2, id: 'defend_moyu', up: false },
     { uid: 3, id: 'defend_moyu', up: false }, { uid: 4, id: 'defend_moyu', up: false }, { uid: 5, id: 'defend_moyu', up: false }];
-  ok(engine.previewDamage({ id: 'allout', up: false }) === 12 + Math.floor(120 / 50),
-    `角标全力以赴=14（实际 ${engine.previewDamage({ id: 'allout', up: false })}）`);
+  ok(engine.previewDamage({ id: 'allout', up: false }) === 8 + Math.floor(120 / 50),
+    `角标全力以赴=10（实际 ${engine.previewDamage({ id: 'allout', up: false })}）`);
   // 饥饿咆哮：shengfan 视角（血怒固定值并入）
   const e2 = new Engine(51);
   e2.newRun('shengfan');
