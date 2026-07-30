@@ -1132,6 +1132,14 @@
     { type: 'event', w: 20 },
     { type: 'elite', w: 13 }
   ];
+  // BOSS 前休整位随机池：茶水间 55 / 事件 20 / 商店 15 / 精英 10
+  // （摇出商店时占用每层唯一商店名额，商店总数仍恰为 1）
+  var PRE_BOSS_WEIGHTS = [
+    { type: 'rest', w: 55 },
+    { type: 'event', w: 20 },
+    { type: 'shop', w: 15 },
+    { type: 'elite', w: 10 }
+  ];
   var NODE_NAMES = {
     monster: '小怪', elite: '精英', event: '事件', shop: '秦国小卖铺', rest: '茶水间', boss: 'BOSS'
   };
@@ -1291,6 +1299,7 @@
     STEPS_PER_ACT: STEPS_PER_ACT,
     TOTAL_ACTS: TOTAL_ACTS,
     NODE_WEIGHTS: NODE_WEIGHTS,
+    PRE_BOSS_WEIGHTS: PRE_BOSS_WEIGHTS,
     CHAR_CARD_WEIGHTS: CHAR_CARD_WEIGHTS,
     rushBosses: rushBosses,
     NODE_NAMES: NODE_NAMES

@@ -138,13 +138,19 @@
     return true;
   };
 
-  /* ---------- 地图生成（骨架化：热身→随机→商店位→休整→BOSS） ---------- */
+  /* ---------- 地图生成（骨架化：热身→随机→商店位→休整位→BOSS） ---------- */
   // 每层 STEPS_PER_ACT 步：第 0 步全小怪热身；中间步随机（同步同类型不重复，商店恰出现 1 次、落在第 1 或第 2 步）；
-  // 倒数第 2 步固定茶水间休整；末步固定 BOSS。商店/茶水间不进随机池（骨架位保证且仅各 1 次）。
+  // 倒数第 2 步休整位随机池（茶水间/事件/商店/精英，出商店则占用商店名额）；末步固定 BOSS。商店/茶水间不进随机池。
   Engine.prototype.genMap = function (act) {
     var steps = [];
     var pool = D.acts[act - 1].pool;
-    var shopStep = 1 + this.rng.int(2); // 商店落在第 1 或第 2 步
+    // 休整位先摇号（茶水间/事件/商店/精英）；出商店则占用每层唯一商店名额
+    var preType = 'rest', preRoll = this.rng() * 100;
+    for (var pi = 0; pi < D.PRE_BOSS_WEIGHTS.length; pi++) {
+      preRoll -= D.PRE_BOSS_WEIGHTS[pi].w;
+      if (preRoll < 0) { preType = D.PRE_BOSS_WEIGHTS[pi].type; break; }
+    }
+    var shopStep = preType === 'shop' ? -1 : 1 + this.rng.int(2); // 商店落在第 1 或第 2 步
     for (var i = 0; i < D.STEPS_PER_ACT; i++) {
       if (i === D.STEPS_PER_ACT - 1) {
         steps.push([{ type: 'boss', enemyId: D.acts[act - 1].boss }]);
@@ -158,8 +164,8 @@
         continue;
       }
       if (i === D.STEPS_PER_ACT - 2) {
-        // BOSS 前固定茶水间
-        steps.push([{ type: 'rest' }]);
+        // BOSS 前休整位：茶水间/事件/商店/精英随机池
+        steps.push([this._makeNode(preType, pool)]);
         continue;
       }
       var n = 2 + this.rng.int(2), opts = [];

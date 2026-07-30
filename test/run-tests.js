@@ -356,10 +356,10 @@ section('b2.5) 四角色被动数值断言');
   const c2 = st.combat;
   // 先塞满抽牌堆，防止弃牌重洗干扰断言
   for (let di = 0; di < 20; di++) c2.drawPile.unshift({ uid: 500 + di, id: 'defend_moyu', up: false });
-  c2.hand = [{ uid: 10, id: 'defend_moyu', up: false }, { uid: 11, id: 'defend_moyu', up: false }];
+  c2.hand = [{ uid: 910, id: 'defend_moyu', up: false }, { uid: 911, id: 'defend_moyu', up: false }];
   c2.attacksThisTurn = 0;
   engine.endTurn();
-  const kept = c2.hand.filter(x => x.uid === 10 || x.uid === 11).length;
+  const kept = c2.hand.filter(x => x.uid === 910 || x.uid === 911).length;
   ok(kept === 2, `深谋：未打攻击牌手牌保留（实际保留 ${kept}）`);
   // 打过攻击牌 → 照常弃牌
   c2.hand = [{ uid: 12, id: 'strike_moyu', up: false }, { uid: 13, id: 'defend_moyu', up: false }];
@@ -1505,14 +1505,17 @@ section('c) 地图生成（10 层 × 100 次）');
       if (map.steps.length !== D.STEPS_PER_ACT) { bad++; continue; }
       const last = map.steps[D.STEPS_PER_ACT - 1];
       if (!(last.length === 1 && last[0].type === 'boss')) bad++;
-      // 骨架校验：商店恰好 1 次且只在第 1/2 步、茶水间恰好 1 次且固定倒数第 2 步
+      // 骨架校验：商店恰好 1 次；休整位（倒数第 2 步）在随机池内；茶水间至多 1 次
       const flat = [];
       map.steps.forEach((s, si) => s.forEach(o => flat.push({ si, type: o.type })));
       if (flat.filter(o => o.type === 'shop').length !== 1) bad++;
-      if (flat.some(o => o.type === 'shop' && o.si !== 1 && o.si !== 2)) bad++;
-      if (flat.filter(o => o.type === 'rest').length !== 1) bad++;
+      if (flat.filter(o => o.type === 'rest').length > 1) bad++;
       const restStep = map.steps[D.STEPS_PER_ACT - 2];
-      if (!(restStep.length === 1 && restStep[0].type === 'rest')) bad++;
+      if (!(restStep.length === 1 && D.PRE_BOSS_WEIGHTS.some(w => w.type === restStep[0].type))) bad++;
+      // 休整位出商店时，第 1/2 步不得再有商店；否则商店必须落在第 1/2 步
+      if (restStep[0].type === 'shop') {
+        if (flat.some(o => o.type === 'shop' && o.si !== D.STEPS_PER_ACT - 2)) bad++;
+      } else if (flat.some(o => o.type === 'shop' && o.si !== 1 && o.si !== 2)) bad++;
       // 第 0 步全小怪；其余步选项 2~3 且同类型不重复
       for (let s = 0; s < D.STEPS_PER_ACT - 1; s++) {
         const opts = map.steps[s];
