@@ -945,7 +945,7 @@ section('b4) 事件去重 / 新事件 / 角色权重 / 商店复制');
   ok(xqGrow > slGrow * 1.3, `小Q成长标签占比显著高于老鸭（${(xqGrow * 100).toFixed(1)}% vs ${(slGrow * 100).toFixed(1)}%）`);
 }
 
-// 商店复制服务：扣费正确、牌组+1、升级态保留、每店限 1 次
+// 商店复制服务：扣费正确、牌组+1、复制为基础版（不复制升级态）、每店限 1 次
 {
   const engine = new Engine(74);
   engine.newRun('xiaoq');
@@ -953,12 +953,12 @@ section('b4) 事件去重 / 新事件 / 角色权重 / 商店复制');
   const shop = engine._genShop();
   st.gold = 500;
   const target = st.deck[0];
-  target.up = true; // 升级态应一并复制
+  target.up = true; // 升级牌被复制时应得到基础版
   const g0 = st.gold, d0 = st.deck.length;
   ok(engine.shopCopyCard(shop, target.uid), '复制服务成功');
   ok(st.gold === g0 - 70 && st.deck.length === d0 + 1, `普通牌复制扣 70（实际扣 ${g0 - st.gold}）`);
   const copy = st.deck[st.deck.length - 1];
-  ok(copy.id === target.id && copy.up === true && copy.uid !== target.uid, '复制牌升级态保留且为新实例');
+  ok(copy.id === target.id && copy.up === false && copy.uid !== target.uid, '复制牌为基础版且为新实例');
   ok(!engine.shopCopyCard(shop, target.uid), '每店限复制 1 次');
   // 稀有牌价格 150；墨镜 8 折 120
   const engine2 = new Engine(75);

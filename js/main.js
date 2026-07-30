@@ -630,6 +630,8 @@
   /* ---------- 休息 ---------- */
   Game.restHeal = function () { S.engine.restHeal(); finishNode(); };
   Game.restUpgradeMode = function () {
+    // 没有可升级的牌时不进入选牌界面（防空列表死路；入口按钮已禁用，此处为兜底）
+    if (!S.run.deck.some(function (c) { return !c.up; })) { UI.toast('没有可升级的牌'); return; }
     S.selecting = 'restUpgrade';
     S.screen = 'deckSelect';
     render();
@@ -676,6 +678,7 @@
   Game.deckSelectCancel = function () {
     if (S.selecting === 'shopRemove' || S.selecting === 'shopCopy') { S.selecting = null; S.screen = 'shop'; }
     else if (S.selecting === 'eventRemove') { S.selecting = null; S.screen = 'event'; }
+    else if (S.selecting === 'restUpgrade') { S.selecting = null; S.screen = 'rest'; }
     render();
   };
 

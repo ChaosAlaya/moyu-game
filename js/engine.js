@@ -1008,7 +1008,7 @@
     };
   };
 
-  // 复制一张牌：付费按稀有度（普通 70 / 罕见 100 / 稀有 150，墨镜 8 折），升级状态一并复制
+  // 复制一张牌：付费按稀有度（普通 70 / 罕见 100 / 稀有 150，墨镜 8 折），复制为基础版（不复制升级态）
   Engine.prototype.shopCopyCard = function (shop, cardUid) {
     var st = this.state;
     var inst = st.deck.filter(function (c) { return c.uid === cardUid; })[0];
@@ -1019,7 +1019,7 @@
     if (st.gold < cost) return false;
     st.gold -= cost;
     shop.copyUsed = true;
-    var copy = { uid: st.uidCounter++, id: inst.id, up: inst.up };
+    var copy = { uid: st.uidCounter++, id: inst.id, up: false };
     st.deck.push(copy);
     this._seeCard(copy);
     return true;

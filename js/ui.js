@@ -595,6 +595,8 @@
   /* ---------- 休息（左右双栏） ---------- */
   function renderRest(S) {
     var amt = Math.floor(S.run.maxHp * 0.3) + (runHasRelic(S.run, 'bowl') ? 10 : 0);
+    // 没有可升级的牌时禁用升级入口（避免进入选牌界面空列表死路）
+    var canUpgrade = S.run.deck.some(function (c) { return !c.up; });
     return '<div class="screen" id="screen-rest">' + topbarHtml(S) +
       '<div class="center-wrap"><div class="panel ev-panel">' +
       '<h2>🍵 茶水间</h2>' +
@@ -603,7 +605,9 @@
         '<div class="ev-right">' +
           '<div class="event-text">难得的摸鱼时光。要休息一下，还是研究一下牌技？</div>' +
           '<button class="ev-opt primary" onclick="Game.restHeal()">泡杯茶（回复 ' + amt + ' 点精力）</button>' +
-          '<button class="ev-opt yellow" onclick="Game.restUpgradeMode()">研究攻略（升级 1 张牌）</button>' +
+          (canUpgrade
+            ? '<button class="ev-opt yellow" onclick="Game.restUpgradeMode()">研究攻略（升级 1 张牌）</button>'
+            : '<button class="ev-opt yellow" disabled>研究攻略（没有可升级的牌）</button>') +
         '</div>' +
       '</div>' +
       '</div></div></div>';
@@ -612,7 +616,7 @@
   /* ---------- 选牌（删牌/升级/复制） ---------- */
   function renderDeckSelect(S) {
     var title = S.selecting === 'shopRemove' ? '选择要移除的牌'
-      : S.selecting === 'shopCopy' ? '选择要复制的牌（按稀有度付费）'
+      : S.selecting === 'shopCopy' ? '选择要复制的牌（按稀有度付费，复制为基础版）'
       : S.selecting === 'eventRemove' ? '选择要移除的牌'
       : '选择要升级的牌（悬停查看升级数值）';
     var list = S.run.deck.filter(function (inst) {
@@ -640,8 +644,7 @@
       }
       return cardHtml(inst, { onclick: 'Game.deckSelectPick(' + inst.uid + ')' });
     }).join('') || '<div>没有可选择的牌</div>';
-    var cancelBtn = (S.selecting === 'shopRemove' || S.selecting === 'shopCopy')
-      ? '<button onclick="Game.deckSelectCancel()">取消</button>' : '';
+    var cancelBtn = '<button onclick="Game.deckSelectCancel()">取消</button>';
     return '<div class="screen" id="screen-decksel">' + topbarHtml(S) +
       '<div class="center-wrap"><div class="panel">' +
       '<h2>' + title + '</h2>' +
