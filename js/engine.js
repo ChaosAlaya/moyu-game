@@ -559,6 +559,24 @@
           st.hp -= ef.value; result.dmgToPlayer += ef.value;
           break;
         case 'skipEnemy': c.enemy.skipTurns += ef.value; break;
+        case 'rerollIntent': {
+          // 临时通知：打断敌人当前意图，重摇一个不同的行动（不含 every 排期招式）
+          var cur = c.enemy.intent;
+          var rpool = self._moves(c.enemy).filter(function (m) { return m !== cur && !m.every; });
+          if (rpool.length) {
+            var rtotal = 0;
+            rpool.forEach(function (m) { rtotal += (m.w || 1); });
+            var rroll = self.rng() * rtotal, rpick = rpool[0];
+            for (var ri = 0; ri < rpool.length; ri++) {
+              rroll -= (rpool[ri].w || 1);
+              if (rroll < 0) { rpick = rpool[ri]; break; }
+            }
+            c.enemy.intent = rpick;
+            c.enemy.shownIntent = null;
+            result.interrupted = cur ? cur.name : null;
+          }
+          break;
+        }
         case 'maxHpUp': // 最大精力提升（本局有效），同时等量回复
           st.maxHp += ef.value;
           st.hp = Math.min(st.maxHp, st.hp + ef.value);

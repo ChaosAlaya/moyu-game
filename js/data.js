@@ -15,7 +15,7 @@
   var EFFECT_OPS = [
     'damage', 'block', 'draw', 'heal', 'energy', 'weak', 'vulnerable',
     'strength', 'selfDamage', 'skipEnemy', 'power', 'special', 'goldDamage',
-    'maxHpUp', 'gainGold', 'loseGold'
+    'maxHpUp', 'gainGold', 'loseGold', 'rerollIntent'
   ];
 
   /* ---------------- 卡牌 ----------------
@@ -265,6 +265,13 @@
       effects: [{ op: 'skipEnemy', value: 1 }],
       up: { cost: 1, desc: '敌人跳过下一次行动。消耗。',
         effects: [{ op: 'skipEnemy', value: 1 }] }
+    },
+    interrupt: {
+      name: '临时通知', cost: 1, type: 'skill', rarity: 'uncommon',
+      desc: '打断敌人当前意图，重新随机一个行动。',
+      effects: [{ op: 'rerollIntent' }],
+      up: { desc: '打断敌人当前意图，重新随机一个行动；抽 1 张牌。',
+        effects: [{ op: 'rerollIntent' }, { op: 'draw', value: 1 }] }
     },
     assemble: {
       name: '猛男寨集结', cost: 2, type: 'skill', rarity: 'rare',

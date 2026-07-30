@@ -508,6 +508,10 @@
         c.easterEgg = null;
         setTimeout(function () { UI.floater(eImg(), egg, 'text'); }, flyMs);
       }
+      // 临时通知：打断敌人意图飘字
+      if (r.interrupted) {
+        setTimeout(function () { UI.floater(eImg(), '「' + r.interrupted + '」被打断！', 'text'); }, flyMs);
+      }
       var endMs = midMs + (r.hits.length ? 180 : 0);
       // 摸鱼强总 50% 打断：变身过场（二阶段立绘+全屏过场图+「都给我加班」+金爆）→ 立即反击一轮
       // 演出编排：打断-变身-反击连续播放，动画锁覆盖全程（endMs 顺延）
