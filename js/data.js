@@ -1126,11 +1126,10 @@
     shuanglaoya: { gold: 1.5 }
   };
 
+  // 节点类型权重（随机池）：小怪 / 精英 / 事件；商店/茶水间为骨架固定位，不进随机池
   var NODE_WEIGHTS = [
     { type: 'monster', w: 45 },
     { type: 'event', w: 20 },
-    { type: 'shop', w: 12 },
-    { type: 'rest', w: 10 },
     { type: 'elite', w: 13 }
   ];
   var NODE_NAMES = {

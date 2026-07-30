@@ -602,7 +602,7 @@ section('b2.7) 实时伤害角标');
   engine.newRun('xiaoq');
   engine.startCombat('tempmeeting'); // loop：议题轰炸→会议蓄力→结论输出
   const c = engine.state.combat;
-  c.enemy.intent = { name: '会议蓄力', type: 'charge' };
+  c.enemy.intent = D.enemies.tempmeeting.moves[1]; // 会议蓄力（用 moves 引用对象，与实战一致）
   c.hand.unshift({ uid: 1, id: 'interrupt', up: false });
   const r = engine.playCard(0);
   ok(r.interrupted === '会议蓄力', '打断返回原意图名');
@@ -613,7 +613,7 @@ section('b2.7) 实时伤害角标');
   e2.newRun('xiaoq');
   e2.startCombat('tempmeeting');
   const c2 = e2.state.combat;
-  c2.enemy.intent = { name: '会议蓄力', type: 'charge' };
+  c2.enemy.intent = D.enemies.tempmeeting.moves[1];
   const hn = c2.hand.length;
   c2.hand.unshift({ uid: 2, id: 'interrupt', up: true });
   e2.playCard(0);
@@ -1505,17 +1505,34 @@ section('c) 地图生成（10 层 × 100 次）');
       if (map.steps.length !== D.STEPS_PER_ACT) { bad++; continue; }
       const last = map.steps[D.STEPS_PER_ACT - 1];
       if (!(last.length === 1 && last[0].type === 'boss')) bad++;
+      // 骨架校验：商店恰好 1 次且只在第 1/2 步、茶水间恰好 1 次且固定倒数第 2 步
+      const flat = [];
+      map.steps.forEach((s, si) => s.forEach(o => flat.push({ si, type: o.type })));
+      if (flat.filter(o => o.type === 'shop').length !== 1) bad++;
+      if (flat.some(o => o.type === 'shop' && o.si !== 1 && o.si !== 2)) bad++;
+      if (flat.filter(o => o.type === 'rest').length !== 1) bad++;
+      const restStep = map.steps[D.STEPS_PER_ACT - 2];
+      if (!(restStep.length === 1 && restStep[0].type === 'rest')) bad++;
+      // 第 0 步全小怪；其余步选项 2~3 且同类型不重复
       for (let s = 0; s < D.STEPS_PER_ACT - 1; s++) {
         const opts = map.steps[s];
+        if (s === 0) {
+          if (opts.length < 2 || opts.length > 3 || opts.some(o => o.type !== 'monster')) bad++;
+          continue;
+        }
+        if (s === D.STEPS_PER_ACT - 2) continue; // 茶水间固定位已校验
         if (opts.length < 2 || opts.length > 3) bad++;
+        const seen = {};
         for (const o of opts) {
           if (!VALID.includes(o.type)) bad++;
-          if (s === 0 && o.type === 'elite') bad++;
+          if (o.type === 'rest' || (o.type === 'shop' && s !== 1 && s !== 2)) bad++;
+          if (seen[o.type]) bad++;
+          seen[o.type] = true;
         }
       }
     }
   }
-  ok(bad === 0, `1000 张地图全部合法（异常计数 ${bad}）`);
+  ok(bad === 0, `1000 张骨架地图全部合法（异常计数 ${bad}）`);
 }
 
 /* ---------- d) 自动完整 run ---------- */

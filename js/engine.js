@@ -138,24 +138,38 @@
     return true;
   };
 
-  /* ---------- 地图生成 ---------- */
-  // 每层 STEPS_PER_ACT 步，末步固定 BOSS，其余每步 2~3 个节点选项
+  /* ---------- 地图生成（骨架化：热身→随机→商店位→休整→BOSS） ---------- */
+  // 每层 STEPS_PER_ACT 步：第 0 步全小怪热身；中间步随机（同步同类型不重复，商店恰出现 1 次、落在第 1 或第 2 步）；
+  // 倒数第 2 步固定茶水间休整；末步固定 BOSS。商店/茶水间不进随机池（骨架位保证且仅各 1 次）。
   Engine.prototype.genMap = function (act) {
     var steps = [];
     var pool = D.acts[act - 1].pool;
+    var shopStep = 1 + this.rng.int(2); // 商店落在第 1 或第 2 步
     for (var i = 0; i < D.STEPS_PER_ACT; i++) {
       if (i === D.STEPS_PER_ACT - 1) {
         steps.push([{ type: 'boss', enemyId: D.acts[act - 1].boss }]);
         continue;
       }
-      var n = 2 + this.rng.int(2); // 2~3 个选项
-      var opts = [];
-      for (var j = 0; j < n; j++) {
-        opts.push(this._makeNode(this._rollNodeType(i), pool));
+      if (i === 0) {
+        // 热身：2~3 个小怪任选
+        var n0 = 2 + this.rng.int(2), opts0 = [];
+        for (var j0 = 0; j0 < n0; j0++) opts0.push(this._makeNode('monster', pool));
+        steps.push(opts0);
+        continue;
       }
-      // 避免三个选项完全相同的极端情况
-      if (n === 3 && opts[0].type === opts[1].type && opts[1].type === opts[2].type) {
-        opts[2] = this._makeNode(this._rollNodeType(i, opts[0].type), pool);
+      if (i === D.STEPS_PER_ACT - 2) {
+        // BOSS 前固定茶水间
+        steps.push([{ type: 'rest' }]);
+        continue;
+      }
+      var n = 2 + this.rng.int(2), opts = [];
+      for (var j = 0; j < n; j++) {
+        var used = opts.map(function (o) { return o.type; });
+        opts.push(this._makeNode(this._rollNodeType(i, used), pool));
+      }
+      // 商店位：该步没有商店则替换第一个选项，保证每层恰好 1 次
+      if (i === shopStep && !opts.some(function (o) { return o.type === 'shop'; })) {
+        opts[0] = this._makeNode('shop', pool);
       }
       steps.push(opts);
     }
@@ -170,11 +184,11 @@
     return nd;
   };
 
-  Engine.prototype._rollNodeType = function (stepIdx, exclude) {
-    // 第 0 步不出精英，第 4 步（BOSS 前）不出精英以外的限制从简
+  // 随机节点类型；excludes 为本步已出现类型（同步不重复）
+  Engine.prototype._rollNodeType = function (stepIdx, excludes) {
     var total = 0, list = [];
     D.NODE_WEIGHTS.forEach(function (nw) {
-      if (nw.type === exclude) return;
+      if (excludes && excludes.indexOf(nw.type) >= 0) return;
       if (nw.type === 'elite' && stepIdx === 0) return;
       list.push(nw); total += nw.w;
     });
@@ -562,7 +576,7 @@
         case 'rerollIntent': {
           // 临时通知：打断敌人当前意图，重摇一个不同的行动（不含 every 排期招式）
           var cur = c.enemy.intent;
-          var rpool = self._moves(c.enemy).filter(function (m) { return m !== cur && !m.every; });
+          var rpool = self._moves(c.enemy).filter(function (m) { return m !== cur && m.name !== (cur && cur.name) && !m.every; });
           if (rpool.length) {
             var rtotal = 0;
             rpool.forEach(function (m) { rtotal += (m.w || 1); });
