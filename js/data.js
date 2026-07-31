@@ -81,11 +81,11 @@
     },
     pie: {
       name: '老板画的饼', cost: 0, type: 'attack', rarity: 'rare',
-      desc: '造成 2 点伤害，抽 1 张牌。',
+      desc: '造成 1 点伤害，抽 1 张牌。',
       tags: ["draw"],
-      effects: [{ op: 'damage', value: 2 }, { op: 'draw', value: 1 }],
-      up: { cost: 1, desc: '造成 2 点伤害，抽 2 张牌。',
-        effects: [{ op: 'damage', value: 2 }, { op: 'draw', value: 2 }] }
+      effects: [{ op: 'damage', value: 1 }, { op: 'draw', value: 1 }],
+      up: { desc: '造成 1 点伤害，抽 2 张牌。',
+        effects: [{ op: 'damage', value: 1 }, { op: 'draw', value: 2 }] }
     },
     yiti: {
       name: '议题', cost: 1, type: 'skill', rarity: 'common', noReward: true,
