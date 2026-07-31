@@ -1036,7 +1036,7 @@
       ]
     },
     boss_fin: {
-      name: '财务总监', hp: 120, act: 4, boss: true, img: 'kenni',
+      name: '财务主管', hp: 120, act: 4, boss: true, img: 'kenni',
       interrupt50: true, // 半血打断：HP 首次跌破 50% 立即免费行动一轮
       moves: [
         { name: '驳回一切', type: 'attack', value: 12, w: 3 },
@@ -1045,7 +1045,7 @@
       ]
     },
     boss_tech: {
-      name: '技术总监·996守护神', hp: 135, act: 5, boss: true, img: 'jihuang', ai: 'loop',
+      name: '技术主管·996守护神', hp: 135, act: 5, boss: true, img: 'jihuang', ai: 'loop',
       interrupt50: true, // 半血打断
       moves: [
         { name: '福报洗礼', type: 'attack', value: 8, times: 2 },
@@ -1055,7 +1055,7 @@
       ]
     },
     boss_mkt: {
-      name: '市场总监', hp: 150, act: 6, boss: true, img: 'shuanglaoya',
+      name: '市场主管', hp: 150, act: 6, boss: true, img: 'shuanglaoya',
       lastStand: true, // 残血不屈：首次致命伤害以 1 HP 存活并立即反击
       moves: [
         { name: '增长黑客', type: 'attack', value: 13, w: 3 },
