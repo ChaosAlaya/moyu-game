@@ -57,19 +57,19 @@
     },
     rua: {
       name: 'RUA!', cost: 1, type: 'attack', rarity: 'uncommon',
-      desc: '造成 4 点伤害，本场战斗每打出过 1 张攻击牌 +2。',
+      desc: '造成 5 点伤害，本场战斗每打出过 1 张攻击牌 +2。',
       tags: ["grow"],
-      effects: [{ op: 'special', kind: 'rua', base: 4, per: 2 }],
-      up: { desc: '造成 6 点伤害，本场战斗每打出过 1 张攻击牌 +2。',
-        effects: [{ op: 'special', kind: 'rua', base: 6, per: 2 }] }
+      effects: [{ op: 'special', kind: 'rua', base: 5, per: 2 }],
+      up: { desc: '造成 7 点伤害，本场战斗每打出过 1 张攻击牌 +2。',
+        effects: [{ op: 'special', kind: 'rua', base: 7, per: 2 }] }
     },
     darksword: {
       name: '黑暗之剑', cost: 2, type: 'attack', rarity: 'uncommon',
-      desc: '造成 7 点伤害，本场战斗每打出过一次此牌 +3。',
+      desc: '造成 8 点伤害，本场战斗每打出过一次此牌 +3。',
       tags: ["grow"],
-      effects: [{ op: 'special', kind: 'darksword', base: 7, per: 3 }],
-      up: { desc: '造成 10 点伤害，本场战斗每打出过一次此牌 +3。',
-        effects: [{ op: 'special', kind: 'darksword', base: 10, per: 3 }] }
+      effects: [{ op: 'special', kind: 'darksword', base: 8, per: 3 }],
+      up: { desc: '造成 11 点伤害，本场战斗每打出过一次此牌 +3。',
+        effects: [{ op: 'special', kind: 'darksword', base: 11, per: 3 }] }
     },
     sword22: {
       name: '不存在的22剑', cost: 0, type: 'attack', rarity: 'rare',
@@ -385,11 +385,11 @@
     },
     holdstill: {
       name: '按兵不动', cost: 1, type: 'skill', rarity: 'common', char: 'jihuang',
-      desc: '获得 6 点格挡，抽 1 张牌。',
+      desc: '获得 7 点格挡，抽 1 张牌。',
       tags: ["draw"],
-      effects: [{ op: 'block', value: 6 }, { op: 'draw', value: 1 }],
-      up: { desc: '获得 8 点格挡，抽 1 张牌。',
-        effects: [{ op: 'block', value: 8 }, { op: 'draw', value: 1 }] }
+      effects: [{ op: 'block', value: 7 }, { op: 'draw', value: 1 }],
+      up: { desc: '获得 9 点格挡，抽 1 张牌。',
+        effects: [{ op: 'block', value: 9 }, { op: 'draw', value: 1 }] }
     },
     allout: {
       name: '全力以赴', cost: 2, type: 'attack', rarity: 'uncommon', char: 'jihuang',
@@ -401,19 +401,19 @@
     },
     prepare: {
       name: '备战', cost: 0, type: 'skill', rarity: 'uncommon', char: 'jihuang',
-      desc: '抽 1 张牌；若本回合只打出过这一张牌，再抽 1 张。',
+      desc: '抽 2 张牌；若本回合只打出过这一张牌，再抽 1 张。',
       tags: ["draw"],
-      effects: [{ op: 'special', kind: 'prepare', draw: 1, bonus: 1 }],
-      up: { desc: '抽 2 张牌；若本回合只打出过这一张牌，再抽 1 张。',
-        effects: [{ op: 'special', kind: 'prepare', draw: 2, bonus: 1 }] }
+      effects: [{ op: 'special', kind: 'prepare', draw: 2, bonus: 1 }],
+      up: { desc: '抽 3 张牌；若本回合只打出过这一张牌，再抽 1 张。',
+        effects: [{ op: 'special', kind: 'prepare', draw: 3, bonus: 1 }] }
     },
     capitalop: {
       name: '资本运作', cost: 1, type: 'skill', rarity: 'uncommon', char: 'shuanglaoya',
       exhaust: true,
-      desc: '获得 25 金币。消耗。',
+      desc: '获得 30 金币。消耗。',
       tags: ["gold"],
-      effects: [{ op: 'gainGold', value: 25 }],
-      up: { desc: '获得 35 金币。消耗。', effects: [{ op: 'gainGold', value: 35 }] }
+      effects: [{ op: 'gainGold', value: 30 }],
+      up: { desc: '获得 40 金币。消耗。', effects: [{ op: 'gainGold', value: 40 }] }
     },
     spendall: {
       name: '挥金如土', cost: 1, type: 'attack', rarity: 'uncommon', char: 'shuanglaoya',
@@ -433,11 +433,11 @@
     },
     calc: {
       name: '严谨计算', cost: 1, type: 'attack', rarity: 'common', char: 'jihuang',
-      desc: '造成 6 点伤害；若敌人意图是攻击，获得 5 点格挡。',
+      desc: '造成 8 点伤害；若敌人意图是攻击，获得 5 点格挡。',
       tags: ["block"],
-      effects: [{ op: 'special', kind: 'calc', dmg: 6, blk: 5 }],
-      up: { desc: '造成 8 点伤害；若敌人意图是攻击，获得 7 点格挡。',
-        effects: [{ op: 'special', kind: 'calc', dmg: 8, blk: 7 }] }
+      effects: [{ op: 'special', kind: 'calc', dmg: 8, blk: 5 }],
+      up: { desc: '造成 10 点伤害；若敌人意图是攻击，获得 7 点格挡。',
+        effects: [{ op: 'special', kind: 'calc', dmg: 10, blk: 7 }] }
     },
     optimize: {
       name: '链路优化', cost: 1, type: 'skill', rarity: 'common', char: 'jihuang',
@@ -448,11 +448,11 @@
     },
     money: {
       name: '钞能力', cost: 2, type: 'attack', rarity: 'uncommon', char: 'shuanglaoya',
-      desc: '造成 12 点伤害；每有 50 金币，伤害再 +1。',
+      desc: '造成 13 点伤害；每有 40 金币，伤害再 +1。',
       tags: ["gold"],
-      effects: [{ op: 'goldDamage', value: 12, per: 50, bonus: 1 }],
-      up: { desc: '造成 15 点伤害；每有 50 金币，伤害再 +1。',
-        effects: [{ op: 'goldDamage', value: 15, per: 50, bonus: 1 }] }
+      effects: [{ op: 'goldDamage', value: 13, per: 40, bonus: 1 }],
+      up: { desc: '造成 16 点伤害；每有 40 金币，伤害再 +1。',
+        effects: [{ op: 'goldDamage', value: 16, per: 40, bonus: 1 }] }
     },
     shades: {
       name: '墨镜威吓', cost: 1, type: 'skill', rarity: 'common', char: 'shuanglaoya',
@@ -469,13 +469,13 @@
     xiaoq: {
       name: '摸鱼奎恩', title: '摸鱼之道', img: 'xiaoq',
       avatar: 'assets/v2/avatar/xiaoq.jpg',
-      maxHp: 75, gold: 99,
+      maxHp: 80, gold: 99,
       passive: '本场战斗每打出 5 张牌，恢复 1 点能量。',
       passiveId: 'energyCycle',
       unlock: 0,
-      deck: ['strike_moyu', 'strike_moyu', 'strike_moyu',
+      deck: ['strike_moyu', 'strike_moyu',
         'defend_moyu', 'defend_moyu', 'defend_moyu',
-        'rua', 'darksword', 'chicken', 'spiritwin']
+        'rua', 'rua', 'darksword', 'chicken', 'spiritwin']
     },
     shengfan: {
       name: '北极熊剩饭', title: '干饭人', img: 'shengfan',
@@ -491,18 +491,18 @@
     jihuang: {
       name: '企鹅机皇', title: '攻略制定', img: 'jihuang',
       avatar: 'assets/v2/avatar/jihuang.jpg',
-      maxHp: 70, gold: 99,
+      maxHp: 75, gold: 99,
       passive: '打出攻击牌时每有 2 张其他手牌伤害 +1；本回合未打出攻击牌则不弃牌。',
       passiveId: 'strategist',
       unlock: 4,
-      deck: ['strike_moyu', 'strike_moyu', 'strike_moyu',
-        'defend_moyu', 'defend_moyu', 'defend_moyu',
-        'calc', 'calc', 'optimize', 'holdstill']
+      deck: ['strike_moyu', 'strike_moyu',
+        'defend_moyu', 'defend_moyu',
+        'calc', 'calc', 'calc', 'optimize', 'holdstill', 'holdstill']
     },
     shuanglaoya: {
       name: '爽老鸭', title: '财力支柱', img: 'shuanglaoya',
       avatar: 'assets/v2/avatar/shuanglaoya.jpg',
-      maxHp: 80, gold: 120,
+      maxHp: 95, gold: 200,
       passive: '每有 50 金币造成的伤害 +1；商店卡牌商品 +1 格，开战获得 10 金币。',
       passiveId: 'moneyPower',
       unlock: 7,

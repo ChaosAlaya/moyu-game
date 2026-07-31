@@ -258,33 +258,33 @@ section('b) 全部敌人各模拟一场');
 /* ---------- b2) 新 op / 新卡 / 新圣物 hook ---------- */
 section('b2) 新机制数值断言');
 
-// goldDamage（钞能力，每 50 金币 +1）
+// goldDamage（钞能力，每 40 金币 +1）
 {
   const engine = new Engine(5);
   engine.newRun('shuanglaoya');
   engine.startCombat('punchclock');
   const st = engine.state, c = st.combat;
   c.enemy.hp = 300; c.enemy.maxHp = 300;
-  st.gold = 120; // 卡牌每50金+1（+2）与被动钞能（+2）叠加 → 12+2+2=16
+  st.gold = 120; // 卡牌每40金+1（+3）与被动钞能（+2）叠加 → 13+3+2=18
   c.hand.unshift({ uid: 1, id: 'money', up: false });
   let hb = c.enemy.hp;
   engine.playCard(0);
-  ok(c.enemy.hp === hb - 16, `钞能力 金币120 打 16（实际 ${hb - c.enemy.hp}）`);
-  st.gold = 260; c.energy = 3; // 12+5（卡）+5（被动）=22
+  ok(c.enemy.hp === hb - 18, `钞能力 金币120 打 18（实际 ${hb - c.enemy.hp}）`);
+  st.gold = 260; c.energy = 3; // 13+6（卡）+5（被动）=24
   c.hand.unshift({ uid: 2, id: 'money', up: false });
   hb = c.enemy.hp;
   engine.playCard(0);
-  ok(c.enemy.hp === hb - 22, `钞能力 金币260 打 22（实际 ${hb - c.enemy.hp}）`);
-  st.gold = 49; c.energy = 3; // floor(49/50)=0 → 12
+  ok(c.enemy.hp === hb - 24, `钞能力 金币260 打 24（实际 ${hb - c.enemy.hp}）`);
+  st.gold = 49; c.energy = 3; // floor(49/40)=1 → 13+1（卡）+0（被动）=14
   c.hand.unshift({ uid: 3, id: 'money', up: false });
   hb = c.enemy.hp;
   engine.playCard(0);
-  ok(c.enemy.hp === hb - 12, `钞能力 金币49 打 12（实际 ${hb - c.enemy.hp}）（被动同样 0）`);
-  st.gold = 250; c.energy = 3; // 升级版 15+5（卡）+5（被动）=25
+  ok(c.enemy.hp === hb - 14, `钞能力 金币49 打 14（实际 ${hb - c.enemy.hp}）（被动为 0）`);
+  st.gold = 250; c.energy = 3; // 升级版 16+6（卡）+5（被动）=27
   c.hand.unshift({ uid: 4, id: 'money', up: true });
   hb = c.enemy.hp;
   engine.playCard(0);
-  ok(c.enemy.hp === hb - 25, `钞能力+ 金币250 打 25（实际 ${hb - c.enemy.hp}）`);
+  ok(c.enemy.hp === hb - 27, `钞能力+ 金币250 打 27（实际 ${hb - c.enemy.hp}）`);
 }
 
 // ============ 四角色新被动（重设计） ============
@@ -435,12 +435,12 @@ function mkCombat(charId, hp, maxHp) {
   let hb6 = c6.enemy.hp;
   e6.playCard(0);
   ok(c6.enemy.hp === hb6 - 10, `饥饿咆哮：最低 8+血怒2=10（实际 ${hb6 - c6.enemy.hp}）`);
-  // 按兵不动：6 格挡抽 1
+  // 按兵不动：7 格挡抽 1（调参后 6→7）
   let [e7, s7, c7] = mkCombat('jihuang');
   const handB7 = c7.hand.length;
   c7.hand.unshift({ uid: 7, id: 'holdstill', up: false });
   e7.playCard(0);
-  ok(c7.playerBlock === 6 && c7.hand.length === handB7 + 1, `按兵不动：6格挡抽1（blk=${c7.playerBlock}）`);
+  ok(c7.playerBlock === 7 && c7.hand.length === handB7 + 1, `按兵不动：7格挡抽1（blk=${c7.playerBlock}）`);
   // 全力以赴：手牌 3（不含本牌）×2=6，消耗
   let [e8, s8, c8] = mkCombat('jihuang');
   c8.hand = [{ uid: 8, id: 'allout', up: false },
@@ -448,25 +448,25 @@ function mkCombat(charId, hp, maxHp) {
   let hb8 = c8.enemy.hp;
   e8.playCard(0);
   ok(c8.enemy.hp === hb8 - 7 && c8.exhausted.length === 1, `全力以赴：3手牌×2=6+深谋1=7（实际 ${hb8 - c8.enemy.hp}）`);
-  // 备战：首打抽 1+1；非首打只抽 1
+  // 备战：首打抽 2+1；非首打只抽 2（调参后基础抽 1→2）
   let [e9, s9, c9] = mkCombat('jihuang');
   c9.hand = [{ uid: 9, id: 'prepare', up: false }];
   c9.cardsThisTurn = 0;
   const handB9 = c9.hand.length;
   e9.playCard(0);
-  ok(c9.hand.length === handB9 + 1, `备战：首打抽2（净+1，实际 ${c9.hand.length}）`);
+  ok(c9.hand.length === handB9 + 2, `备战：首打抽3（净+2，实际 ${c9.hand.length}）`);
   let [e10, s10, c10] = mkCombat('jihuang');
   c10.hand = [{ uid: 10, id: 'prepare', up: false }];
   c10.cardsThisTurn = 2;
   const handB10 = c10.hand.length;
   e10.playCard(0);
-  ok(c10.hand.length === handB10, `备战：非首打只抽1（实际 ${c10.hand.length}）`);
-  // 资本运作：+25 金币消耗
+  ok(c10.hand.length === handB10 + 1, `备战：非首打只抽2（实际 ${c10.hand.length}）`);
+  // 资本运作：+30 金币消耗（调参后 25→30）
   let [e11, s11, c11] = mkCombat('shuanglaoya');
   const g11 = s11.gold;
   c11.hand.unshift({ uid: 11, id: 'capitalop', up: false });
   e11.playCard(0);
-  ok(s11.gold === g11 + 25 && c11.exhausted.length === 1, `资本运作：+25金币消耗（gold=${s11.gold}）`);
+  ok(s11.gold === g11 + 30 && c11.exhausted.length === 1, `资本运作：+30金币消耗（gold=${s11.gold}）`);
   // 挥金如土：失去当前 10% 金币，造成失去金币 ×2 伤害
   let [e12, s12, c12] = mkCombat('shuanglaoya');
   s12.gold = 200;
@@ -493,15 +493,15 @@ section('b2.7) 实时伤害角标');
   engine.startCombat('punchclock');
   const st = engine.state, c = st.combat;
   c.enemy.hp = 500; c.enemy.maxHp = 500;
-  // 钞能力：金币 120 → 12+2+2=16
+  // 钞能力：金币 120 → 13+3+2=18（调参后 12/per50→13/per40）
   st.gold = 120;
-  ok(engine.previewDamage({ id: 'money', up: false }) === 16, `角标钞能力=16（实际 ${engine.previewDamage({ id: 'money', up: false })}）`);
-  // 黑暗之剑：打过 2 次 → 7+3×2=13
+  ok(engine.previewDamage({ id: 'money', up: false }) === 18, `角标钞能力=18（实际 ${engine.previewDamage({ id: 'money', up: false })}）`);
+  // 黑暗之剑：打过 2 次 → 8+3×2=14（调参后基础 7→8）
   c.darkswordPlays = 2;
-  ok(engine.previewDamage({ id: 'darksword', up: false }) === 15, `角标黑暗之剑含被动=15（实际 ${engine.previewDamage({ id: 'darksword', up: false })}）`);
-  // RUA!：打过 3 张攻击 → 4+2×3=10
+  ok(engine.previewDamage({ id: 'darksword', up: false }) === 16, `角标黑暗之剑含被动=16（实际 ${engine.previewDamage({ id: 'darksword', up: false })}）`);
+  // RUA!：打过 3 张攻击 → 5+2×3=11（调参后基础 4→5）
   c.attacksPlayed = 3;
-  ok(engine.previewDamage({ id: 'rua', up: false }) === 10 + Math.floor(120 / 50),
+  ok(engine.previewDamage({ id: 'rua', up: false }) === 11 + Math.floor(120 / 50),
     `角标RUA含被动（实际 ${engine.previewDamage({ id: 'rua', up: false })}）`);
   // 全力以赴：手牌 5 含本牌 → (5-1)×2=8
   c.hand = [{ uid: 1, id: 'allout', up: false }, { uid: 2, id: 'defend_moyu', up: false },
@@ -916,7 +916,7 @@ section('b4) 事件去重 / 新事件 / 角色权重 / 商店复制');
   const st = engine.state;
   // 团建投票：爬山 maxHp+3
   let r = engine.applyEvent('teamvote', 0);
-  ok(st.maxHp === 75 + 3, `团建爬山 maxHp+3（实际 ${st.maxHp}）`);
+  ok(st.maxHp === 80 + 3, `团建爬山 maxHp+3（实际 ${st.maxHp}）`); // 小Q 基础精力调参后 75→80
   // 聚餐回 10
   st.hp = 50;
   engine.applyEvent('teamvote', 1);
@@ -1646,7 +1646,8 @@ section('e) 平衡统计（4 角色 × 50 局自动 run）');
     console.log(`  [${chId}] 胜率 ${victories}/50 = ${(wr * 100).toFixed(0)}% · 到8层+ ${reach8} 局 · 分布: ${Object.keys(actDist).sort((a, b) => a - b).map(a => `${a}层×${actDist[a]}`).join(' ')}`);
     // 胜率带：0费改稀有后剩饭升至 46%、机皇跌至 0%（实测）；机皇下限暂放 0 仅记录
     // 能力牌改打出即消耗后小 Q 实测跌至 6%（原 12%），下限随之下调
-    const floors = { xiaoq: 0.04, shengfan: 0.08, jihuang: 0, shuanglaoya: 0.08 };
+    // 0731 四角色平衡调优（机皇/老鸭增强、小Q微调）后实测 16/28/16/22，下限统一到 15% 目标带
+    const floors = { xiaoq: 0.15, shengfan: 0.15, jihuang: 0.15, shuanglaoya: 0.15 };
     ok(wr >= (floors[chId] || 0) && wr <= 0.5, `${chId} 胜率在 ${(floors[chId] || 0) * 100}%~50%（实际 ${(wr * 100).toFixed(0)}%）`);
     ok(errors === 0, `${chId} 50 局无异常`);
   }
