@@ -35,6 +35,7 @@
     }).join('');
     return '<div class="topbar">' +
       '<span class="floor">' + D.acts[run.act - 1].name + ' · 第 ' + (run.step + 1) + '/' + D.STEPS_PER_ACT + ' 步</span>' +
+      (run.daily ? '<span class="daily-tag" title="每日挑战：' + run.daily.date + '">📅 ' + (run.daily.modName || run.daily.mod) + '</span>' : '') +
       '<span class="hp-mini">精力 ' + run.hp + '/' + run.maxHp + '</span>' +
       '<span class="gold">' + ico('gold') + ' ' + run.gold + '</span>' +
       '<div class="relics" onclick="Game.showRelics()" title="点击管理圣物装备">' + relics +
@@ -90,12 +91,19 @@
       : '';
     // 调试期：无条件显示 Rush 入口（进入时用默认调试构筑）
     var rushBtn = '<button class="tbtn rush-btn" onclick="Game.enterRush()"><img class="rush-logo-mini" src="assets/v2/rush/rush_logo.png" alt="">总部连续作战！</button>';
+    // 每日挑战：按钮下方显示今日词条与今日最佳（独立口径，不进 runs/wins/stats）
+    var dInfo = g.GameEngine.dailyInfo();
+    var dBest = (sv.dailyBest || {})[dInfo.date];
+    var dailyBtn = '<button class="tbtn daily-btn" onclick="Game.startDaily()">📅 每日挑战</button>' +
+      '<div class="daily-info">今日词条：' + dInfo.modName +
+      '<br>今日最佳：' + (dBest ? (dBest.victory ? '已通关 🎉' : '第 ' + dBest.floor + ' 层') : '暂无') + '</div>';
     var godTitle = sv.godTitle
       ? '<div class="god-title">👑 称号：摸鱼之神</div>' : '';
     return '<div class="screen title-bg2" id="screen-title">' +
       '<div class="title-menu2">' +
       contBtn +
       '<button class="tbtn primary" onclick="Game.toChars()">▶ 开始摸鱼</button>' +
+      dailyBtn +
       rushBtn +
       '<button class="tbtn" onclick="Game.showCodex()">📖 图鉴</button>' +
       '<button class="tbtn" onclick="Game.openGuide()">❓ 指南</button>' +
@@ -166,6 +174,9 @@
         '</div>';
     }).join('');
     return '<div class="screen" id="screen-chars">' +
+      (S.pendingDaily
+        ? '<div class="daily-banner">📅 每日挑战 · ' + S.pendingDaily.modName + '（' + S.pendingDaily.modDesc + '）· 今天所有玩家同一局</div>'
+        : '') +
       '<h2>选择你的摸鱼搭子</h2>' +
       '<div class="char-row">' + cardsHtml + '</div>' +
       '<button onclick="Game.toTitle()">返回</button>' +
@@ -608,7 +619,10 @@
 
   /* ---------- 休息（左右双栏） ---------- */
   function renderRest(S) {
-    var amt = Math.floor(S.run.maxHp * 0.3) + (runHasRelic(S.run, 'bowl') ? 10 : 0);
+    // 与引擎 restHeal 同公式；饥饿日（每日挑战）回血减半（向下取整）
+    var baseAmt = Math.floor(S.run.maxHp * 0.3);
+    if (S.run.daily && S.run.daily.mod === 'hunger') baseAmt = Math.floor(baseAmt / 2);
+    var amt = baseAmt + (runHasRelic(S.run, 'bowl') ? 10 : 0);
     // 没有可升级的牌时禁用升级入口（避免进入选牌界面空列表死路）
     var canUpgrade = S.run.deck.some(function (c) { return !c.up; });
     return '<div class="screen" id="screen-rest">' + topbarHtml(S) +
@@ -706,7 +720,7 @@
       tips.map(function (t) { return '<div class="unlock-tip">' + t + '</div>'; }).join('') +
       '<div style="display:flex;gap:14px">' +
       '<button class="primary" onclick="Game.toChars()">再来一局</button>' +
-      (win ? '<button class="rush-btn2" onclick="Game.enterRush()">直上总部！</button>' : '') +
+      (win && !run.daily ? '<button class="rush-btn2" onclick="Game.enterRush()">直上总部！</button>' : '') +
       '<button class="yellow" onclick="Game.shareResult()">复制战绩</button>' +
       '<button onclick="Game.toTitle()">回标题</button>' +
       '</div><div id="share-fallback"></div></div>';

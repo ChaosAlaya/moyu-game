@@ -15,7 +15,8 @@
       maxFloor: 0, wins: 0, runs: 0,
       codex: { cards: {}, relics: {}, enemies: {} },
       history: [],
-      stats: g.GameEngine.defaultStats() // 统计（成就系统铺路）
+      stats: g.GameEngine.defaultStats(), // 统计（成就系统铺路）
+      dailyBest: {} // 每日挑战今日最佳（按日期 key，独立口径）
     };
   }
 
@@ -51,6 +52,7 @@
       eventId: null, eventResult: null,
       selecting: null, screenBeforeCodex: null, codexTab: 'cards',
       newUnlocks: [],
+      pendingDaily: null,     // 每日挑战：标题入口挂起的今日信息，选角后用固定种子开局
       animating: false,       // 战斗动画编排期间锁输入
       runSave: null,          // 未完成对局快照（标题【继续游戏】按钮）
       showRushConfirm: false, // Rush 继承确认弹层
@@ -79,6 +81,7 @@
       seen: JSON.parse(JSON.stringify(r.seen)),
       map: r.map, lastNodeType: r.lastNodeType || null,
       floorsCleared: r.floorsCleared, path: (r.path || []).slice(),
+      daily: r.daily || null, // 每日挑战词条（普通局为 null）
       uidCounter: r.uidCounter
     };
   }
@@ -118,7 +121,7 @@
       S.engine.newRun(snap.charId); // 建完整 state 骨架后用快照覆盖持久化字段
       var st = S.engine.state;
       ['act', 'step', 'hp', 'maxHp', 'gold', 'deck', 'relics', 'equippedRelics',
-        'seenEvents', 'seen', 'map', 'lastNodeType', 'floorsCleared', 'uidCounter'].forEach(function (k) {
+        'seenEvents', 'seen', 'map', 'lastNodeType', 'floorsCleared', 'uidCounter', 'daily'].forEach(function (k) {
         if (snap[k] !== undefined) st[k] = snap[k];
       });
       st.path = snap.path || [];
@@ -170,6 +173,8 @@
     ['cards', 'relics', 'enemies'].forEach(function (k) {
       for (var id in seen[k]) S.save.codex[k][id] = true;
     });
+    // 每日挑战独立口径：最高到达/角色解锁只认普通局（今日最佳另记 save.dailyBest），图鉴照常收集
+    if (S.run.daily) { persist(); return; }
     var reached = Math.max(S.run.act, S.run.floorsCleared);
     if (reached > S.save.maxFloor) S.save.maxFloor = reached;
     // 解锁（按角色数据的通关层数要求）
@@ -184,19 +189,29 @@
   }
 
   /* ---------- 导航 ---------- */
-  Game.toTitle = function () { S.screen = 'title'; render(); };
-  Game.toChars = function () { S.screen = 'chars'; render(); };
+  Game.toTitle = function () { S.pendingDaily = null; S.screen = 'title'; render(); };
+  Game.toChars = function () { S.pendingDaily = null; S.screen = 'chars'; render(); }; // 普通开局：清掉可能挂起的每日词条
+
+  /* ---------- 每日挑战 ---------- */
+  // 标题【📅 每日挑战】：挂起今日信息，走角色选择后用固定种子开局（同一天所有玩家同一局）
+  Game.startDaily = function () {
+    S.pendingDaily = g.GameEngine.dailyInfo();
+    S.screen = 'chars';
+    render();
+  };
 
   Game.pickChar = function (cid) {
     if (!S.save.unlocks[cid]) return;
     runClearSave(); // 开始新游戏：清除旧 run 存档
-    S.engine = new Engine();
-    S.engine.newRun(cid);
+    var daily = S.pendingDaily || null; // 每日挑战入口挂起的今日信息（普通开局为 null）
+    S.pendingDaily = null;
+    S.engine = new Engine(daily ? daily.seed : undefined);
+    S.engine.newRun(cid, daily ? { daily: daily } : undefined);
     S.run = S.engine.state;
     S.newUnlocks = [];
     S.animating = false; // 新开一局时复位动画锁，防死锁带入新 run
     S.playerPose = 'stage';
-    S.save.runs++;
+    if (!daily) S.save.runs++; // 每日挑战独立口径：不计入累计摸鱼局数
     persist();
     syncSave(); // 初始牌组进图鉴
     S.screen = 'map';
@@ -716,6 +731,15 @@
   /* ---------- 结算 ---------- */
   function gameOver() {
     runClearSave(); // run 完结（胜/负）：清除对局实时存档
+    if (S.run.daily) {
+      // 每日挑战独立口径：只写今日最佳（同日覆盖取更高层数），
+      // 不进 runs/wins/stats/战绩簿/通关构筑，通关也不接 Rush 过场
+      g.GameEngine.recordDailyBest(S.save, S.run);
+      persist();
+      S.screen = 'over';
+      render();
+      return;
+    }
     if (S.run.victory) {
       S.save.wins++;
       // 记录通关构筑快照（Boss Rush 入口用）

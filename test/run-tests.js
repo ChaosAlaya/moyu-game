@@ -2190,6 +2190,242 @@ section('i) 能力牌一场战斗只能打出一次');
      'exhaust:true 牌行为不变（仍进消耗堆）');
 }
 
+/* ---------- j) 每日挑战 ---------- */
+section('j) 每日挑战');
+
+const { dailyInfo, dailySeed, dailyMod, DAILY_MODS, recordDailyBest } = globalThis.GameEngine;
+function dailyRun(seed, mod, charId) { // 以指定词条开局的引擎（测试快捷方式）
+  const e = new Engine(seed);
+  e.newRun(charId || 'xiaoq', { daily: { date: '2026-01-01', mod: mod, modName: mod } });
+  return e;
+}
+// 地图指纹：类型 + 预抽敌人，逐层全量比较
+function mapFingerprint(e) {
+  const fps = [];
+  let m = e.state.map;
+  for (let act = 1; act <= D.TOTAL_ACTS; act++) {
+    if (act > 1) m = e.genMap(act);
+    m.steps.forEach(s => s.forEach(o => fps.push(o.type + ':' + (o.enemyId || ''))));
+  }
+  return fps.join('|');
+}
+
+// 1) 种子确定性：同日期两次开局地图完全一致；不同日期不同
+{
+  const d1 = dailyInfo('2026-07-31');
+  ok(d1.date === '2026-07-31' && Number.isInteger(d1.seed) && d1.seed >= 0, 'dailyInfo 返回日期与整数种子');
+  ok(dailySeed('2026-07-31') === d1.seed, 'dailySeed 与 dailyInfo 种子口径一致');
+  const e1 = new Engine(d1.seed); e1.newRun('xiaoq', { daily: d1 });
+  const e2 = new Engine(d1.seed); e2.newRun('xiaoq', { daily: d1 });
+  ok(mapFingerprint(e1) === mapFingerprint(e2), '同日期两次 new Engine(dailySeed) 10 层地图完全一致');
+  const d2 = dailyInfo('2026-08-01');
+  ok(d2.seed !== d1.seed, '不同日期种子不同');
+  const e3 = new Engine(d2.seed); e3.newRun('xiaoq', { daily: d2 });
+  ok(mapFingerprint(e1) !== mapFingerprint(e3), '不同日期地图不同');
+}
+
+// 2) 词条池：7 词条齐全、按日期确定、扫一年日期全部可抽到
+{
+  ok(DAILY_MODS.length === 7, '词条池 7 个词条');
+  const want = ['rich', 'elite', 'fragile', 'forged', 'hunger', 'generous', 'hard'];
+  ok(want.every(m => DAILY_MODS.some(x => x.mod === m && x.name && x.desc)), '7 词条 mod/name/desc 齐全');
+  ok(dailyMod('2026-07-31').mod === dailyMod('2026-07-31').mod, '同日期词条确定');
+  const { dailyDateStr } = globalThis.GameEngine;
+  const seenMods = {};
+  const dt = new Date(2026, 0, 1);
+  for (let i = 0; i < 365; i++) { // 扫全年真实日期（顺带验证 dailyDateStr 本地时区格式）
+    seenMods[dailyMod(dailyDateStr(dt)).mod] = true;
+    dt.setDate(dt.getDate() + 1);
+  }
+  ok(want.every(m => seenMods[m]), '扫全年日期 7 词条全部可抽到');
+}
+
+// 3) 暴富日：开局金币 +99
+{
+  const ch = D.characters.xiaoq;
+  const e = dailyRun(12345, 'rich');
+  ok(e.state.gold === ch.gold + 99, `暴富日开局金币 +99（${e.state.gold} = ${ch.gold}+99）`);
+  const e0 = new Engine(12345); e0.newRun('xiaoq');
+  ok(e0.state.gold === ch.gold, '普通局金币不受影响');
+}
+
+// 4) 脆弱日：开局最大精力 -10
+{
+  const ch = D.characters.xiaoq;
+  const e = dailyRun(12345, 'fragile');
+  ok(e.state.maxHp === ch.maxHp - 10 && e.state.hp === ch.maxHp - 10,
+    `脆弱日最大精力 -10（${e.state.maxHp} = ${ch.maxHp}-10）`);
+}
+
+// 5) 强化日：开局随机 1 张牌已升级（同种子同一张）
+{
+  const e = dailyRun(12345, 'forged');
+  const ups = e.state.deck.filter(c => c.up);
+  ok(ups.length === 1, '强化日开局恰好 1 张牌已升级');
+  const e2 = dailyRun(12345, 'forged');
+  ok(e2.state.deck.filter(c => c.up)[0].uid === ups[0].uid, '强化日同种子升级同一张牌');
+  const e0 = new Engine(12345); e0.newRun('xiaoq');
+  ok(e0.state.deck.every(c => !c.up), '普通局开局无已升级牌');
+}
+
+// 6) 饥饿日：休息处回血减半（向下取整）
+{
+  const e = dailyRun(12345, 'hunger');
+  e.state.hp = 10;
+  ok(e.restHeal() === Math.floor(Math.floor(80 * 0.3) / 2), '饥饿日回血减半（24 → 12）');
+  ok(e.state.hp === 10 + 12, '饥饿日实际回血 12');
+  e.state.maxHp = 75; e.state.hp = 10; // 奇数减半验证向下取整：floor(22.5)=22 → 11
+  ok(e.restHeal() === 11, '饥饿日减半向下取整（22 → 11）');
+  const e0 = new Engine(12345); e0.newRun('xiaoq'); e0.state.hp = 10;
+  ok(e0.restHeal() === 24, '普通局休息回血不受影响');
+}
+
+// 7) 慷慨日：战斗奖励金币 +50%（同种子与普通局同一条 RNG 流对比）
+{
+  const eN = new Engine(777); eN.newRun('xiaoq');
+  eN.state.lastNodeType = 'monster';
+  const g0 = eN.genReward().gold;
+  const eG = dailyRun(777, 'generous');
+  eG.state.lastNodeType = 'monster';
+  const g1 = eG.genReward().gold;
+  ok(g1 === Math.floor(g0 * 1.5), `慷慨日奖励金币 ×1.5（${g0} → ${g1}）`);
+}
+
+// 8) 艰难日：敌人每段伤害 +1（同种子、固定意图打固定招式对比）
+{
+  function clockHit(e) { // 考勤机固定打 7 伤招式，返回玩家实收伤害
+    e.startCombat('punchclock');
+    e.state.combat.enemy.intent = { name: '打卡警告', type: 'attack', value: 7 };
+    return e.endTurn().dmgToPlayer;
+  }
+  const eN2 = new Engine(888); eN2.newRun('xiaoq');
+  ok(clockHit(eN2) === 7, '普通局敌伤不受影响（7）');
+  ok(clockHit(dailyRun(888, 'hard')) === 8, '艰难日敌人每段伤害 +1（7 → 8）');
+}
+
+// 9) 精英日：第 1/2 步必出精英选项，且骨架不破（商店恰好 1 次、末步 BOSS、选项数 2~3、同步类型不重复）
+{
+  let bad = 0;
+  for (let seed = 1; seed <= 150; seed++) {
+    const e = dailyRun(seed * 313, 'elite');
+    for (let act = 1; act <= 2; act++) {
+      const m = act === 1 ? e.state.map : e.genMap(act);
+      const s1 = m.steps[1], s2 = m.steps[2];
+      if (!s1.some(o => o.type === 'elite')) bad++;
+      if (!s2.some(o => o.type === 'elite')) bad++;
+      const flat = [];
+      m.steps.forEach(s => s.forEach(o => flat.push(o.type)));
+      if (flat.filter(t => t === 'shop').length !== 1) bad++;
+      const last = m.steps[D.STEPS_PER_ACT - 1];
+      if (!(last.length === 1 && last[0].type === 'boss')) bad++;
+      [s1, s2].forEach(opts => {
+        if (opts.length < 2 || opts.length > 3) bad++;
+        const seen = {};
+        opts.forEach(o => { if (seen[o.type]) bad++; seen[o.type] = true; });
+      });
+    }
+  }
+  ok(bad === 0, `精英日 150 种子 × 2 层：第 1/2 步必出精英且骨架不破（异常 ${bad}）`);
+}
+
+// 10) dailyBest 纯函数：写入 + 同日覆盖取更高层数（通关恒为最佳）
+{
+  const save = {};
+  recordDailyBest(save, { daily: { date: '2026-01-01' }, act: 3, floorsCleared: 2, victory: false, charId: 'xiaoq' });
+  ok(save.dailyBest['2026-01-01'] && save.dailyBest['2026-01-01'].floor === 3, 'dailyBest 首次写入（第 3 层）');
+  recordDailyBest(save, { daily: { date: '2026-01-01' }, act: 2, floorsCleared: 1, victory: false, charId: 'xiaoq' });
+  ok(save.dailyBest['2026-01-01'].floor === 3, '同日更低层数不覆盖');
+  recordDailyBest(save, { daily: { date: '2026-01-01' }, act: 7, floorsCleared: 6, victory: false, charId: 'jihuang' });
+  ok(save.dailyBest['2026-01-01'].floor === 7 && save.dailyBest['2026-01-01'].charId === 'jihuang', '同日更高层数覆盖');
+  recordDailyBest(save, { daily: { date: '2026-01-01' }, act: 10, floorsCleared: 10, victory: true, charId: 'xiaoq' });
+  ok(save.dailyBest['2026-01-01'].victory === true, '通关写入 victory');
+  recordDailyBest(save, { daily: { date: '2026-01-01' }, act: 10, floorsCleared: 9, victory: false, charId: 'xiaoq' });
+  ok(save.dailyBest['2026-01-01'].victory === true, '同层数未通关不覆盖已通关');
+  recordDailyBest(save, { daily: { date: '2026-01-02' }, act: 1, floorsCleared: 0, victory: false, charId: 'xiaoq' });
+  ok(save.dailyBest['2026-01-02'] && save.dailyBest['2026-01-02'].floor === 1, '不同日期独立 key');
+  ok(recordDailyBest(save, { act: 5 }) === null, '无 daily 字段的 run 不写入');
+}
+
+// 11) Game 流程：每日入口固定种子 / 快照带 daily / 恢复仍生效 / 结算独立口径
+// （h 已清理 GameUI/Game/localStorage，这里自建垫片并 eval 真实 ui.js/main.js 重建；b7 的 document 桩还在）
+{
+  const GE = globalThis.GameEngine;
+  const today = GE.dailyInfo();
+  const storeJ = {};
+  globalThis.localStorage = {
+    getItem: function (k) { return Object.prototype.hasOwnProperty.call(storeJ, k) ? storeJ[k] : null; },
+    setItem: function (k, v) { storeJ[k] = String(v); },
+    removeItem: function (k) { delete storeJ[k]; }
+  };
+  eval(fs.readFileSync(path.join(root, 'js', 'ui.js'), 'utf8'));
+  eval(fs.readFileSync(path.join(root, 'js', 'main.js'), 'utf8'));
+  const G = globalThis.Game;
+  try {
+    const runsBefore = G.state.save.runs, statsBefore = G.state.save.stats.runs;
+    const histBefore = (G.state.save.history || []).length;
+
+    // 入口 → 选角 → 固定种子开局（同一天两次进入地图一致）
+    G.startDaily();
+    ok(G.state.screen === 'chars' && G.state.pendingDaily && G.state.pendingDaily.date === today.date,
+      '每日挑战入口挂起今日信息并进角色选择');
+    G.pickChar('xiaoq');
+    ok(G.state.run.daily && G.state.run.daily.mod === today.mod, '每日开局写入 st.daily（今日词条）');
+    ok(G.state.save.runs === runsBefore && G.state.save.stats.runs === statsBefore,
+      '每日开局不计入 runs/stats');
+    const fp1 = G.state.run.map.steps.map(s => s.map(o => o.type + ':' + (o.enemyId || '')).join(',')).join(';');
+    G.startDaily(); G.pickChar('xiaoq');
+    const fp2 = G.state.run.map.steps.map(s => s.map(o => o.type + ':' + (o.enemyId || '')).join(',')).join(';');
+    ok(fp1 === fp2, '同一天两次进入每日挑战地图完全一致（Game 入口级）');
+
+    // 普通开局清掉挂起的每日词条
+    G.startDaily(); G.toChars(); G.pickChar('xiaoq');
+    ok(!G.state.run.daily, '普通开局不带 daily（挂起词条已清除）');
+
+    // 对局实时存档带 daily，恢复后词条仍生效
+    G.startDaily(); G.pickChar('xiaoq');
+    const mod0 = G.state.run.daily.mod;
+    G.debug.reward(); G.rewardSkip(); // 完成一个节点 → runPersist
+    const snap = JSON.parse(storeJ['moyu_run_save'] || 'null');
+    ok(snap && snap.daily && snap.daily.mod === mod0, 'run 快照携带 daily 字段');
+    G.state.run.daily = null; // 篡改内存，模拟刷新后丢失
+    G.continueRun();
+    ok(G.state.run.daily && G.state.run.daily.mod === mod0, 'continueRun 恢复 daily 词条');
+
+    // 结算：只写今日最佳，不进 runs/wins/stats/战绩簿
+    const runsB2 = G.state.save.runs, statsB2 = G.state.save.stats.runs;
+    const histB2 = (G.state.save.history || []).length;
+    G.state.run.step = 0; G.state.run.act = 5; G.state.run.floorsCleared = 4;
+    G.state.run.over = true; G.state.run.victory = false;
+    G.state.run.combat = { enemy: { name: '测试怪' } };
+    G.debug.reward(); G.rewardSkip(); // finishNode → gameOver（每日分支）
+    const best = (G.state.save.dailyBest || {})[today.date];
+    ok(G.state.screen === 'over' && best && best.floor === 5 && best.victory === false,
+      `每日结算写入今日最佳（第 ${best && best.floor} 层）`);
+    ok(G.state.save.runs === runsB2 && G.state.save.stats.runs === statsB2 &&
+      (G.state.save.history || []).length === histB2,
+      '每日结算不进 runs/stats/战绩簿（独立口径）');
+    ok(!storeJ['moyu_run_save'], '每日 run 完结后对局存档已清除');
+
+    // 标题渲染含每日挑战入口与今日最佳
+    G.toTitle();
+    const titleHtml = global.document.getElementById('app').innerHTML;
+    ok(titleHtml.indexOf('每日挑战') >= 0 && titleHtml.indexOf('今日最佳') >= 0 && titleHtml.indexOf('第 5 层') >= 0,
+      '标题页显示每日挑战入口/今日词条/今日最佳');
+
+    // 战斗内顶栏显示词条名
+    G.startDaily(); G.pickChar('xiaoq');
+    G.debug.combat('punchclock');
+    const combatHtml = global.document.getElementById('app').innerHTML;
+    ok(combatHtml.indexOf('daily-tag') >= 0 && combatHtml.indexOf(today.modName) >= 0,
+      '战斗内顶栏显示今日词条名');
+    G.toTitle();
+  } finally {
+    delete globalThis.localStorage;
+    delete globalThis.GameUI;
+    delete globalThis.Game;
+  }
+}
+
 /* ---------- 汇总 ---------- */
 console.log(`\n========================================`);
 console.log(`结果: ${passed} 通过, ${failed} 失败`);

@@ -26,6 +26,47 @@
     return rng;
   }
 
+  /* ---------- 每日挑战：日期种子 + 词条池（纯函数，Node 可测） ---------- */
+  // 字符串 hash（FNV-1a 32bit）：日期串 → 确定性整数种子
+  function hashStr(str) {
+    var h = 0x811c9dc5;
+    for (var i = 0; i < str.length; i++) {
+      h ^= str.charCodeAt(i);
+      h = Math.imul(h, 0x01000193);
+    }
+    return h >>> 0;
+  }
+
+  // 本地时区 YYYY-MM-DD（每日挑战以本地日期为准，跨天即换局）
+  function dailyDateStr(d) {
+    d = d || new Date();
+    var m = ('0' + (d.getMonth() + 1)).slice(-2);
+    var day = ('0' + d.getDate()).slice(-2);
+    return d.getFullYear() + '-' + m + '-' + day;
+  }
+
+  // 每日词条池：mod = st.daily.mod 判定值，引擎各函数挂钩结算
+  var DAILY_MODS = [
+    { mod: 'rich',     name: '暴富日', desc: '开局金币 +99' },
+    { mod: 'elite',    name: '精英日', desc: '第 1/2 步必出精英选项' },
+    { mod: 'fragile',  name: '脆弱日', desc: '开局最大精力 -10' },
+    { mod: 'forged',   name: '强化日', desc: '开局随机 1 张牌已升级' },
+    { mod: 'hunger',   name: '饥饿日', desc: '休息处回血减半' },
+    { mod: 'generous', name: '慷慨日', desc: '战斗奖励金币 +50%' },
+    { mod: 'hard',     name: '艰难日', desc: '敌人每段伤害 +1' }
+  ];
+
+  // 日期串 → 每日种子（同一天所有玩家同一局，地图完全一致）
+  function dailySeed(dateStr) { return hashStr('moyu-daily-' + dateStr); }
+  // 日期串 → 今日词条（独立于地图种子取模，避免与地图生成抢同一条 RNG 流）
+  function dailyMod(dateStr) { return DAILY_MODS[hashStr('moyu-daily-mod-' + dateStr) % DAILY_MODS.length]; }
+  // 今日挑战完整信息：{ date, seed, mod, modName, modDesc }
+  function dailyInfo(dateStr) {
+    dateStr = dateStr || dailyDateStr();
+    var m = dailyMod(dateStr);
+    return { date: dateStr, seed: dailySeed(dateStr), mod: m.mod, modName: m.name, modDesc: m.desc };
+  }
+
   function Engine(seed) {
     this.seed = (seed === undefined) ? ((Math.random() * 0xFFFFFFFF) >>> 0) : (seed >>> 0);
     this.rng = makeRng(this.seed);
@@ -83,7 +124,8 @@
   };
 
   /* ---------- 开局 ---------- */
-  Engine.prototype.newRun = function (charId) {
+  // opts.daily = { date, mod, modName }：每日挑战开局（种子由调用方用 dailySeed 固定）
+  Engine.prototype.newRun = function (charId, opts) {
     var ch = D.characters[charId];
     if (!ch) throw new Error('未知角色: ' + charId);
     var uid = 1;
@@ -99,7 +141,7 @@
       equippedRelics: [],  // 已装备的圣物 id（最多 4 件，只有装备的生效）
       act: 1,
       step: 0,             // 当前所处步（0 起）
-      map: this.genMap(1),
+      map: null,           // 在每日词条结算之后生成（精英日需挂 genMap）
       combat: null,
       over: false,
       victory: false,
@@ -107,8 +149,23 @@
       maxHit: 0,           // 单局最高单段伤害（统计用）
       seen: { cards: {}, relics: {}, enemies: {} } // 图鉴
     };
+    var st = this.state;
+    // 每日挑战：记入今日词条并结算开局效果（普通局无 st.daily，以下全部跳过、零影响）
+    if (opts && opts.daily) {
+      st.daily = { date: opts.daily.date, mod: opts.daily.mod, modName: opts.daily.modName || '' };
+      if (st.daily.mod === 'rich') {
+        st.gold += 99; // 暴富日
+      } else if (st.daily.mod === 'fragile') {
+        st.maxHp = Math.max(1, st.maxHp - 10); // 脆弱日
+        st.hp = Math.min(st.hp, st.maxHp);
+      } else if (st.daily.mod === 'forged') {
+        var ups0 = st.deck.filter(function (c) { return !c.up; }); // 强化日
+        if (ups0.length) this.rng.pick(ups0).up = true;
+      }
+    }
+    st.map = this.genMap(1);
     deck.forEach(this._seeCard.bind(this));
-    return this.state;
+    return st;
   };
 
   Engine.prototype._seeCard = function (inst) { this.state.seen.cards[inst.id] = true; };
@@ -145,6 +202,8 @@
   Engine.prototype.genMap = function (act) {
     var steps = [];
     var pool = D.acts[act - 1].pool;
+    // 精英日（每日挑战）：第 1/2 步各保底 1 个精英选项
+    var eliteDaily = !!(this.state && this.state.daily && this.state.daily.mod === 'elite');
     // 休整位先摇号（茶水间/事件/商店/精英）；出商店则占用每层唯一商店名额
     var preType = 'rest', preRoll = this.rng() * 100;
     for (var pi = 0; pi < D.PRE_BOSS_WEIGHTS.length; pi++) {
@@ -177,6 +236,10 @@
       // 商店位：该步没有商店则替换第一个选项，保证每层恰好 1 次
       if (i === shopStep && !opts.some(function (o) { return o.type === 'shop'; })) {
         opts[0] = this._makeNode('shop', pool);
+      }
+      // 精英日：替换末位选项补精英（在商店位之后处理，不顶掉商店、不破坏"商店恰好 1 次"骨架）
+      if (eliteDaily && (i === 1 || i === 2) && !opts.some(function (o) { return o.type === 'elite'; })) {
+        opts[opts.length - 1] = this._makeNode('elite', pool);
       }
       steps.push(opts);
     }
@@ -837,8 +900,10 @@
     var self = this;
     function enemyHit(base, mvRef) {
       // 精英随层数成长的攻击加成（dmgBonus）在此结算；销赃镜像（perGold）按玩家金币加伤
+      // 艰难日（每日挑战）：敌人每段伤害 +1
       var mv = mvRef || {};
-      var dmg = base + e.strength + (e.dmgBonus || 0) + (mv.perGold ? Math.floor(st.gold / mv.perGold) : 0);
+      var dmg = base + e.strength + (e.dmgBonus || 0) + (mv.perGold ? Math.floor(st.gold / mv.perGold) : 0) +
+        (st.daily && st.daily.mod === 'hard' ? 1 : 0);
       if (e.weak > 0) dmg = Math.floor(dmg * 0.75);
       if (c.playerVuln > 0) dmg = Math.floor(dmg * 1.5);
       if (dmg < 0) dmg = 0;
@@ -1012,6 +1077,7 @@
     var gold = nodeType === 'elite' ? 25 + this.rng.int(16)
       : nodeType === 'boss' ? 40 + this.rng.int(21)
       : 10 + this.rng.int(11);
+    if (st.daily && st.daily.mod === 'generous') gold = Math.floor(gold * 1.5); // 慷慨日：奖励金币 +50%
     var choices = [];
     var used = {};
     while (choices.length < 3) {
@@ -1135,6 +1201,7 @@
   Engine.prototype.restHeal = function () {
     var st = this.state;
     var amt = Math.floor(st.maxHp * 0.3);
+    if (st.daily && st.daily.mod === 'hunger') amt = Math.floor(amt / 2); // 饥饿日：休息回血减半（向下取整）
     if (this.hasRelic('bowl')) amt += 10;
     st.hp = Math.min(st.maxHp, st.hp + amt);
     return amt;
@@ -1456,6 +1523,18 @@
     return st;
   }
 
+  // 每日挑战最佳成绩（独立口径，不进 runs/wins/stats）：按日期 key，同日覆盖取更高层数（通关恒为最佳）
+  function recordDailyBest(save, run) {
+    if (!save || !run || !run.daily || !run.daily.date) return null;
+    if (!isObj(save.dailyBest)) save.dailyBest = {};
+    var floor = Math.max(run.act || 0, run.floorsCleared || 0); // 与 syncSave 同口径
+    var prev = save.dailyBest[run.daily.date];
+    if (!prev || run.victory || floor > prev.floor) {
+      save.dailyBest[run.daily.date] = { floor: floor, victory: !!run.victory, charId: run.charId };
+    }
+    return save.dailyBest[run.daily.date];
+  }
+
   // 对局快照结构校验（标题【继续游戏】入口用；非法快照由调用方静默清除）
   function validRunSnapshot(snap) {
     return isObj(snap) &&
@@ -1691,7 +1770,14 @@
     normalizeStats: normalizeStats,
     migrateSave: migrateSave,
     accumulateStats: accumulateStats,
+    recordDailyBest: recordDailyBest,
     validRunSnapshot: validRunSnapshot,
-    MAX_EQUIPPED_RELICS: MAX_EQUIPPED_RELICS
+    MAX_EQUIPPED_RELICS: MAX_EQUIPPED_RELICS,
+    DAILY_MODS: DAILY_MODS,
+    hashStr: hashStr,
+    dailyDateStr: dailyDateStr,
+    dailySeed: dailySeed,
+    dailyMod: dailyMod,
+    dailyInfo: dailyInfo
   };
 })(typeof window !== 'undefined' ? window : globalThis);

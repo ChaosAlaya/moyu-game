@@ -62,6 +62,23 @@ button.yellow { background: var(--yellow); }
   background: rgba(255, 244, 230, .85); border: 2px solid var(--ink);
   border-radius: 10px; padding: 4px 12px;
 }
+/* 每日挑战：标题按钮下方的今日词条/今日最佳 */
+.daily-info {
+  width: 230px; margin-top: -6px; font-size: 12px; font-weight: 700; color: var(--ink);
+  background: rgba(255, 244, 230, .85); border: 2px solid var(--ink);
+  border-radius: 10px; padding: 3px 12px; line-height: 1.6;
+}
+/* 每日挑战：战斗内顶栏词条标签 */
+.topbar .daily-tag {
+  background: var(--yellow); color: var(--ink); border: 2px solid var(--ink);
+  border-radius: 10px; padding: 1px 10px; font-size: 13px; font-weight: 900;
+}
+/* 每日挑战：角色选择页横幅 */
+.daily-banner {
+  font-size: 15px; font-weight: 900; color: var(--ink);
+  background: var(--yellow); border: 2px solid var(--ink); border-radius: 12px;
+  padding: 8px 20px; box-shadow: 3px 3px 0 var(--ink);
+}
 
 /* 深色背景页（图鉴/存档/战绩共用换下来的主视觉） */
 .screen.dark-page {
