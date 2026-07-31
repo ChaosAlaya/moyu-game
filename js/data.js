@@ -945,7 +945,7 @@
   /* ---------------- 圣物 ---------------- */
   var relics = {
     scarf_relic: { name: '红围巾', desc: '每场战斗第一次受到的伤害为 0。', price: 150, img: 'xiaoq' },
-    glasses: { name: '肯尼的镜片', desc: '敌人意图显示精确数值。', price: 130, img: 'kenni' },
+    glasses: { name: '肯尼的镜片', desc: '预见敌人未来 3 个回合的意图，并识破伪装。', price: 160, img: 'kenni' },
     sunglasses: { name: '爽老鸭的墨镜', desc: '商店所有商品 8 折。', price: 160, img: 'shuanglaoya' },
     gamepad: { name: '机皇手柄', desc: '每回合打出的第一张技能牌费用 -1。', price: 150, img: 'jihuang' },
     bowl: { name: '搪瓷碗', desc: '休息时回复额外 +10 点精力。', price: 120, img: 'shengfan' },

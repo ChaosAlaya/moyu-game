@@ -1380,3 +1380,14 @@ img.fx-pow { animation: powpop .5s cubic-bezier(.2,1.4,.4,1) forwards; }
   0% { opacity: 1; transform: translate(0, 0) rotate(0); }
   100% { opacity: 0; transform: translate(32vw, -110vh) rotate(720deg); }
 }
+
+/* ---------- 肯尼的镜片：预见未来 3 回合 ---------- */
+.foresight {
+  display: flex; align-items: center; gap: 6px; margin-top: 6px;
+  background: rgba(255, 255, 255, .92); border: 2px solid var(--ink); border-radius: 10px;
+  padding: 4px 10px; font-size: 12px; font-weight: 900; color: var(--ink);
+  box-shadow: 2px 2px 0 var(--ink); max-width: 470px; flex-wrap: wrap;
+}
+.foresight .fs-item { display: inline-flex; align-items: center; gap: 3px; white-space: nowrap; }
+.foresight .fs-item .ico { height: 13px; }
+.foresight .fs-arrow { color: var(--red); }

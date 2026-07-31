@@ -337,7 +337,21 @@
       text += '　<span class="budget-left">预算剩 ' + Math.max(0, 4 - c.spentThisTurn) + '/4</span>';
       tip += '（预算剩 ' + Math.max(0, 4 - c.spentThisTurn) + '/4）';
     }
-    return '<div class="intent ' + mv.type + '" title="' + tip + '">' + ico(ic) + ' ' + text + fakeBadge + '</div>';
+    var html = '<div class="intent ' + mv.type + '" title="' + tip + '">' + ico(ic) + ' ' + text + fakeBadge + '</div>';
+    // 肯尼的镜片：预见未来 3 回合意图条
+    if (hasGlasses && e.foresight && e.foresight.length) {
+      var fs = e.foresight.map(function (m2) {
+        var ic2 = 'buff';
+        if (m2.type === 'attack') ic2 = 'intent_attack';
+        else if (m2.type === 'block') ic2 = 'defend';
+        else if (m2.type === 'debuff') ic2 = 'debuff';
+        else if (m2.type === 'charge') ic2 = 'charge';
+        else if (m2.type === 'heal') ic2 = 'heal';
+        return '<span class="fs-item" title="' + m2.name + '：' + moveDesc(m2) + '">' + ico(ic2) + ' ' + m2.name + '</span>';
+      }).join('<span class="fs-arrow">→</span>');
+      html += '<div class="foresight" title="肯尼的镜片：未来 3 回合">🔮 ' + fs + '</div>';
+    }
+    return html;
   }
 
   function statusBadges(list) {

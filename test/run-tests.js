@@ -1733,6 +1733,40 @@ function simRush(engine, build) {
   ok(bestAvg >= 5.0, `强构筑平均进度 ≥5.0 场（实际最佳 ${bestAvg}）`);
 }
 
+/* ---------- g) 肯尼的镜片：预见未来 3 回合 ---------- */
+section('g) 肯尼的镜片（预见队列）');
+{
+  const engine = new Engine(21);
+  engine.newRun('xiaoq');
+  engine.state.relics.push('glasses');
+  engine.state.equippedRelics.push('glasses');
+  engine.startCombat('group_at');
+  const c = engine.state.combat;
+  ok(Array.isArray(c.enemy.foresight) && c.enemy.foresight.length === 3, '镜片：预摇未来 3 回合');
+  const f0 = c.enemy.foresight[0], f1 = c.enemy.foresight[1];
+  c.hand.length = 0;
+  engine.endTurn();
+  ok(c.enemy.intent === f0, '镜片：下回合意图与预言完全一致');
+  ok(c.enemy.foresight.length === 3 && c.enemy.foresight[0] === f1, '镜片：队列前移并补满');
+  // 阶段切换：队列作废重建
+  const e2 = new Engine(22);
+  e2.newRun('xiaoq');
+  e2.state.relics.push('glasses');
+  e2.state.equippedRelics.push('glasses');
+  e2.startCombat('boss3');
+  const c2 = e2.state.combat;
+  const oldQ = c2.enemy.foresight;
+  c2.enemy.hp = 90;
+  e2._checkPhase(c2.enemy);
+  e2._chooseIntent(c2.enemy);
+  ok(c2.enemy.foresight !== oldQ && c2.enemy.foresight.length === 3, '镜片：阶段切换后队列重建');
+  // 无镜片：不生成队列
+  const e3 = new Engine(23);
+  e3.newRun('xiaoq');
+  e3.startCombat('group_at');
+  ok(!e3.state.combat.enemy.foresight, '无镜片不生成预见队列');
+}
+
 /* ---------- 汇总 ---------- */
 console.log(`\n========================================`);
 console.log(`结果: ${passed} 通过, ${failed} 失败`);

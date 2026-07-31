@@ -10,10 +10,12 @@
 
   function defaultSave() {
     return {
+      saveVer: g.GameEngine.SAVE_VERSION,
       unlocks: { xiaoq: true, shengfan: false, jihuang: false, shuanglaoya: false },
       maxFloor: 0, wins: 0, runs: 0,
       codex: { cards: {}, relics: {}, enemies: {} },
-      history: []
+      history: [],
+      stats: g.GameEngine.defaultStats() // 统计（成就系统铺路）
     };
   }
 
@@ -21,15 +23,18 @@
     try {
       var raw = localStorage.getItem(SAVE_KEY);
       if (raw) {
-        var sv = JSON.parse(raw);
+        // 版本迁移（无版本号旧档视为 v1）；JSON 损坏/结构非法 → null → 回退默认存档
+        var sv = g.GameEngine.migrateSave(JSON.parse(raw));
+        if (!sv) return defaultSave();
         var d = defaultSave();
         // 合并缺省字段，防止旧存档缺键
         for (var k in d) if (!(k in sv)) sv[k] = d[k];
         for (var k2 in d.codex) if (!(k2 in sv.codex)) sv.codex[k2] = {};
         for (var k3 in d.unlocks) if (!(k3 in sv.unlocks)) sv.unlocks[k3] = d.unlocks[k3];
+        sv.stats = g.GameEngine.normalizeStats(sv.stats); // stats 子字段自愈
         return sv;
       }
-    } catch (e) { /* file:// 或隐私模式下忽略 */ }
+    } catch (e) { /* file:// 或隐私模式下忽略（JSON 损坏也走这里回退默认） */ }
     return defaultSave();
   }
 
@@ -84,10 +89,17 @@
     S.runSave = snap;
   }
   function runLoadSave() {
-    try {
-      var raw = localStorage.getItem(RUN_SAVE_KEY);
-      return raw ? JSON.parse(raw) : null;
-    } catch (e) { return null; }
+    var raw = null;
+    try { raw = localStorage.getItem(RUN_SAVE_KEY); } catch (e) { return null; }
+    if (!raw) return null;
+    var snap = null;
+    try { snap = JSON.parse(raw); } catch (e) { snap = null; }
+    // JSON 损坏或结构非法：静默清除，标题不再显示【继续游戏】
+    if (!g.GameEngine.validRunSnapshot(snap)) {
+      try { localStorage.removeItem(RUN_SAVE_KEY); } catch (e2) {}
+      return null;
+    }
+    return snap;
   }
   function runClearSave() {
     try { localStorage.removeItem(RUN_SAVE_KEY); } catch (e) {}
@@ -717,6 +729,7 @@
         maxHp: S.run.maxHp
       };
     }
+    g.GameEngine.accumulateStats(S.save, S.run); // 统计累计（成就系统铺路）
     g.GameEngine.pushHistory(S.save, S.run); // 战绩簿
     syncSave();
     if (S.run.victory) { startCutscene(); return; } // 通关：强总→总部过场演出，再接 Rush
@@ -1095,18 +1108,18 @@
     var ta = document.getElementById('save-import');
     if (!ta) return;
     var data = g.GameEngine.saveCodec.decode(ta.value);
-    if (!data || !data.save || typeof data.save !== 'object' ||
-        !data.save.unlocks || !data.save.codex) {
+    if (!data || !data.save.unlocks || !data.save.codex) {
+      UI.toast('存档码无效，请检查后重试');
+      return;
+    }
+    // v1 旧码在这里迁移到当前版本；迁移失败 = 存档本体结构非法
+    var sv = g.GameEngine.migrateSave(data.save);
+    if (!sv) {
       UI.toast('存档码无效，请检查后重试');
       return;
     }
     try {
-      // 合并缺省字段后写入
-      var d = defaultSave();
-      var sv = data.save;
-      for (var k in d) if (!(k in sv)) sv[k] = d[k];
-      for (var k2 in d.codex) if (!(k2 in sv.codex)) sv.codex[k2] = {};
-      localStorage.setItem(SAVE_KEY, JSON.stringify(sv));
+      localStorage.setItem(SAVE_KEY, JSON.stringify(sv)); // 缺省字段由 loadSave 合并补齐
       if (data.sfx) localStorage.setItem('moyu_sfx', data.sfx);
     } catch (e) {
       UI.toast('写入失败：' + e.message);

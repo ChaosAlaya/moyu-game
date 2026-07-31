@@ -104,6 +104,7 @@
       over: false,
       victory: false,
       floorsCleared: 0,    // 已通关层数
+      maxHit: 0,           // 单局最高单段伤害（统计用）
       seen: { cards: {}, relics: {}, enemies: {} } // 图鉴
     };
     deck.forEach(this._seeCard.bind(this));
@@ -379,48 +380,60 @@
     var next = edef.phases[enemy.phase + 1];
     if (next && enemy.hp <= enemy.maxHp * edef.phases[enemy.phase].until) {
       enemy.phase++;
+      enemy.foresight = null; // 阶段切换：招式池变了，镜片预见队列作废重建
       if (next.phaseName) {
         this.state.combat.log.push({ t: 'phase', text: next.phaseName });
       }
     }
   };
 
-  Engine.prototype._chooseIntent = function (enemy) {
+  // 抽取敌人招式；ahead = 距当前的回合偏移（1=即将执行，2/3/4=未来回合，供镜片预见）
+  Engine.prototype._rollMove = function (enemy, ahead) {
     var edef = enemy._def;
     var moves = this._moves(enemy);
-    var mv = null;
-    // 【市场波动】资本化身 P3：牛（18×2）/熊（自加15格挡）/平（自回15）按回合轮换
+    // 【市场波动】资本化身 P3：牛/熊/平按回合轮换
     if (edef.mechanic === 'market' && enemy.phase === 2) {
-      mv = moves[enemy.turnCount % moves.length];
-      enemy.intent = mv;
-      enemy.shownIntent = null;
-      return;
+      return moves[(enemy.turnCount + ahead - 1) % moves.length];
     }
     // every 型招式优先
-    var nextTurn = enemy.turnCount + 1;
+    var turnN = enemy.turnCount + ahead;
     for (var i = 0; i < moves.length; i++) {
-      if (moves[i].every && nextTurn % moves[i].every === 0) { mv = moves[i]; break; }
+      if (moves[i].every && turnN % moves[i].every === 0) return moves[i];
     }
-    if (!mv) {
-      if (edef.ai === 'loop') {
-        mv = moves[enemy.loopIdx % moves.length];
-        enemy.loopIdx++;
+    if (edef.ai === 'loop') {
+      var mv = moves[enemy.loopIdx % moves.length];
+      enemy.loopIdx++;
+      return mv;
+    }
+    var total = 0;
+    moves.forEach(function (m) { if (!m.every) total += (m.w || 1); });
+    var roll = this.rng() * total, mv2 = null;
+    for (var j = 0; j < moves.length; j++) {
+      if (moves[j].every) continue;
+      roll -= (moves[j].w || 1);
+      if (roll < 0) { mv2 = moves[j]; break; }
+    }
+    return mv2 || moves[moves.length - 1];
+  };
+
+  Engine.prototype._chooseIntent = function (enemy) {
+    var edef = enemy._def;
+    if (this.hasRelic('glasses')) {
+      // 肯尼的镜片：预摇未来 3 回合意图（队列与实战同源；阶段切换时作废，由 _checkPhase 置 null）
+      if (!enemy.foresight) {
+        enemy.intent = this._rollMove(enemy, 1);
+        enemy.foresight = [this._rollMove(enemy, 2), this._rollMove(enemy, 3), this._rollMove(enemy, 4)];
       } else {
-        var total = 0;
-        moves.forEach(function (m) { if (!m.every) total += (m.w || 1); });
-        var roll = this.rng() * total;
-        for (var j = 0; j < moves.length; j++) {
-          if (moves[j].every) continue;
-          roll -= (moves[j].w || 1);
-          if (roll < 0) { mv = moves[j]; break; }
-        }
-        if (!mv) mv = moves[moves.length - 1];
+        enemy.intent = enemy.foresight.shift();
+        enemy.foresight.push(this._rollMove(enemy, enemy.foresight.length + 2));
       }
+    } else {
+      enemy.intent = this._rollMove(enemy, 1);
     }
-    enemy.intent = mv;
+    var mv = enemy.intent;
     // 【微笑欺骗】前台：展示的意图有 50% 是假情报（真实意图照常执行；肯尼镜片可识破）
     if (edef.mechanic === 'fakeIntent' && mv) {
-      var others = moves.filter(function (m) { return m !== mv && !m.every; });
+      var others = this._moves(enemy).filter(function (m) { return m !== mv && !m.every; });
       enemy.shownIntent = (others.length && this.rng() < 0.5) ? others[this.rng.int(others.length)] : mv;
     } else {
       enemy.shownIntent = null;
@@ -544,6 +557,7 @@
       result.dmgToEnemy += through;
       c.playerDealtDmgThisTurn += through;
       result.hits.push(through);
+      if (through > st.maxHit) st.maxHit = through; // 单局最高伤害统计
     }
 
     def.effects.forEach(function (ef) {
@@ -1350,13 +1364,102 @@
     for (var i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
     return new TextDecoder().decode(bytes);
   }
+  /* ---------- 元存档版本迁移与统计（纯函数，Node 可测） ---------- */
+  var SAVE_VERSION = 2; // 当前元存档版本；无 saveVer 的旧存档一律视为 v1
+
+  function isObj(o) { return !!o && typeof o === 'object' && !Array.isArray(o); }
+
+  // 统计默认值（成就系统铺路）：各角色场次/胜场按角色表预填
+  function defaultStats() {
+    var chars = {};
+    for (var cid in D.characters) chars[cid] = { runs: 0, wins: 0 };
+    return { runs: 0, wins: 0, maxFloor: 0, bossKills: 0, bestHit: 0, chars: chars };
+  }
+
+  // 统计字段自愈：缺键/错类型补默认，已有合法值保留
+  function normalizeStats(st) {
+    var d = defaultStats();
+    if (!isObj(st)) return d;
+    ['runs', 'wins', 'maxFloor', 'bossKills', 'bestHit'].forEach(function (k) {
+      if (typeof st[k] !== 'number' || !isFinite(st[k]) || st[k] < 0) st[k] = d[k];
+    });
+    if (!isObj(st.chars)) st.chars = {};
+    for (var cid in d.chars) {
+      var cs = st.chars[cid];
+      if (!isObj(cs)) { st.chars[cid] = { runs: 0, wins: 0 }; continue; }
+      if (typeof cs.runs !== 'number' || cs.runs < 0) cs.runs = 0;
+      if (typeof cs.wins !== 'number' || cs.wins < 0) cs.wins = 0;
+    }
+    return st;
+  }
+
+  // 逐级迁移表：键 = 起始版本；每步只负责升一级
+  var SAVE_MIGRATIONS = {
+    // v1 → v2：新增 stats 统计对象（为成就系统铺路）
+    1: function (sv) {
+      sv.stats = normalizeStats(sv.stats);
+      sv.saveVer = 2;
+      return sv;
+    }
+  };
+
+  // 把旧版元存档逐级迁移到 SAVE_VERSION；结构非法返回 null（由调用方回退默认存档）
+  function migrateSave(raw) {
+    if (!isObj(raw)) return null;
+    // 关键容器存在但类型错 = 结构非法；缺键允许（由调用方按缺省合并补齐）
+    if ('unlocks' in raw && !isObj(raw.unlocks)) return null;
+    if ('codex' in raw && !isObj(raw.codex)) return null;
+    if ('history' in raw && !Array.isArray(raw.history)) return null;
+    var ver = (typeof raw.saveVer === 'number' && raw.saveVer >= 1) ? Math.floor(raw.saveVer) : 1;
+    if (ver > SAVE_VERSION) return null; // 更高版本的存档不认识，拒绝以免旧客户端误写
+    var sv = raw;
+    while (ver < SAVE_VERSION) {
+      var step = SAVE_MIGRATIONS[ver];
+      if (!step) return null;
+      sv = step(sv);
+      if (!isObj(sv) || sv.saveVer !== ver + 1) return null; // 迁移步必须恰好升一级
+      ver = sv.saveVer;
+    }
+    return sv;
+  }
+
+  // run 结束时累计统计（main.js gameOver 与 pushHistory 并列调用）；旧档缺 stats 自动补
+  function accumulateStats(save, run) {
+    if (!save || !run) return null;
+    save.stats = normalizeStats(save.stats);
+    var st = save.stats;
+    st.runs++;
+    if (run.victory) st.wins++;
+    var cid = run.charId;
+    if (cid) {
+      if (!isObj(st.chars[cid])) st.chars[cid] = { runs: 0, wins: 0 };
+      st.chars[cid].runs++;
+      if (run.victory) st.chars[cid].wins++;
+    }
+    var reached = Math.max(run.act || 0, run.floorsCleared || 0); // 与 syncSave 同口径
+    if (reached > st.maxFloor) st.maxFloor = reached;
+    st.bossKills += run.floorsCleared || 0; // 每通一层 = 击杀该层 BOSS
+    if ((run.maxHit || 0) > st.bestHit) st.bestHit = run.maxHit;
+    return st;
+  }
+
+  // 对局快照结构校验（标题【继续游戏】入口用；非法快照由调用方静默清除）
+  function validRunSnapshot(snap) {
+    return isObj(snap) &&
+      typeof snap.charId === 'string' && !!D.characters[snap.charId] &&
+      Array.isArray(snap.deck) && snap.deck.length > 0 &&
+      isObj(snap.map) &&
+      typeof snap.hp === 'number' && typeof snap.maxHp === 'number';
+  }
+
   var saveCodec = {
-    encode: function (obj) { return b64encode(JSON.stringify({ v: 1, data: obj })); },
-    // 非法码返回 null（不抛异常）
+    encode: function (obj) { return b64encode(JSON.stringify({ v: SAVE_VERSION, data: obj })); },
+    // 非法码返回 null（不抛异常）；版本协商兼容 v1 旧码，存档本体迁移交给 migrateSave
     decode: function (str) {
       try {
         var o = JSON.parse(b64decode(String(str).trim()));
-        if (!o || o.v !== 1 || typeof o.data !== 'object' || o.data === null) return null;
+        if (!o || typeof o.v !== 'number' || o.v < 1 || o.v > SAVE_VERSION) return null;
+        if (!isObj(o.data) || !isObj(o.data.save)) return null; // 载荷必须是含 save 的元存档包
         return o.data;
       } catch (e) { return null; }
     }
@@ -1569,6 +1672,12 @@
     makeRng: makeRng,
     saveCodec: saveCodec,
     pushHistory: pushHistory,
+    SAVE_VERSION: SAVE_VERSION,
+    defaultStats: defaultStats,
+    normalizeStats: normalizeStats,
+    migrateSave: migrateSave,
+    accumulateStats: accumulateStats,
+    validRunSnapshot: validRunSnapshot,
     MAX_EQUIPPED_RELICS: MAX_EQUIPPED_RELICS
   };
 })(typeof window !== 'undefined' ? window : globalThis);
