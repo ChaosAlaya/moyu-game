@@ -320,7 +320,8 @@
     // 终结重击（≥30）：不论 BOSS 小怪，直接打飞出屏幕（替代一切常规击败演出）
     if ((killDmg || 0) >= 30) {
       UI.appShake();
-      UI.playFxFrames(eImg(), 'knockaway', { size: 460, fps: 10, holdLast: 1300 });
+      // 用纯爆炸帧做发射（不用 knockaway——那组帧里烤了个蓝色胶囊人，会和当前敌人对不上）
+      UI.playFxFrames(eImg(), 'crit', { size: 460, fps: 11, holdLast: 1300 });
       UI.bigText((edef.boss || (S.run.combat && S.run.combat.rushBoss)) ? '击飞下班！' : '击飞！');
       var kf = document.getElementById(eImg());
       if (kf) kf.classList.add('knockfly-far');
@@ -354,8 +355,8 @@
     UI.shockRing(eImg());
     UI.hitFlash(eImg());
     if (!edef.elite && Math.random() < 0.12) {
-      // 击飞彩蛋：飞更高+旋转（中性速度线，保留）
-      UI.playFxFrames(eImg(), 'knockaway', { size: 420, fps: 10, holdLast: 1300 });
+      // 击飞彩蛋：飞更高+旋转（纯爆炸帧发射；不用 knockaway，避免蓝色胶囊人乱入）
+      UI.playFxFrames(eImg(), 'crit', { size: 420, fps: 11, holdLast: 1300 });
       var km = document.getElementById(eImg());
       if (km) km.classList.add('knockfly');
       return;
