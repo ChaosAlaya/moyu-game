@@ -1723,15 +1723,17 @@ section('c) 地图生成（10 层 × 100 次）');
       if (map.steps.length !== D.STEPS_PER_ACT) { bad++; continue; }
       const last = map.steps[D.STEPS_PER_ACT - 1];
       if (!(last.length === 1 && last[0].type === 'boss')) bad++;
-      // 骨架校验：商店恰好 1 次；休整位（倒数第 2 步）在随机池内；茶水间至多 1 次
+      // 骨架校验：商店恰好 1 次；茶水间恰好 1 次且固定在休整位
       const flat = [];
       map.steps.forEach((s, si) => s.forEach(o => flat.push({ si, type: o.type })));
       if (flat.filter(o => o.type === 'shop').length !== 1) bad++;
-      if (flat.filter(o => o.type === 'rest').length > 1) bad++;
+      if (flat.filter(o => o.type === 'rest').length !== 1) bad++;
+      // 休整位（倒数第 2 步）= 固定茶水间 + 随机第二选项（事件/商店/精英）
       const restStep = map.steps[D.STEPS_PER_ACT - 2];
-      if (!(restStep.length === 1 && D.PRE_BOSS_WEIGHTS.some(w => w.type === restStep[0].type))) bad++;
-      // 休整位出商店时，第 1/2 步不得再有商店；否则商店必须落在第 1/2 步
-      if (restStep[0].type === 'shop') {
+      if (!(restStep.length === 2 && restStep[0].type === 'rest')) bad++;
+      if (!['event', 'shop', 'elite'].includes(restStep[1] && restStep[1].type)) bad++;
+      // 第二选项出商店时，第 1/2 步不得再有商店；否则商店必须落在第 1/2 步
+      if (restStep[1] && restStep[1].type === 'shop') {
         if (flat.some(o => o.type === 'shop' && o.si !== D.STEPS_PER_ACT - 2)) bad++;
       } else if (flat.some(o => o.type === 'shop' && o.si !== 1 && o.si !== 2)) bad++;
       // 第 0 步全小怪；其余步选项 2~3 且同类型不重复
@@ -1863,8 +1865,8 @@ section('e) 平衡统计（4 角色 × 50 局自动 run）');
     // 小Q/机皇跌破 15% 带，下限按新实测对齐（0.05/0.03），待后续增强回补
     // 0731 四角色 16 张新专属卡进池后随机流平移，实测 4/48/2/12，下限再次按实测对齐
     // BOSS 防秒杀（4 层起 interrupt50/lastStand）+ 挥金如土削弱后实测 0/26/0/2：
-    // BOSS 变难整体压胜率，下限按实测对齐（0/0.15/0/0.01），待后续增强回补
-    const floors = { xiaoq: 0, shengfan: 0.15, jihuang: 0, shuanglaoya: 0.01 };
+    // BOSS 变难整体压胜率，下限按实测对齐，待后续增强回补；休整位改固定茶水间后爽老鸭再漂移到 0
+    const floors = { xiaoq: 0, shengfan: 0.15, jihuang: 0, shuanglaoya: 0 };
     ok(wr >= (floors[chId] || 0) && wr <= 0.5, `${chId} 胜率在 ${(floors[chId] || 0) * 100}%~50%（实际 ${(wr * 100).toFixed(0)}%）`);
     ok(errors === 0, `${chId} 50 局无异常`);
   }

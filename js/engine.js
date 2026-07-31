@@ -204,9 +204,10 @@
     var pool = D.acts[act - 1].pool;
     // 精英日（每日挑战）：第 1/2 步各保底 1 个精英选项
     var eliteDaily = !!(this.state && this.state.daily && this.state.daily.mod === 'elite');
-    // 休整位先摇号（茶水间/事件/商店/精英）；出商店则占用每层唯一商店名额
-    var preType = 'rest', preRoll = this.rng() * 100;
+    // 休整位第二个选项摇号（事件/商店/精英；茶水间为固定选项不参与摇号；出商店则占用每层唯一商店名额）
+    var preType = 'event', preRoll = this.rng() * 100;
     for (var pi = 0; pi < D.PRE_BOSS_WEIGHTS.length; pi++) {
+      if (D.PRE_BOSS_WEIGHTS[pi].type === 'rest') continue;
       preRoll -= D.PRE_BOSS_WEIGHTS[pi].w;
       if (preRoll < 0) { preType = D.PRE_BOSS_WEIGHTS[pi].type; break; }
     }
@@ -224,8 +225,8 @@
         continue;
       }
       if (i === D.STEPS_PER_ACT - 2) {
-        // BOSS 前休整位：茶水间/事件/商店/精英随机池
-        steps.push([this._makeNode(preType, pool)]);
+        // BOSS 前休整位：固定茶水间 + 随机第二选项（事件/商店/精英）
+        steps.push([{ type: 'rest' }, this._makeNode(preType, pool)]);
         continue;
       }
       var n = 2 + this.rng.int(2), opts = [];
