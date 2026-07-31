@@ -56,7 +56,7 @@
         effects: [{ op: 'damage', value: 3, times: 3 }] }
     },
     rua: {
-      name: 'RUA!', cost: 1, type: 'attack', rarity: 'uncommon',
+      name: 'RUA!', cost: 1, type: 'attack', rarity: 'uncommon', char: 'xiaoq',
       desc: '造成 5 点伤害，本场战斗每打出过 1 张攻击牌 +1。',
       tags: ["grow"],
       effects: [{ op: 'special', kind: 'rua', base: 5, per: 1 }],
@@ -64,7 +64,7 @@
         effects: [{ op: 'special', kind: 'rua', base: 7, per: 2 }] }
     },
     darksword: {
-      name: '黑暗之剑', cost: 2, type: 'attack', rarity: 'uncommon',
+      name: '黑暗之剑', cost: 2, type: 'attack', rarity: 'uncommon', char: 'xiaoq',
       desc: '造成 8 点伤害，本场战斗每打出过一次此牌 +2。',
       tags: ["grow"],
       effects: [{ op: 'special', kind: 'darksword', base: 8, per: 2 }],
@@ -72,7 +72,7 @@
         effects: [{ op: 'special', kind: 'darksword', base: 10, per: 2 }] }
     },
     sword22: {
-      name: '不存在的22剑', cost: 1, type: 'attack', rarity: 'rare',
+      name: '不存在的22剑', cost: 1, type: 'attack', rarity: 'rare', char: 'xiaoq',
       desc: '造成 2 点伤害 2 次。它真的存在了！',
       flavor: '它真的存在了！',
       effects: [{ op: 'damage', value: 2, times: 2 }],
@@ -325,7 +325,7 @@
           { op: 'power', id: 'scarf_power', value: 3 }] }
     },
     master: {
-      name: '摸鱼宗师', cost: 3, type: 'power', rarity: 'rare',
+      name: '摸鱼宗师', cost: 3, type: 'power', rarity: 'rare', char: 'xiaoq',
       desc: '力量 +1；每回合开始获得 4 点格挡',
       tags: ["grow"],
       effects: [{ op: 'strength', value: 1 },
@@ -1072,7 +1072,7 @@
       ]
     },
     boss_vp: {
-      name: '副总裁', hp: 180, act: 8, boss: true, img: 'kenni',
+      name: '设计主创', hp: 180, act: 8, boss: true, img: 'kenni',
       interrupt50: true, // 半血打断
       moves: [
         { name: '降维打击', type: 'attack', value: 15, w: 3 },
