@@ -1072,7 +1072,7 @@
       ]
     },
     boss_vp: {
-      name: '设计主创', hp: 180, act: 8, boss: true, img: 'kenni',
+      name: '摸鱼副总', hp: 180, act: 8, boss: true, img: 'kenni',
       interrupt50: true, // 半血打断
       moves: [
         { name: '降维打击', type: 'attack', value: 15, w: 3 },
