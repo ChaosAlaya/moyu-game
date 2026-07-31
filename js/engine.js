@@ -590,7 +590,10 @@
         case 'vulnerable': c.enemy.vulnerable += ef.value; break;
         case 'strength': c.playerStrength += ef.value; break;
         case 'selfDamage':
-          st.hp -= ef.value; result.dmgToPlayer += ef.value;
+          // 卖血流安全网：自伤最多扣到 1 点精力，不会致死（耳鸣星护符判定不受影响）
+          var hpBeforeSd = st.hp;
+          st.hp = Math.max(1, st.hp - ef.value);
+          result.dmgToPlayer += hpBeforeSd - st.hp;
           break;
         case 'skipEnemy': c.enemy.skipTurns += ef.value; break;
         case 'rerollIntent': {
@@ -635,6 +638,11 @@
         }
         case 'special': {
           if (ef.kind === 'rua') dealDamage(ef.base + ef.per * c.attacksPlayed);
+          else if (ef.kind === 'combo') {
+            // 连环RUA：本回合此前每打出过 1 张其他牌 +per
+            // （cardsThisTurn 在出牌结算之后才 +1，此处恰好不含本牌）
+            dealDamage(ef.base + ef.per * c.cardsThisTurn);
+          }
           else if (ef.kind === 'darksword') dealDamage(ef.base + ef.per * c.darkswordPlays);
           else if (ef.kind === 'spendall') {
             // 挥金如土：失去当前 pct 金币，造成失去金币 × per 的伤害（先扣金币再结算，钞能按剩余金币算）
@@ -664,8 +672,13 @@
             // 饥饿咆哮：造成已损失精力 pct 的伤害（最低 min）
             dealDamage(Math.max(ef.min, Math.floor((st.maxHp - st.hp) * ef.pct)));
           } else if (ef.kind === 'allout') {
-            // 全力以赴：当前手牌数（不含本牌）× per
-            dealDamage(c.hand.length * ef.per);
+            // 全力以赴/弹药倾泻：当前手牌数（不含本牌）× per，可附加固定 base
+            dealDamage((ef.base || 0) + c.hand.length * ef.per);
+          } else if (ef.kind === 'discard') {
+            // 清空回收站：弃掉全部手牌（打出后本牌已离手），抽回相同数量 +bonus
+            var dn = c.hand.length;
+            while (c.hand.length) c.discard.push(c.hand.pop());
+            self._draw(dn + (ef.bonus || 0));
           } else if (ef.kind === 'prepare') {
             // 备战：抽 draw 张；若本回合只打出过这一张牌，再抽 bonus 张
             self._draw(ef.draw);
@@ -736,7 +749,7 @@
   // 每次伤害后检查生死
   Engine.prototype._afterDamageChecks = function (result) {
     var st = this.state, c = st.combat;
-    // 自伤也触发护符
+    // 敌方伤害归零时护符救一次（自伤已有 1 血下限保护，不会触发判负）
     if (st.hp <= 0 && this.hasRelic('ear_charm') && !c.flags.talismanUsed) {
       st.hp = 1; c.flags.talismanUsed = true;
       c.log.push({ t: 'relic', text: '耳鸣星护符发动！' });
@@ -1644,7 +1657,8 @@
           base = pvSpent * ef.per;
           goldAvail = st.gold - pvSpent;
         }
-        else if (ef.kind === 'allout') base = Math.max(0, c.hand.length - 1) * ef.per; // 打出时本牌已离手
+        else if (ef.kind === 'allout') base = (ef.base || 0) + Math.max(0, c.hand.length - 1) * ef.per; // 打出时本牌已离手
+        else if (ef.kind === 'combo') base = ef.base + ef.per * c.cardsThisTurn; // 本回合已打出的其他牌数（不含本牌）
         else if (ef.kind === 'hunger') base = Math.max(ef.min, Math.floor((st.maxHp - st.hp) * ef.pct));
       } else if (ef.op === 'goldDamage') {
         base = ef.value + (ef.per

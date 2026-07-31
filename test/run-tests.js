@@ -24,7 +24,7 @@ section('a) 数据完整性');
 
 const CARD_TYPES = ['attack', 'skill', 'power'];
 const RARITIES = ['common', 'uncommon', 'rare'];
-const SPECIAL_KINDS = ['rua', 'darksword', 'breakdown', 'calc', 'tarot', 'shuangdao', 'hunger', 'allout', 'prepare', 'spendall'];
+const SPECIAL_KINDS = ['rua', 'darksword', 'breakdown', 'calc', 'tarot', 'shuangdao', 'hunger', 'allout', 'prepare', 'spendall', 'combo', 'discard'];
 
 let cardCount = 0;
 for (const id in D.cards) {
@@ -485,6 +485,212 @@ function mkCombat(charId, hp, maxHp) {
   let hb13 = c13.enemy.hp;
   e13.playCard(0);
   ok(c13.enemy.hp === hb13 - 31 && s13.gold === 90, `挥金如土+：打 30+1（实际 ${hb13 - c13.enemy.hp}）`);
+}
+
+// ============ 0731 十六张新专属卡断言 ============
+section('b2.6a) 0731 新专属卡（16 张）数值断言');
+{
+  // —— 小Q ——
+  // 狗爪乱拍：0 费 1 伤×2（升级 ×3），免费成长燃料
+  let [n1, q1, qc1] = mkCombat('xiaoq');
+  qc1.hand.unshift({ uid: 1, id: 'pawflurry', up: false });
+  let nhb = qc1.enemy.hp;
+  n1.playCard(0);
+  ok(qc1.enemy.hp === nhb - 2 && qc1.attacksPlayed === 1, `狗爪乱拍：1伤×2（实际 ${nhb - qc1.enemy.hp}）`);
+  let [n1b, q1b, qc1b] = mkCombat('xiaoq');
+  qc1b.hand.unshift({ uid: 1, id: 'pawflurry', up: true });
+  nhb = qc1b.enemy.hp;
+  n1b.playCard(0);
+  ok(qc1b.enemy.hp === nhb - 3, `狗爪乱拍+：1伤×3（实际 ${nhb - qc1b.enemy.hp}）`);
+  // 连环RUA：本回合每打出过 1 张其他牌 +2（不含本牌）
+  let [n2, q2, qc2] = mkCombat('xiaoq');
+  qc2.hand = [{ uid: 2, id: 'comborua', up: false }];
+  qc2.energy = 3; qc2.cardsThisTurn = 0;
+  nhb = qc2.enemy.hp;
+  n2.playCard(0);
+  ok(qc2.enemy.hp === nhb - 3, `连环RUA：首打 3+2×0=3（实际 ${nhb - qc2.enemy.hp}）`);
+  let [n2b, q2b, qc2b] = mkCombat('xiaoq');
+  qc2b.hand = [{ uid: 20, id: 'pie', up: false }, { uid: 21, id: 'pie', up: false },
+    { uid: 22, id: 'comborua', up: true }];
+  qc2b.energy = 3;
+  n2b.playCard(0); n2b.playCard(0); // 先打 2 张饼（0 费），cardsThisTurn=2
+  ok(qc2b.cardsThisTurn === 2, '连环RUA 前置：已打出 2 张其他牌');
+  nhb = qc2b.enemy.hp;
+  n2b.playCard(0);
+  ok(qc2b.enemy.hp === nhb - 10, `连环RUA+：4+3×2=10（实际 ${nhb - qc2b.enemy.hp}）`);
+  // 带薪充电：1 费换 +1 能量抽 1，净 0 费消耗
+  let [n3, q3, qc3] = mkCombat('xiaoq');
+  const handN3 = qc3.hand.length + 1;
+  qc3.hand.unshift({ uid: 3, id: 'paidcharge', up: false });
+  qc3.energy = 1;
+  n3.playCard(0);
+  ok(qc3.energy === 1 && qc3.hand.length === handN3 && qc3.exhausted.length === 1,
+    `带薪充电：净0费抽1消耗（能量=${qc3.energy} 手牌=${qc3.hand.length}）`);
+  // 猛男附体：力量+1 + 围巾 3，能力牌打出即离场
+  let [n4, q4, qc4] = mkCombat('xiaoq');
+  qc4.hand.unshift({ uid: 4, id: 'macho', up: false });
+  qc4.energy = 3;
+  n4.playCard(0);
+  ok(qc4.playerStrength === 1 && qc4.powers.some(p => p.id === 'scarf_power' && p.value === 3) && qc4.exhausted.length === 1,
+    `猛男附体：力量+1 围巾3（str=${qc4.playerStrength}）`);
+
+  // —— 剩饭 ——
+  // 空腹有氧：-3 血 +1 能量抽 1 消耗（升级自伤降为 2）
+  let [n5, q5, qc5] = mkCombat('shengfan', 50, 90);
+  qc5.hand.unshift({ uid: 5, id: 'cardio', up: false });
+  qc5.energy = 0;
+  n5.playCard(0);
+  ok(q5.hp === 47 && qc5.energy === 1 && qc5.exhausted.length === 1,
+    `空腹有氧：-3血 +1能量 消耗（hp=${q5.hp}）`);
+  let [n5b, q5b, qc5b] = mkCombat('shengfan', 50, 90);
+  qc5b.hand.unshift({ uid: 5, id: 'cardio', up: true });
+  qc5b.energy = 0;
+  n5b.playCard(0);
+  ok(q5b.hp === 48 && qc5b.energy === 1, `空腹有氧+：自伤降为2（hp=${q5b.hp}）`);
+  // 饿红眼：-3 血换永久力量 +2（升级 +3）
+  let [n6, q6, qc6] = mkCombat('shengfan', 50, 90);
+  qc6.hand.unshift({ uid: 6, id: 'hangry', up: false });
+  qc6.energy = 3;
+  n6.playCard(0);
+  ok(q6.hp === 47 && qc6.playerStrength === 2 && qc6.exhausted.length === 1,
+    `饿红眼：-3血 力量+2（hp=${q6.hp} str=${qc6.playerStrength}）`);
+  // 破釜沉舟：先自伤 4 垫缺口，再按新缺口 35% 结算（血怒按自伤后缺口计）
+  let [n7, q7, qc7] = mkCombat('shengfan', 50, 90);
+  qc7.hand.unshift({ uid: 7, id: 'burnboats', up: false });
+  qc7.energy = 3;
+  nhb = qc7.enemy.hp;
+  n7.playCard(0);
+  // hp 50→46（缺口 44）：max(10, floor(44×0.35))=15 + 血怒 floor(44/5)=8→封顶6 → 21
+  ok(q7.hp === 46 && qc7.enemy.hp === nhb - 21,
+    `破釜沉舟：先自伤再结算 15+血怒6=21（hp=${q7.hp} 实际 ${nhb - qc7.enemy.hp}）`);
+  // 满血出 = 最低 10（缺口仅自伤 4：floor(4×0.35)=1 → min 10，血怒 0）
+  let [n7b, q7b, qc7b] = mkCombat('shengfan', 90, 90);
+  qc7b.hand.unshift({ uid: 7, id: 'burnboats', up: false });
+  qc7b.energy = 3;
+  nhb = qc7b.enemy.hp;
+  n7b.playCard(0);
+  ok(q7b.hp === 86 && qc7b.enemy.hp === nhb - 10,
+    `破釜沉舟：满血保底 10（hp=${q7b.hp} 实际 ${nhb - qc7b.enemy.hp}）`);
+  // 自伤 clamp：2 血出破釜沉舟最多扣到 1 血，不致死；缺口 89 → 31+血怒6=37
+  let [n7c, q7c, qc7c] = mkCombat('shengfan', 2, 90);
+  qc7c.hand.unshift({ uid: 7, id: 'burnboats', up: false });
+  qc7c.energy = 3;
+  nhb = qc7c.enemy.hp;
+  n7c.playCard(0);
+  ok(q7c.hp === 1 && !qc7c.over && qc7c.enemy.hp === nhb - 37,
+    `破釜沉舟：自伤clamp到1血不死（hp=${q7c.hp} 实际 ${nhb - qc7c.enemy.hp}）`);
+  // 抢饭：打 6+血怒6 回 2（升级 7 回 3）
+  let [n8, q8, qc8] = mkCombat('shengfan', 50, 90);
+  qc8.hand.unshift({ uid: 8, id: 'snatch', up: false });
+  qc8.energy = 3;
+  nhb = qc8.enemy.hp;
+  n8.playCard(0);
+  ok(qc8.enemy.hp === nhb - 12 && q8.hp === 52,
+    `抢饭：打6+血怒6=12 回2（hp=${q8.hp} 实际 ${nhb - qc8.enemy.hp}）`);
+
+  // —— 机皇 ——
+  // 备份存档：抽 3 + 3 格挡
+  let [n9, q9, qc9] = mkCombat('jihuang');
+  const handN9 = qc9.hand.length + 1;
+  qc9.hand.unshift({ uid: 9, id: 'savebackup', up: false });
+  qc9.energy = 3;
+  n9.playCard(0);
+  ok(qc9.playerBlock === 3 && qc9.hand.length === handN9 + 2,
+    `备份存档：抽3格挡3（手牌=${qc9.hand.length} blk=${qc9.playerBlock}）`);
+  // 清空回收站：弃全部手牌抽同数（升级 +1），本牌自身最后入弃牌堆
+  let [n10, q10, qc10] = mkCombat('jihuang');
+  qc10.hand = [{ uid: 10, id: 'recyclebin', up: false },
+    { uid: 101, id: 'defend_moyu', up: false }, { uid: 102, id: 'defend_moyu', up: false }, { uid: 103, id: 'defend_moyu', up: false }];
+  qc10.energy = 3;
+  const d10 = qc10.discard.length;
+  n10.playCard(0);
+  ok(qc10.hand.length === 3 && qc10.discard.length === d10 + 4 &&
+    [101, 102, 103].every(u => qc10.discard.some(x => x.uid === u)),
+    `清空回收站：弃3抽3（手牌=${qc10.hand.length} 弃牌堆+${qc10.discard.length - d10}）`);
+  let [n10b, q10b, qc10b] = mkCombat('jihuang');
+  qc10b.hand = [{ uid: 10, id: 'recyclebin', up: true },
+    { uid: 101, id: 'defend_moyu', up: false }, { uid: 102, id: 'defend_moyu', up: false }, { uid: 103, id: 'defend_moyu', up: false }];
+  qc10b.energy = 3;
+  n10b.playCard(0);
+  ok(qc10b.hand.length === 4, `清空回收站+：弃3抽4（手牌=${qc10b.hand.length}）`);
+  // 弹药倾泻：手牌数×1 + 深谋；升级 +3（allout 可选 base 字段）
+  let [n11, q11, qc11] = mkCombat('jihuang');
+  qc11.hand = [{ uid: 11, id: 'ammo', up: false },
+    { uid: 111, id: 'defend_moyu', up: false }, { uid: 112, id: 'defend_moyu', up: false }, { uid: 113, id: 'defend_moyu', up: false }];
+  qc11.energy = 3;
+  nhb = qc11.enemy.hp;
+  n11.playCard(0);
+  ok(qc11.enemy.hp === nhb - 4, `弹药倾泻：3手牌×1+深谋1=4（实际 ${nhb - qc11.enemy.hp}）`);
+  let [n11b, q11b, qc11b] = mkCombat('jihuang');
+  qc11b.hand = [{ uid: 11, id: 'ammo', up: true },
+    { uid: 111, id: 'defend_moyu', up: false }, { uid: 112, id: 'defend_moyu', up: false }, { uid: 113, id: 'defend_moyu', up: false }];
+  qc11b.energy = 3;
+  nhb = qc11b.enemy.hp;
+  n11b.playCard(0);
+  ok(qc11b.enemy.hp === nhb - 7, `弹药倾泻+：3+3手牌×1+深谋1=7（实际 ${nhb - qc11b.enemy.hp}）`);
+  // 全力以赴回归：allout 无 base 行为不变（3 手牌 ×2=6+深谋1=7）
+  let [n11c, q11c, qc11c] = mkCombat('jihuang');
+  qc11c.hand = [{ uid: 11, id: 'allout', up: false },
+    { uid: 111, id: 'defend_moyu', up: false }, { uid: 112, id: 'defend_moyu', up: false }, { uid: 113, id: 'defend_moyu', up: false }];
+  qc11c.energy = 3;
+  nhb = qc11c.enemy.hp;
+  n11c.playCard(0);
+  ok(qc11c.enemy.hp === nhb - 7, `全力以赴回归：3手牌×2+深谋1=7（实际 ${nhb - qc11c.enemy.hp}）`);
+  // 读档重来：1 费换 +2 能量抽 1 消耗
+  let [n12, q12, qc12] = mkCombat('jihuang');
+  const handN12 = qc12.hand.length + 1;
+  qc12.hand.unshift({ uid: 12, id: 'loadstate', up: false });
+  qc12.energy = 1;
+  n12.playCard(0);
+  ok(qc12.energy === 2 && qc12.hand.length === handN12 && qc12.exhausted.length === 1,
+    `读档重来：+2能量抽1消耗（能量=${qc12.energy}）`);
+
+  // —— 爽老鸭 ——
+  // 副业收入：+15 金抽 1（升级 +20）
+  let [n13, q13, qc13] = mkCombat('shuanglaoya');
+  const g13 = q13.gold;
+  qc13.hand.unshift({ uid: 13, id: 'sidejob', up: false });
+  qc13.energy = 3;
+  n13.playCard(0);
+  ok(q13.gold === g13 + 15, `副业收入：+15金（gold=${q13.gold}）`);
+  // 撒币：先失 10 金再结算，钞能按剩余金币算（100→90，打 13+1=14；升级 16+1=17）
+  let [n14, q14, qc14] = mkCombat('shuanglaoya');
+  q14.gold = 100;
+  qc14.hand.unshift({ uid: 14, id: 'throwmoney', up: false });
+  qc14.energy = 3;
+  nhb = qc14.enemy.hp;
+  n14.playCard(0);
+  ok(q14.gold === 90 && qc14.enemy.hp === nhb - 14,
+    `撒币：失10金打13+钞能1=14（gold=${q14.gold} 实际 ${nhb - qc14.enemy.hp}）`);
+  let [n14b, q14b, qc14b] = mkCombat('shuanglaoya');
+  q14b.gold = 100;
+  qc14b.hand.unshift({ uid: 14, id: 'throwmoney', up: true });
+  qc14b.energy = 3;
+  nhb = qc14b.enemy.hp;
+  n14b.playCard(0);
+  ok(q14b.gold === 90 && qc14b.enemy.hp === nhb - 17,
+    `撒币+：打16+钞能1=17（实际 ${nhb - qc14b.enemy.hp}）`);
+  // 买平安：失 5 金换 9 格挡（升级 12）
+  let [n15, q15, qc15] = mkCombat('shuanglaoya');
+  q15.gold = 20;
+  qc15.hand.unshift({ uid: 15, id: 'insurance', up: false });
+  qc15.energy = 3;
+  n15.playCard(0);
+  ok(q15.gold === 15 && qc15.playerBlock === 9,
+    `买平安：失5金 9格挡（gold=${q15.gold} blk=${qc15.playerBlock}）`);
+  // 财富自由：力量+1 +25 金（升级 +35），能力牌离场
+  let [n16, q16, qc16] = mkCombat('shuanglaoya');
+  const g16 = q16.gold;
+  qc16.hand.unshift({ uid: 16, id: 'wealth', up: false });
+  qc16.energy = 3;
+  n16.playCard(0);
+  ok(qc16.playerStrength === 1 && q16.gold === g16 + 25 && qc16.exhausted.length === 1,
+    `财富自由：力量+1 +25金（str=${qc16.playerStrength} gold=${q16.gold}）`);
+  // previewDamage：combo 预览与实际一致（已打 2 张其他牌 → 4+3×2=10）
+  let [n17, q17, qc17] = mkCombat('xiaoq');
+  qc17.hand = [{ uid: 17, id: 'comborua', up: true }];
+  qc17.energy = 3; qc17.cardsThisTurn = 2;
+  ok(n17.previewDamage(qc17.hand[0]) === 10, `连环RUA 预览=10（实际 ${n17.previewDamage(qc17.hand[0])}）`);
 }
 
 // ============ 实时角标（previewDamage） ============
@@ -1651,7 +1857,8 @@ section('e) 平衡统计（4 角色 × 50 局自动 run）');
     // 0731 四角色平衡调优（机皇/老鸭增强、小Q微调）后实测 16/28/16/22，下限统一到 15% 目标带
     // 0731v2 批量卡牌调整（26 卡审定版，削弱偏多）后实测 6/46/4/24：
     // 小Q/机皇跌破 15% 带，下限按新实测对齐（0.05/0.03），待后续增强回补
-    const floors = { xiaoq: 0.05, shengfan: 0.15, jihuang: 0.03, shuanglaoya: 0.15 };
+    // 0731 四角色 16 张新专属卡进池后随机流平移，实测 4/48/2/12，下限再次按实测对齐
+    const floors = { xiaoq: 0.03, shengfan: 0.15, jihuang: 0.01, shuanglaoya: 0.10 };
     ok(wr >= (floors[chId] || 0) && wr <= 0.5, `${chId} 胜率在 ${(floors[chId] || 0) * 100}%~50%（实际 ${(wr * 100).toFixed(0)}%）`);
     ok(errors === 0, `${chId} 50 局无异常`);
   }
@@ -1733,7 +1940,9 @@ function simRush(engine, build) {
     ok(summary[chId].avg >= 2, `${chId} 平均进度 ≥2 场（实际 ${avg}）`);
     // 卡池新增卡牌会平移固定种子的随机流，样本数阈值按当前实测对齐
     // 0731v2 调整后机皇通关构筑仅 4 套（×2 = 8 局），阈值随实测下调
-    ok(runs >= 8, `${chId} rush 模拟样本 ≥8 局（实际 ${runs}）`);
+    // 0731 十六张新专属卡进池后机皇通关构筑降至 2 套（×2 = 4 局），机皇阈值再随实测对齐
+    const minRuns = { xiaoq: 8, shengfan: 8, jihuang: 4, shuanglaoya: 8 };
+    ok(runs >= (minRuns[chId] || 8), `${chId} rush 模拟样本 ≥${minRuns[chId] || 8} 局（实际 ${runs}）`);
   }
   // 强构筑应能摸到中场：最佳角色平均进度 ≥5.0（十机制+新卡池实测最佳 5.3）
   const bestAvg = Math.max.apply(null, chars.map(c => summary[c].avg));

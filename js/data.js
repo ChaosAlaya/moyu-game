@@ -463,6 +463,147 @@
       effects: [{ op: 'weak', value: 1 }, { op: 'vulnerable', value: 1 }],
       up: { desc: '给予敌人 2 回合虚弱和 2 回合易伤。',
         effects: [{ op: 'weak', value: 2 }, { op: 'vulnerable', value: 2 }] }
+    },
+
+    /* ---- 四角色新专属（0731 新卡设计 16 张） ---- */
+    // 小Q：成长加速 / 连击收益
+    pawflurry: {
+      name: '狗爪乱拍', cost: 0, type: 'attack', rarity: 'common', char: 'xiaoq',
+      desc: '造成 1 点伤害 2 次。',
+      tags: ["grow"],
+      effects: [{ op: 'damage', value: 1, times: 2 }],
+      up: { desc: '造成 1 点伤害 3 次。',
+        effects: [{ op: 'damage', value: 1, times: 3 }] }
+    },
+    comborua: {
+      name: '连环RUA', cost: 1, type: 'attack', rarity: 'uncommon', char: 'xiaoq',
+      desc: '造成 3 点伤害，本回合每打出过 1 张其他牌 +2。',
+      tags: ["grow"],
+      effects: [{ op: 'special', kind: 'combo', base: 3, per: 2 }],
+      up: { desc: '造成 4 点伤害，本回合每打出过 1 张其他牌 +3。',
+        effects: [{ op: 'special', kind: 'combo', base: 4, per: 3 }] }
+    },
+    paidcharge: {
+      name: '带薪充电', cost: 1, type: 'skill', rarity: 'uncommon', char: 'xiaoq',
+      exhaust: true,
+      desc: '获得 1 点能量，抽 1 张牌。消耗。',
+      tags: ["draw"],
+      effects: [{ op: 'energy', value: 1 }, { op: 'draw', value: 1 }],
+      up: { desc: '获得 1 点能量，抽 2 张牌。消耗。',
+        effects: [{ op: 'energy', value: 1 }, { op: 'draw', value: 2 }] }
+    },
+    macho: {
+      name: '猛男附体', cost: 2, type: 'power', rarity: 'uncommon', char: 'xiaoq',
+      desc: '力量 +1；每回合开始获得 3 点格挡。',
+      tags: ["grow", "block"],
+      effects: [{ op: 'strength', value: 1 },
+        { op: 'power', id: 'scarf_power', value: 3 }],
+      up: { desc: '力量 +1；每回合开始获得 5 点格挡。',
+        effects: [{ op: 'strength', value: 1 },
+          { op: 'power', id: 'scarf_power', value: 5 }] }
+    },
+    // 剩饭：卖血流（启动/增伤/终结/润滑）
+    cardio: {
+      name: '空腹有氧', cost: 0, type: 'skill', rarity: 'uncommon', char: 'shengfan',
+      exhaust: true,
+      desc: '失去 3 点精力，获得 1 点能量，抽 1 张牌。消耗。',
+      tags: ["selfhp", "draw"],
+      effects: [{ op: 'selfDamage', value: 3 }, { op: 'energy', value: 1 }, { op: 'draw', value: 1 }],
+      up: { desc: '失去 2 点精力，获得 1 点能量，抽 1 张牌。消耗。',
+        effects: [{ op: 'selfDamage', value: 2 }, { op: 'energy', value: 1 }, { op: 'draw', value: 1 }] }
+    },
+    hangry: {
+      name: '饿红眼', cost: 1, type: 'power', rarity: 'uncommon', char: 'shengfan',
+      desc: '失去 3 点精力，力量 +2。',
+      tags: ["selfhp", "grow"],
+      effects: [{ op: 'selfDamage', value: 3 }, { op: 'strength', value: 2 }],
+      up: { desc: '失去 3 点精力，力量 +3。',
+        effects: [{ op: 'selfDamage', value: 3 }, { op: 'strength', value: 3 }] }
+    },
+    burnboats: {
+      name: '破釜沉舟', cost: 2, type: 'attack', rarity: 'rare', char: 'shengfan',
+      desc: '失去 4 点精力，造成已损失精力 35% 的伤害（最低 10）。',
+      tags: ["selfhp"],
+      effects: [{ op: 'selfDamage', value: 4 },
+        { op: 'special', kind: 'hunger', pct: 0.35, min: 10 }],
+      up: { desc: '失去 4 点精力，造成已损失精力 45% 的伤害（最低 13）。',
+        effects: [{ op: 'selfDamage', value: 4 },
+          { op: 'special', kind: 'hunger', pct: 0.45, min: 13 }] }
+    },
+    snatch: {
+      name: '抢饭', cost: 1, type: 'attack', rarity: 'common', char: 'shengfan',
+      desc: '造成 6 点伤害，回复 2 点精力。',
+      tags: ["heal"],
+      effects: [{ op: 'damage', value: 6 }, { op: 'heal', value: 2 }],
+      up: { desc: '造成 7 点伤害，回复 3 点精力。',
+        effects: [{ op: 'damage', value: 7 }, { op: 'heal', value: 3 }] }
+    },
+    // 机皇：手牌数收益 / 弃牌策略互动
+    savebackup: {
+      name: '备份存档', cost: 2, type: 'skill', rarity: 'uncommon', char: 'jihuang',
+      desc: '抽 3 张牌，获得 3 点格挡。',
+      tags: ["draw", "block"],
+      effects: [{ op: 'draw', value: 3 }, { op: 'block', value: 3 }],
+      up: { desc: '抽 4 张牌，获得 4 点格挡。',
+        effects: [{ op: 'draw', value: 4 }, { op: 'block', value: 4 }] }
+    },
+    recyclebin: {
+      name: '清空回收站', cost: 1, type: 'skill', rarity: 'uncommon', char: 'jihuang',
+      desc: '弃掉所有手牌，抽回相同数量的牌。',
+      tags: ["draw"],
+      effects: [{ op: 'special', kind: 'discard', bonus: 0 }],
+      up: { desc: '弃掉所有手牌，抽回相同数量 +1 的牌。',
+        effects: [{ op: 'special', kind: 'discard', bonus: 1 }] }
+    },
+    ammo: {
+      name: '弹药倾泻', cost: 1, type: 'attack', rarity: 'common', char: 'jihuang',
+      desc: '造成当前手牌数 ×1 的伤害。',
+      tags: ["grow"],
+      effects: [{ op: 'special', kind: 'allout', per: 1 }],
+      up: { desc: '造成当前手牌数 ×1 +3 的伤害。',
+        effects: [{ op: 'special', kind: 'allout', base: 3, per: 1 }] }
+    },
+    loadstate: {
+      name: '读档重来', cost: 1, type: 'skill', rarity: 'rare', char: 'jihuang',
+      exhaust: true,
+      desc: '获得 2 点能量，抽 1 张牌。消耗。',
+      tags: ["draw"],
+      effects: [{ op: 'energy', value: 2 }, { op: 'draw', value: 1 }],
+      up: { desc: '获得 2 点能量，抽 2 张牌。消耗。',
+        effects: [{ op: 'energy', value: 2 }, { op: 'draw', value: 2 }] }
+    },
+    // 爽老鸭：金币获取 × 消费新组合
+    sidejob: {
+      name: '副业收入', cost: 1, type: 'skill', rarity: 'common', char: 'shuanglaoya',
+      desc: '获得 15 金币，抽 1 张牌。',
+      tags: ["gold", "draw"],
+      effects: [{ op: 'gainGold', value: 15 }, { op: 'draw', value: 1 }],
+      up: { desc: '获得 20 金币，抽 1 张牌。',
+        effects: [{ op: 'gainGold', value: 20 }, { op: 'draw', value: 1 }] }
+    },
+    throwmoney: {
+      name: '撒币', cost: 1, type: 'attack', rarity: 'uncommon', char: 'shuanglaoya',
+      desc: '失去 10 金币，造成 13 点伤害。',
+      tags: ["gold"],
+      effects: [{ op: 'loseGold', value: 10 }, { op: 'damage', value: 13 }],
+      up: { desc: '失去 10 金币，造成 16 点伤害。',
+        effects: [{ op: 'loseGold', value: 10 }, { op: 'damage', value: 16 }] }
+    },
+    insurance: {
+      name: '买平安', cost: 1, type: 'skill', rarity: 'common', char: 'shuanglaoya',
+      desc: '失去 5 金币，获得 9 点格挡。',
+      tags: ["gold", "block"],
+      effects: [{ op: 'loseGold', value: 5 }, { op: 'block', value: 9 }],
+      up: { desc: '失去 5 金币，获得 12 点格挡。',
+        effects: [{ op: 'loseGold', value: 5 }, { op: 'block', value: 12 }] }
+    },
+    wealth: {
+      name: '财富自由', cost: 2, type: 'power', rarity: 'rare', char: 'shuanglaoya',
+      desc: '力量 +1，获得 25 金币。',
+      tags: ["gold", "grow"],
+      effects: [{ op: 'strength', value: 1 }, { op: 'gainGold', value: 25 }],
+      up: { desc: '力量 +1，获得 35 金币。',
+        effects: [{ op: 'strength', value: 1 }, { op: 'gainGold', value: 35 }] }
     }
   };
 
