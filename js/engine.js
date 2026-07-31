@@ -519,6 +519,17 @@
   Engine.prototype._startPlayerTurn = function () {
     var st = this.state, c = st.combat;
     c.turn++;
+    // 小怪 20 回合逃跑：第 21 个玩家回合开始，非精英非 BOSS 的小怪直接逃跑
+    // （战斗判胜，只给金币不给三选一卡牌——打断无限刷金；精英/BOSS 不逃跑）
+    if (c.turn > 20 && !c.multi && !c.rushBoss) {
+      var ed0 = c.enemy._def;
+      if (!ed0.elite && !ed0.boss) {
+        c.fled = true;
+        c.log.push({ t: 'sys', text: '敌人逃跑了！' });
+        this._winCombat();
+        return;
+      }
+    }
     c.playerBlock = 0;
     c.energy = c.maxEnergy;
     c.flags.gamepadUsed = false;
@@ -924,6 +935,15 @@
     var edef = e._def;
     e.block = 0; // 敌人格挡在其回合开始清零
     e.turnCount++;
+    // 狂暴：BOSS 超过 12 回合 / 精英超过 15 回合（edef.enrageTurn 可覆盖）后，每回合力量 +3 滚雪球
+    var enrT = edef.enrageTurn || ((edef.boss || c.rushBoss) ? 12 : edef.elite ? 15 : 0);
+    if (enrT && e.turnCount > enrT) {
+      if (!e.enraged) {
+        e.enraged = true;
+        c.log.push({ t: 'phase', text: '狂暴！' });
+      }
+      e.strength += 3;
+    }
     // rush BOSS 被动：每回合自动加力量/格挡
     if (edef.passiveStrength) e.strength += edef.passiveStrength;
     if (edef.passiveBlock) { e.block += edef.passiveBlock; result.enemyBlock = (result.enemyBlock || 0) + edef.passiveBlock; }

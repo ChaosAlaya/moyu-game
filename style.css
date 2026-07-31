@@ -1408,3 +1408,12 @@ img.fx-pow { animation: powpop .5s cubic-bezier(.2,1.4,.4,1) forwards; }
 .foresight .fs-item { display: inline-flex; align-items: center; gap: 3px; white-space: nowrap; }
 .foresight .fs-item .ico { height: 13px; }
 .foresight .fs-arrow { color: var(--red); }
+
+/* ---------- 狂暴徽章 ---------- */
+.status.enrage { background: #b3100f; color: #fff; animation: dringpulse 1s ease-in-out infinite; }
+.enrage-badge { display: inline-block; margin-left: 6px; padding: 0 7px; border-radius: 8px;
+  background: #b3100f; color: #fff; font-size: 12px; font-weight: 900; vertical-align: middle;
+  animation: dringpulse 1s ease-in-out infinite; }
+/* ---------- 图鉴升级对比 ---------- */
+.codex-card { display: inline-block; }
+.up-preview.codex-up { right: 3vw; }

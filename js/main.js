@@ -266,6 +266,15 @@
         // 玩家可能已在延迟期间回了标题，避免突然弹出奖励屏
         if (S.screen !== 'combat') return;
         if (isRush) { Game.rushAfterWin(); return; }
+        // 小怪逃跑：只给金币，不给三选一卡牌（打断无限刷金）
+        if (S.run.combat.fled) {
+          var fledGold = S.engine.genReward().gold;
+          S.run.gold += fledGold;
+          UI.toast('敌人逃跑了！拾取 ' + fledGold + ' 金币（无卡牌奖励）');
+          syncSave();
+          finishNode();
+          return;
+        }
         S.reward = S.engine.genReward();
         S.engine.takeReward(S.reward);
         syncSave();
@@ -1074,6 +1083,23 @@
     render();
   };
   Game.codexTab = function (t) { S.codexTab = t; render(); };
+
+  /* ---------- 图鉴「升级后」对比浮层（悬停/移动端长按） ---------- */
+  var codexTouchTimer = null;
+  Game.showCodexUp = function (cid) {
+    S.codexUpId = cid;
+    render();
+  };
+  Game.hideCodexUp = function () {
+    if (codexTouchTimer) { clearTimeout(codexTouchTimer); codexTouchTimer = null; }
+    if (S.codexUpId == null) return;
+    S.codexUpId = null;
+    render();
+  };
+  Game.codexUpTouch = function (cid) {
+    if (codexTouchTimer) clearTimeout(codexTouchTimer);
+    codexTouchTimer = setTimeout(function () { Game.showCodexUp(cid); }, 450); // 长按 450ms
+  };
 
   /* ---------- 音效开关 ---------- */
   Game.toggleSfx = function () {

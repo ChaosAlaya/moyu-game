@@ -575,10 +575,11 @@
     // 爽老鸭：金币获取 × 消费新组合
     sidejob: {
       name: '副业收入', cost: 1, type: 'skill', rarity: 'common', char: 'shuanglaoya',
-      desc: '获得 15 金币，抽 1 张牌。',
+      exhaust: true, // 可重复产金卡一律消耗（防无限刷金）
+      desc: '获得 15 金币，抽 1 张牌。消耗。',
       tags: ["gold", "draw"],
       effects: [{ op: 'gainGold', value: 15 }, { op: 'draw', value: 1 }],
-      up: { desc: '获得 20 金币，抽 1 张牌。',
+      up: { desc: '获得 20 金币，抽 1 张牌。消耗。',
         effects: [{ op: 'gainGold', value: 20 }, { op: 'draw', value: 1 }] }
     },
     throwmoney: {

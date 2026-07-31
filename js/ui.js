@@ -348,6 +348,11 @@
       text += '　<span class="budget-left">预算剩 ' + Math.max(0, 4 - c.spentThisTurn) + '/4</span>';
       tip += '（预算剩 ' + Math.max(0, 4 - c.spentThisTurn) + '/4）';
     }
+    // 狂暴标记
+    if (e.enraged) {
+      text += '　<span class="enrage-badge">狂暴</span>';
+      tip += '（狂暴：每回合力量+3）';
+    }
     var html = '<div class="intent ' + mv.type + '" title="' + tip + '">' + ico(ic) + ' ' + text + fakeBadge + '</div>';
     // 肯尼的镜片：预见未来 3 回合意图条
     if (hasGlasses && e.foresight && e.foresight.length) {
@@ -407,6 +412,7 @@
           '<div class="hpbar mini"><div class="fill" style="width:' + hpPct + '%"></div>' +
             '<div class="txt">' + me.hp + '/' + me.maxHp + '</div></div>' +
           (me.block > 0 ? '<div class="block-badge">' + ico('block') + ' ' + me.block + '</div>' : '') +
+          (me.enraged ? '<div class="status-row"><span class="status enrage">狂暴</span></div>' : '') +
           (me.strength ? '<div class="status-row"><span class="status str">力量+' + me.strength + '</span></div>' : '') +
           '</div>';
       }).join('');
@@ -414,6 +420,7 @@
         '<div class="multi-tip">点击敌人切换集火目标 · 金框为轮值主席（非轮值伤害减半）</div>';
     } else {
       var eStatus = statusBadges([
+        e.enraged ? { cls: 'enrage', txt: '狂暴' } : null,
         e.strength ? { cls: 'str', txt: '力量+' + e.strength } : null,
         e.weak ? { cls: 'weak', txt: '虚弱 ' + e.weak } : null,
         e.vulnerable ? { cls: 'vuln', txt: '易伤 ' + e.vulnerable } : null
@@ -806,7 +813,14 @@
     var body = '';
     if (tab === 'cards') {
       body = Object.keys(D.cards).map(function (cid) {
-        if (seen.cards[cid]) return cardHtml(cid);
+        if (seen.cards[cid]) {
+          // 悬停（移动端长按）浮出「升级后」对比视图
+          var hover = D.cards[cid].up
+            ? ' onmouseenter="Game.showCodexUp(\'' + cid + '\')" onmouseleave="Game.hideCodexUp()"' +
+              ' ontouchstart="Game.codexUpTouch(\'' + cid + '\')" ontouchend="Game.hideCodexUp()"'
+            : '';
+          return '<div class="codex-card"' + hover + '>' + cardHtml(cid) + '</div>';
+        }
         // 未见过的牌显示獭罗牌卡背（闲置素材归位）
         return '<div class="card unseen-card"><img src="assets/cardart/tarot_4.png" alt=""></div>';
       }).join('');
@@ -839,8 +853,21 @@
       '<button class="' + (tab === 'enemies' ? 'primary' : '') + '" onclick="Game.codexTab(\'enemies\')">敌人</button>' +
       '</div>' +
       '<div class="codex-body">' + body + '</div>' +
-      '<div class="codex-tip">⭐ 小贴士：合理搭配卡牌，才能在职场中立于不败之地！</div>' + back +
+      '<div class="codex-tip">⭐ 小贴士：合理搭配卡牌，才能在职场中立于不败之地！' +
+      (tab === 'cards' ? '（悬停卡牌可预览升级后效果）' : '') + '</div>' +
+      (tab === 'cards' && S.codexUpId ? renderCodexUp(S) : '') + back +
       '</div></div></div>';
+  }
+
+  // 图鉴「升级后」对比浮层：升级数值高亮（金框卡面 + 升级前描述对照）
+  function renderCodexUp(S) {
+    var cid = S.codexUpId;
+    if (!D.cards[cid] || !D.cards[cid].up) return '';
+    return '<div class="up-preview codex-up">' +
+      '<div class="up-preview-tag">升级后</div>' +
+      cardHtml({ uid: 0, id: cid, up: true }) +
+      '<div class="up-preview-old">升级前：' + D.cards[cid].desc + '</div>' +
+      '</div>';
   }
 
   /* ---------- 过渡演出（强总倒下 → Rush 连胜界面） ---------- */
@@ -908,7 +935,8 @@
       title: '战斗基础',
       html: '<p>每回合 <b>4 点能量</b>、<b>抽 5 张牌</b>；<b>格挡回合末清零</b>，别攒着。</p>' +
         '<p>敌人头顶气泡 = 下回合意图，<b>点气泡看详情</b>（有肯尼的镜片时，意图下方预见未来 3 回合）。</p>' +
-        '<p>打出的牌进弃牌堆，抽完自动洗回；能力卡和带「消耗」的牌打出后进消耗堆，本场战斗不会再抽到。顶栏可随时【牌组】查看整套牌。</p>'
+        '<p>打出的牌进弃牌堆，抽完自动洗回；能力卡和带「消耗」的牌打出后进消耗堆，本场战斗不会再抽到。顶栏可随时【牌组】查看整套牌。</p>' +
+        '<p><b>小怪拖过 20 回合会逃跑</b>（算你赢，但只掉金币不掉卡牌）；<b>BOSS 拖过 12 回合 / 精英 15 回合会狂暴</b>——每回合力量 +3，别耗着！</p>'
     },
     {
       title: '关键词',
