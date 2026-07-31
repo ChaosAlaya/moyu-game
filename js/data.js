@@ -733,7 +733,10 @@
     sidejob: ['assets/v2/card/sidejob.jpg'],
     throwmoney: ['assets/v2/card/throwmoney.jpg'],
     insurance: ['assets/v2/card/insurance.jpg'],
-    wealth: ['assets/v2/card/wealth.jpg']
+    wealth: ['assets/v2/card/wealth.jpg'],
+    /* 补充卡面 */
+    interrupt: ['assets/v2/card/interrupt.jpg'],
+    yiti: ['assets/v2/card/yiti.jpg']
   };
   for (var artId in CARD_ART) {
     if (cards[artId]) {
