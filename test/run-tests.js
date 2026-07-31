@@ -1866,7 +1866,8 @@ section('e) 平衡统计（4 角色 × 50 局自动 run）');
     // 0731 四角色 16 张新专属卡进池后随机流平移，实测 4/48/2/12，下限再次按实测对齐
     // BOSS 防秒杀（4 层起 interrupt50/lastStand）+ 挥金如土削弱后实测 0/26/0/2：
     // BOSS 变难整体压胜率，下限按实测对齐，待后续增强回补；休整位改固定茶水间后爽老鸭再漂移到 0
-    const floors = { xiaoq: 0, shengfan: 0.15, jihuang: 0, shuanglaoya: 0 };
+    // 4-9 层 BOSS 全员二阶段化后实测 2/16/2/2：剩饭 16% 压 15% 线，下限按实测再对齐（0.10），回补仍待后续增强
+    const floors = { xiaoq: 0, shengfan: 0.10, jihuang: 0, shuanglaoya: 0 };
     ok(wr >= (floors[chId] || 0) && wr <= 0.5, `${chId} 胜率在 ${(floors[chId] || 0) * 100}%~50%（实际 ${(wr * 100).toFixed(0)}%）`);
     ok(errors === 0, `${chId} 50 局无异常`);
   }
@@ -1952,7 +1953,8 @@ function simRush(engine, build) {
     // 0731v2 调整后机皇通关构筑仅 4 套（×2 = 8 局），阈值随实测下调
     // 0731 十六张新专属卡进池后机皇通关构筑降至 2 套（×2 = 4 局），机皇阈值再随实测对齐
     // BOSS 防秒杀后通关构筑进一步减少（小Q 2 套/老鸭 2 套），样本阈值按实测对齐
-    const minRuns = { xiaoq: 4, shengfan: 8, jihuang: 4, shuanglaoya: 4 };
+    // 4-9 层 BOSS 二阶段化后通关构筑再减（小Q 1 套/机皇 1 套/老鸭 2 套），样本阈值按实测对齐
+    const minRuns = { xiaoq: 2, shengfan: 8, jihuang: 2, shuanglaoya: 4 };
     ok(runs >= (minRuns[chId] || 8), `${chId} rush 模拟样本 ≥${minRuns[chId] || 8} 局（实际 ${runs}）`);
   }
   // 强构筑应能摸到中场：最佳角色平均进度 ≥5.0（十机制+新卡池实测最佳 5.3）
@@ -2437,27 +2439,40 @@ function mapFingerprint(e) {
   }
 }
 
-/* ---------- k) BOSS 防秒杀：interrupt50 / lastStand / 偷男比例偷金 ---------- */
-section('k) BOSS 防秒杀（interrupt50/lastStand）与偷男比例偷金');
+/* ---------- k) BOSS 防秒杀 + 4-9 层二阶段 / 偷男比例偷金 ---------- */
+section('k) BOSS 防秒杀与 4-9 层二阶段（interrupt50/lastStand/phases）、偷男比例偷金');
 
-// 数据挂载：主游戏 4-9 层 + Rush 全员
+// 数据挂载：主游戏 4-9 层全员二阶段（4/5/8 层摘下 interrupt50）+ Rush 全员防秒杀
 {
-  ok(['boss_fin', 'boss_tech', 'boss_vp'].every(id => D.enemies[id].interrupt50 === true),
-    '4/5/8 层 BOSS 挂 interrupt50（财务总监/技术总监/副总裁）');
+  ok(['boss_fin', 'boss_tech', 'boss_vp'].every(id => D.enemies[id].interrupt50 === undefined),
+    '4/5/8 层 BOSS 不再挂 interrupt50（半血打断被 phases 二阶段取代，避免双重触发）');
   ok(['boss_mkt', 'boss2', 'boss_sec'].every(id => D.enemies[id].lastStand === true),
-    '6/7/9 层 BOSS 挂 lastStand（市场总监/HR/秘书A先生）');
+    '6/7/9 层 BOSS 挂 lastStand（市场总监/HR/秘书A先生，与二阶段并存）');
+  const twoPhase = ['boss_fin', 'boss_tech', 'boss_mkt', 'boss2', 'boss_vp', 'boss_sec'];
+  ok(twoPhase.every(id => {
+    const b = D.enemies[id];
+    return b.phases && b.phases.length === 2 &&
+      b.phases[0].until === 0.5 && b.phases[1].until === 0 &&
+      typeof b.phases[1].phaseName === 'string' && b.phases[1].phaseName.length > 0 &&
+      Array.isArray(b.moves) && b.moves.length === 0;
+  }), '4-9 层 BOSS 全员二阶段（until 0.5/0、阶段名齐全、顶层 moves 为空由 phases 接管）');
+  ok(D.enemies.boss3.p2Art === true && twoPhase.every(id => !D.enemies[id].p2Art),
+    '二阶段立绘白名单：仅强总挂 p2Art（其余二阶段 BOSS 沿用一阶段立绘防破图）');
+  ok(fs.readFileSync(path.join(root, 'js', 'ui.js'), 'utf8').includes('edef.p2Art'),
+    'ui.js 二阶段切图按 p2Art 字段门控');
   ok(D.rushBosses.every(b => b.interrupt50 === true || b.lastStand === true),
     'Rush 十 BOSS 全员挂防秒杀（interrupt50 或 lastStand）');
   ok(D.rushBosses[3].id === 'thief' && D.rushBosses[3].lastStand === true, '偷男必为 lastStand');
 }
 
-// interrupt50：首次破 50% 触发打断、BOSS 立即免费行动一轮，且只触发一次
+// interrupt50（主游戏 4/5/8 层已摘下，现仅 Rush BOSS 挂载，以前台为例）：
+// 首次破 50% 触发打断、BOSS 立即免费行动一轮，且只触发一次
 {
   const e = new Engine(9201);
   e.newRun('xiaoq');
-  e.startCombat('boss_fin');
+  e.startRushCombat(D.rushBosses[0], 1); // 总部前台·微笑杀手（interrupt50）
   const c = e.state.combat, boss = c.enemy;
-  boss.hp = Math.ceil(boss.maxHp * 0.52); // 63
+  boss.hp = Math.ceil(boss.maxHp * 0.52); // 115
   const tcBefore = boss.turnCount;
   c.hand.unshift({ uid: 9001, id: 'strike_moyu', up: false });
   const r = e.playCard(0);
@@ -2474,7 +2489,7 @@ section('k) BOSS 防秒杀（interrupt50/lastStand）与偷男比例偷金');
   // 未破 50% 不触发
   const e9 = new Engine(9202);
   e9.newRun('xiaoq');
-  e9.startCombat('boss_fin');
+  e9.startRushCombat(D.rushBosses[0], 1);
   const c9 = e9.state.combat;
   c9.hand.unshift({ uid: 9009, id: 'strike_moyu', up: false });
   ok(!e9.playCard(0).interrupt, '未破 50% 不触发打断');
@@ -2498,6 +2513,80 @@ section('k) BOSS 防秒杀（interrupt50/lastStand）与偷男比例偷金');
   c.hand.unshift({ uid: 9003, id: 'strike_moyu', up: false });
   const r2 = e.playCard(0);
   ok(!r2.lastStand && c.over && c.won, 'lastStand 只触发一次（第二刀击杀获胜）');
+}
+
+// 4-9 层 BOSS 二阶段化：半血触发切换、阶段名、二阶段用新招式、只切一次
+{
+  const phase2 = {
+    boss_fin: '年底突击审计', boss_tech: '上线即宕机', boss_mkt: 'KPI 翻三倍',
+    boss2: '向社会输送人才', boss_vp: '现在我说了算', boss_sec: '日程即圣旨'
+  };
+  let pseed = 9300;
+  for (const bid in phase2) {
+    const e = new Engine(pseed++);
+    e.newRun('xiaoq');
+    e.startCombat(bid);
+    const boss = e.state.combat.enemy;
+    const p1names = boss._def.phases[0].moves.map(m => m.name);
+    const p2names = boss._def.phases[1].moves.map(m => m.name);
+    ok(boss.phase === 0 && boss.intent && p1names.includes(boss.intent.name),
+      `${boss.name} 开局一阶段用一阶段招式`);
+    boss.hp = Math.floor(boss.maxHp * 0.49); // 跌破 50%
+    e._checkPhase(boss);
+    ok(boss.phase === 1, `${boss.name} 半血触发阶段切换`);
+    ok(boss._def.phases[1].phaseName === phase2[bid], `${boss.name} 二阶段阶段名「${phase2[bid]}」`);
+    e._chooseIntent(boss);
+    ok(boss.intent && p2names.includes(boss.intent.name) && !p1names.includes(boss.intent.name),
+      `${boss.name} 二阶段使用新招式「${boss.intent && boss.intent.name}」`);
+    e._checkPhase(boss);
+    ok(boss.phase === 1, `${boss.name} 阶段只切一次（不连跳不回落）`);
+  }
+}
+
+// 二阶段在敌方回合末按 until 阈值结算：boss_fin 破半血不再触发 interrupt50，敌方行动后切阶段
+{
+  const e = new Engine(9210);
+  e.newRun('xiaoq');
+  e.startCombat('boss_fin');
+  const c = e.state.combat, boss = c.enemy;
+  boss.hp = Math.ceil(boss.maxHp * 0.52); // 63
+  c.hand.unshift({ uid: 9005, id: 'strike_moyu', up: false });
+  const r = e.playCard(0);
+  ok(!r.interrupt && boss.hp < boss.maxHp * 0.5 && boss.phase === 0,
+    '二阶段化后 boss_fin 破半血不再触发 interrupt50（出牌瞬间不切阶段）');
+  boss.intent = boss._def.phases[0].moves[0]; // 固定「驳回一切」：避免回血招把血抬回阈值上
+  c.hand = [];
+  e.endTurn();
+  ok(boss.phase === 1, '敌方回合行动后按 until 0.5 阈值切入二阶段');
+  ok(boss.intent && boss._def.phases[1].moves.some(m => m.name === boss.intent.name),
+    `切阶段后意图来自二阶段招式池（${boss.intent && boss.intent.name}）`);
+}
+
+// lastStand × 二阶段并存（6/7/9 层）：致死留 1HP 反击 + 阶段正常切换，各只触发一次
+{
+  const lsBosses = ['boss_mkt', 'boss2', 'boss_sec'];
+  let lseed = 9350;
+  lsBosses.forEach(bid => {
+    const e = new Engine(lseed++);
+    e.newRun('xiaoq');
+    e.startCombat(bid);
+    const c = e.state.combat, boss = c.enemy;
+    boss.hp = 5;
+    const tcBefore = boss.turnCount;
+    c.hand.unshift({ uid: 9100, id: 'strike_moyu', up: false });
+    const r = e.playCard(0);
+    ok(!!r.lastStand && boss.hp === 1 && boss.lastStandUsed === true && !c.over,
+      `${boss.name} lastStand：致死一击 1HP 存活并反击（战斗继续）`);
+    ok(boss.turnCount === tcBefore + 1 && boss.phase === 1,
+      `${boss.name} 反击行动一次且阶段正常切入二阶段（组合相加不互斥）`);
+    // 各只触发一次：第二刀直接击杀获胜，不再不屈、阶段不回落
+    // （秘书A先生反击可能出「行程保护」叠格挡，先清掉避免格挡吃掉第二刀干扰判定）
+    boss.block = 0;
+    c.hand.unshift({ uid: 9101, id: 'strike_moyu', up: false });
+    const r2 = e.playCard(0);
+    ok(!r2.lastStand && !r2.interrupt && c.over && c.won && boss.phase === 1,
+      `${boss.name} lastStand/二阶段各只触发一次（第二刀击杀获胜）`);
+  });
 }
 
 // 偷男【顺手牵羊】：偷当前金币 25%（保底 15）

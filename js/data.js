@@ -1037,60 +1037,145 @@
     },
     boss_fin: {
       name: '财务主管', hp: 120, act: 4, boss: true, img: 'kenni',
-      interrupt50: true, // 半血打断：HP 首次跌破 50% 立即免费行动一轮
-      moves: [
-        { name: '驳回一切', type: 'attack', value: 12, w: 3 },
-        { name: '双面账单', type: 'attack', value: 7, times: 2, w: 2 },
-        { name: '资金回笼', type: 'heal', value: 10, w: 1 }
-      ]
+      // 二阶段化：半血进入「年底突击审计」（原 interrupt50 半血打断被 phases 取代）
+      phases: [
+        {
+          until: 0.5,
+          moves: [
+            { name: '驳回一切', type: 'attack', value: 12, w: 3 },
+            { name: '双面账单', type: 'attack', value: 7, times: 2, w: 2 },
+            { name: '资金回笼', type: 'heal', value: 10, w: 1 }
+          ]
+        },
+        {
+          until: 0, phaseName: '年底突击审计',
+          moves: [
+            { name: '查账风暴', type: 'attack', value: 16, w: 3 },
+            { name: '全面追缴', type: 'attack', value: 10, times: 2, w: 2 },
+            { name: '冻结资金', type: 'heal', value: 14, w: 1 }
+          ]
+        }
+      ],
+      moves: [] // 由 phases 接管
     },
     boss_tech: {
       name: '技术主管·996守护神', hp: 135, act: 5, boss: true, img: 'jihuang', ai: 'loop',
-      interrupt50: true, // 半血打断
-      moves: [
-        { name: '福报洗礼', type: 'attack', value: 8, times: 2 },
-        { name: '服务器护盾', type: 'block', value: 10 },
-        { name: '上线冲刺', type: 'attack', value: 16 },
-        { name: '狼性加持', type: 'buff', strength: 2 }
-      ]
+      // 二阶段化：半血进入「上线即宕机」（原 interrupt50 半血打断被 phases 取代）
+      phases: [
+        {
+          until: 0.5,
+          moves: [
+            { name: '福报洗礼', type: 'attack', value: 8, times: 2 },
+            { name: '服务器护盾', type: 'block', value: 10 },
+            { name: '上线冲刺', type: 'attack', value: 16 },
+            { name: '狼性加持', type: 'buff', strength: 2 }
+          ]
+        },
+        {
+          until: 0, phaseName: '上线即宕机',
+          moves: [
+            { name: '强制清场', type: 'attack', value: 11, times: 2 },
+            { name: '熔断护盾', type: 'block', value: 14 },
+            { name: '删库跑路', type: 'attack', value: 22 },
+            { name: '狼性爆发', type: 'buff', strength: 3 }
+          ]
+        }
+      ],
+      moves: [] // 由 phases 接管
     },
     boss_mkt: {
       name: '市场主管', hp: 150, act: 6, boss: true, img: 'shuanglaoya',
-      lastStand: true, // 残血不屈：首次致命伤害以 1 HP 存活并立即反击
-      moves: [
-        { name: '增长黑客', type: 'attack', value: 13, w: 3 },
-        { name: '全渠道投放', type: 'attack', value: 8, times: 2, w: 2 },
-        { name: '品牌调性', type: 'buff', strength: 2, w: 2 }
-      ]
+      lastStand: true, // 残血不屈：首次致命伤害以 1 HP 存活并立即反击（与二阶段并存）
+      phases: [
+        {
+          until: 0.5,
+          moves: [
+            { name: '增长黑客', type: 'attack', value: 13, w: 3 },
+            { name: '全渠道投放', type: 'attack', value: 8, times: 2, w: 2 },
+            { name: '品牌调性', type: 'buff', strength: 2, w: 2 }
+          ]
+        },
+        {
+          until: 0, phaseName: 'KPI 翻三倍',
+          moves: [
+            { name: '亿级大盘', type: 'attack', value: 18, w: 3 },
+            { name: '全域轰炸', type: 'attack', value: 11, times: 2, w: 2 },
+            { name: '画饼充饥', type: 'buff', strength: 3, w: 2 }
+          ]
+        }
+      ],
+      moves: [] // 由 phases 接管
     },
     boss2: {
       name: 'HR·裁员面谈', hp: 165, act: 7, boss: true, img: 'taer',
-      lastStand: true, // 残血不屈
-      moves: [
-        { name: '优化', type: 'attack', value: 26, every: 3 },
-        { name: '绩效沟通', type: 'attack', value: 14, w: 1 }
-      ]
+      lastStand: true, // 残血不屈（与二阶段并存）
+      phases: [
+        {
+          until: 0.5,
+          moves: [
+            { name: '优化', type: 'attack', value: 26, every: 3 },
+            { name: '绩效沟通', type: 'attack', value: 14, w: 1 }
+          ]
+        },
+        {
+          until: 0, phaseName: '向社会输送人才',
+          moves: [
+            { name: '毕业通知', type: 'attack', value: 34, every: 3 },
+            { name: '最后一次面谈', type: 'attack', value: 19, w: 1 }
+          ]
+        }
+      ],
+      moves: [] // 由 phases 接管
     },
     boss_vp: {
       name: '摸鱼副总', hp: 180, act: 8, boss: true, img: 'kenni',
-      interrupt50: true, // 半血打断
-      moves: [
-        { name: '降维打击', type: 'attack', value: 15, w: 3 },
-        { name: '双管齐下', type: 'attack', value: 10, times: 2, w: 2 },
-        { name: '格局打开', type: 'debuff', weak: 1, vulnerable: 1, w: 2 }
-      ]
+      // 二阶段化：半血进入「现在我说了算」（原 interrupt50 半血打断被 phases 取代）
+      phases: [
+        {
+          until: 0.5,
+          moves: [
+            { name: '降维打击', type: 'attack', value: 15, w: 3 },
+            { name: '双管齐下', type: 'attack', value: 10, times: 2, w: 2 },
+            { name: '格局打开', type: 'debuff', weak: 1, vulnerable: 1, w: 2 }
+          ]
+        },
+        {
+          until: 0, phaseName: '现在我说了算',
+          moves: [
+            { name: '越级施压', type: 'attack', value: 20, w: 3 },
+            { name: '双线夺权', type: 'attack', value: 13, times: 2, w: 2 },
+            { name: '夺权清洗', type: 'debuff', weak: 2, vulnerable: 1, w: 2 }
+          ]
+        }
+      ],
+      moves: [] // 由 phases 接管
     },
     boss_sec: {
       name: '秘书A先生', hp: 190, act: 9, boss: true, img: 'taer',
-      lastStand: true, // 残血不屈
-      moves: [
-        { name: '传达圣旨', type: 'attack', value: 22, every: 3 },
-        { name: '日程碾压', type: 'attack', value: 16, w: 3 },
-        { name: '行程保护', type: 'block', value: 12, w: 2 }
-      ]
+      lastStand: true, // 残血不屈（与二阶段并存）
+      phases: [
+        {
+          until: 0.5,
+          moves: [
+            { name: '传达圣旨', type: 'attack', value: 22, every: 3 },
+            { name: '日程碾压', type: 'attack', value: 16, w: 3 },
+            { name: '行程保护', type: 'block', value: 12, w: 2 }
+          ]
+        },
+        {
+          until: 0, phaseName: '日程即圣旨',
+          moves: [
+            { name: '加急圣旨', type: 'attack', value: 30, every: 3 },
+            { name: '日程轰炸', type: 'attack', value: 21, w: 3 },
+            { name: '滴水不漏', type: 'block', value: 16, w: 2 }
+          ]
+        }
+      ],
+      moves: [] // 由 phases 接管
     },
     boss3: {
       name: '摸鱼强总', hp: 200, act: 10, boss: true, img: 'kenni',
+      p2Art: true, // 有二阶段立绘（boss3_p2.jpg）；其余二阶段 BOSS 无 p2 图，沿用一阶段立绘
       phases: [
         {
           until: 0.5,

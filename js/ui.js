@@ -378,14 +378,15 @@
     var cls = (edef.boss || c.rushBoss) ? 'boss' : edef.elite ? 'elite' : '';
     var eHpPct = Math.max(0, e.hp / e.maxHp * 100);
     var pHpPct = Math.max(0, run.hp / run.maxHp * 100);
-    // 老板等带阶段的 BOSS：阶段 2 换图；rush BOSS 用 rush 立绘路径；资本化身三阶段换图
+    // 带阶段的 BOSS：仅 def 标了 p2Art 的（摸鱼强总）阶段 2 换图，其余二阶段 BOSS 无 p2 图沿用一阶段立绘
+    // rush BOSS 用 rush 立绘路径；资本化身三阶段换图
     var eArt;
     if (c.rushBoss) {
       eArt = c.rushBoss.id === 'capital'
         ? 'assets/v2/rush/capital_p' + (e.phase + 1) + '.jpg'
         : 'assets/v2/rush/' + c.rushBoss.id + '.jpg';
     } else {
-      eArt = enemyArt(e.id, edef.phases && e.phase > 0);
+      eArt = enemyArt(e.id, !!(edef.phases && edef.p2Art && e.phase > 0));
     }
     // 1vN：敌人并排，可点选集火目标
     var enemyZoneHtml;

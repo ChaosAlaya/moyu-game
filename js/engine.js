@@ -787,8 +787,9 @@
 
     this._afterDamageChecks(result);
     // BOSS 防秒杀①·半血打断：HP 首次跌破 50% 时强行打断玩家回合——弃掉剩余手牌、BOSS 立即
-    // 免费行动一轮，之后恢复正常回合交替。数据驱动 edef.interrupt50（4/5/8 层 BOSS 与部分
-    // Rush BOSS）；摸鱼强总（boss3）走写死路径，额外先进二阶段。均只触发一次，1vN 不触发。
+    // 免费行动一轮，之后恢复正常回合交替。数据驱动 edef.interrupt50（仅部分 Rush BOSS；
+    // 主游戏 4/5/8 层 BOSS 已改走 phases 二阶段）；摸鱼强总（boss3）走写死路径，额外先进二阶段。
+    // 均只触发一次，1vN 不触发。
     if (!c.over && !c.multi && c.enemy && c.enemy.hp > 0 && c.enemy.hp < c.enemy.maxHp * 0.5) {
       var isBoss3P1 = c.enemy.id === 'boss3' && c.enemy.phase === 0;
       var isInterrupt50 = !isBoss3P1 && c.enemy._def.interrupt50 && !c.enemy.interrupt50Used;

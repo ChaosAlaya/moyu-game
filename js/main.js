@@ -558,7 +558,7 @@
       var endMs = midMs + (r.hits.length ? 180 : 0);
       // 摸鱼强总 50% 打断：变身过场（二阶段立绘+全屏过场图+「都给我加班」+金爆）→ 立即反击一轮
       // 演出编排：打断-变身-反击连续播放，动画锁覆盖全程（endMs 顺延）
-      // interrupt50 BOSS（4/5/8 层与部分 Rush BOSS）复用同一演出，文案由引擎 cutText 下发
+      // interrupt50 BOSS（仅部分 Rush BOSS；主游戏 4/5/8 层已改为 phases 二阶段）复用同一演出，文案由引擎 cutText 下发
       if (r.interrupt) {
         var itBase = endMs + 150;
         setTimeout(function () {
