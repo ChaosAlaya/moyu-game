@@ -702,8 +702,8 @@
     c.powers.forEach(function (p) {
       if (p.id === 'realm' && c.cardsPlayed % p.value === 0) self._draw(1);
     });
-    // 消耗 or 弃牌
-    if (def.exhaust) c.exhausted.push(inst);
+    // 消耗 or 弃牌（能力牌打出后进入消耗堆，本场战斗洗牌后也不会再抽到）
+    if (def.exhaust || def.type === 'power') c.exhausted.push(inst);
     else c.discard.push(inst);
 
     this._afterDamageChecks(result);

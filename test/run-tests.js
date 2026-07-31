@@ -1645,7 +1645,8 @@ section('e) 平衡统计（4 角色 × 50 局自动 run）');
     const wr = victories / 50;
     console.log(`  [${chId}] 胜率 ${victories}/50 = ${(wr * 100).toFixed(0)}% · 到8层+ ${reach8} 局 · 分布: ${Object.keys(actDist).sort((a, b) => a - b).map(a => `${a}层×${actDist[a]}`).join(' ')}`);
     // 胜率带：0费改稀有后剩饭升至 46%、机皇跌至 0%（实测）；机皇下限暂放 0 仅记录
-    const floors = { xiaoq: 0.08, shengfan: 0.08, jihuang: 0, shuanglaoya: 0.08 };
+    // 能力牌改打出即消耗后小 Q 实测跌至 6%（原 12%），下限随之下调
+    const floors = { xiaoq: 0.04, shengfan: 0.08, jihuang: 0, shuanglaoya: 0.08 };
     ok(wr >= (floors[chId] || 0) && wr <= 0.5, `${chId} 胜率在 ${(floors[chId] || 0) * 100}%~50%（实际 ${(wr * 100).toFixed(0)}%）`);
     ok(errors === 0, `${chId} 50 局无异常`);
   }
@@ -1923,6 +1924,55 @@ section('h) 存档版本迁移 / 损坏自愈 / 统计累计');
     delete globalThis.GameUI;
     delete globalThis.Game;
   }
+}
+
+/* ---------- i) 能力牌打出即消耗（杀戮尖塔规则） ---------- */
+section('i) 能力牌一场战斗只能打出一次');
+
+// power 打出进消耗堆而非弃牌堆；弃牌重洗后不会再抽到
+{
+  const engine = new Engine(77);
+  engine.newRun('xiaoq');
+  engine.startCombat('punchclock');
+  const c = engine.state.combat;
+  c.enemy.hp = 300; c.enemy.maxHp = 300;
+  c.energy = 4;
+  c.hand.unshift({ uid: 9901, id: 'scarf_power', up: false }); // 红围巾 cost 2
+  const r1 = engine.playCard(0);
+  ok(r1.ok, '能力牌可正常打出');
+  ok(c.exhausted.some(x => x.uid === 9901), '能力牌打出后进入消耗堆');
+  ok(!c.discard.some(x => x.uid === 9901), '能力牌打出后不进入弃牌堆');
+  // 抽空抽牌堆并抽牌触发弃牌重洗
+  while (c.drawPile.length) c.discard.push(c.drawPile.pop());
+  const handBefore = c.hand.length;
+  engine._draw(50);
+  ok(c.hand.length > handBefore, '弃牌重洗后仍能抽牌');
+  ok(!c.hand.some(x => x.uid === 9901) && !c.drawPile.some(x => x.uid === 9901),
+     '弃牌重洗后能力牌不会被再次抽到');
+}
+
+// 普通 attack/skill 不受影响仍进弃牌堆；exhaust:true 牌行为不变
+{
+  const engine = new Engine(78);
+  engine.newRun('xiaoq');
+  engine.startCombat('punchclock');
+  const c = engine.state.combat;
+  c.enemy.hp = 300; c.enemy.maxHp = 300;
+  c.energy = 4;
+  c.hand.unshift({ uid: 9902, id: 'strike_moyu', up: false });
+  engine.playCard(0);
+  ok(c.discard.some(x => x.uid === 9902) && !c.exhausted.some(x => x.uid === 9902),
+     '攻击牌打出后仍进弃牌堆');
+  c.energy = 4;
+  c.hand.unshift({ uid: 9903, id: 'defend_moyu', up: false });
+  engine.playCard(0);
+  ok(c.discard.some(x => x.uid === 9903) && !c.exhausted.some(x => x.uid === 9903),
+     '技能牌打出后仍进弃牌堆');
+  c.energy = 4;
+  c.hand.unshift({ uid: 9904, id: 'chicken', up: false });
+  engine.playCard(0);
+  ok(c.exhausted.some(x => x.uid === 9904) && !c.discard.some(x => x.uid === 9904),
+     'exhaust:true 牌行为不变（仍进消耗堆）');
 }
 
 /* ---------- 汇总 ---------- */
