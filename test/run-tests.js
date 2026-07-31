@@ -2549,6 +2549,36 @@ section('k) BOSS 防秒杀（interrupt50/lastStand）与偷男比例偷金');
   ok(!err && c.over, 'multi 全程战斗无异常且正常结束');
 }
 
+// 摸鱼境界：多张独立成条各自计数（不合并成大周期）
+{
+  const engine = new Engine(31);
+  engine.newRun('xiaoq');
+  engine.startCombat('group_at');
+  const c = engine.state.combat;
+  c.hand.unshift({ uid: 1, id: 'realm', up: false }, { uid: 2, id: 'realm', up: true });
+  c.energy = 4;
+  engine.playCard(0); // 基础版 value 4
+  c.energy = 4;
+  engine.playCard(0); // 升级版 value 3
+  const realms = c.powers.filter(p => p.id === 'realm');
+  ok(realms.length === 2 && realms[0].value === 4 && realms[1].value === 3,
+    `摸鱼境界独立成条（实际 ${realms.map(p => p.value).join('/')}）`);
+  // 打到第 3 张：value3 抽 1；第 4 张：value4 再抽 1 → 独立触发
+  c.hand = [];
+  const drawBefore = c.hand.length;
+  c.drawPile = [];
+  for (let i = 0; i < 10; i++) c.drawPile.push({ uid: 100 + i, id: 'defend_moyu', up: false });
+  let drawn = 0;
+  const origDraw = engine._draw.bind(engine);
+  engine._draw = function (n) { drawn += n; origDraw(n); };
+  c.hand = [{ uid: 10, id: 'strike_moyu', up: false }, { uid: 11, id: 'strike_moyu', up: false }];
+  c.energy = 4;
+  engine.playCard(0); // cardsPlayed=3 → value3 触发
+  c.energy = 4;
+  engine.playCard(0); // cardsPlayed=4 → value4 触发
+  ok(drawn === 2, `两张境界独立触发共抽 2（实际 ${drawn}）`);
+}
+
 /* ---------- 汇总 ---------- */
 console.log(`\n========================================`);
 console.log(`结果: ${passed} 通过, ${failed} 失败`);

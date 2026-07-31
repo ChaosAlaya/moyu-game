@@ -695,7 +695,8 @@
           break;
         }
         case 'power': {
-          var existing = c.powers.filter(function (p) { return p.id === ef.id; })[0];
+          // 摸鱼境界：每张独立成条各自计数（多张叠出更强，不合并成大周期反向削弱）
+          var existing = ef.id === 'realm' ? null : c.powers.filter(function (p) { return p.id === ef.id; })[0];
           if (existing) existing.value += ef.value;
           else c.powers.push({ id: ef.id, value: ef.value });
           break;
