@@ -72,7 +72,7 @@
       '<div class="ctitle">' + def.name + '</div>' +
       artHtml +
       '<div class="ctype">' + ico(meta.icon) + '<span>' + meta.name + '</span>' +
-        '<em>' + rarityName(def.rarity) + (def.exhaust ? ' · 消耗' : '') + '</em></div>' +
+        '<em>' + rarityName(def.rarity) + ((def.exhaust || def.type === 'power') ? ' · 消耗' : '') + '</em></div>' +
       '<div class="cdesc">' + def.desc + '</div>' +
       (inst.up ? '<div class="upbadge">+</div>' : '') +
       (opts.extraHtml || '') +

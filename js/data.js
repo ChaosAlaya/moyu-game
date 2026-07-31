@@ -287,50 +287,50 @@
     /* ---- 能力 ---- */
     scarf_power: {
       name: '红围巾', cost: 2, type: 'power', rarity: 'uncommon',
-      desc: '每回合开始时获得 3 点格挡，消耗。',
+      desc: '每回合开始时获得 3 点格挡',
       tags: ["block"],
       effects: [{ op: 'power', id: 'scarf_power', value: 3 }],
-      up: { desc: '每回合开始时获得 4 点格挡，消耗。',
+      up: { desc: '每回合开始时获得 4 点格挡',
         effects: [{ op: 'power', id: 'scarf_power', value: 4 }] }
     },
     guide: {
       name: '机皇的攻略', cost: 1, type: 'power', rarity: 'uncommon',
-      desc: '力量 +1，消耗。',
+      desc: '力量 +1',
       effects: [{ op: 'strength', value: 1 }],
-      up: { desc: '力量 +2，消耗。', effects: [{ op: 'strength', value: 2 }] }
+      up: { desc: '力量 +2', effects: [{ op: 'strength', value: 2 }] }
     },
     leftover_shield: {
       name: '剩饭护体', cost: 1, type: 'power', rarity: 'uncommon',
-      desc: '每次被攻击时反弹 3 点伤害，消耗。',
+      desc: '每次被攻击时反弹 3 点伤害',
       tags: ["block"],
       effects: [{ op: 'power', id: 'leftover_shield', value: 3 }],
-      up: { desc: '每次被攻击时反弹 4 点伤害，消耗。',
+      up: { desc: '每次被攻击时反弹 4 点伤害',
         effects: [{ op: 'power', id: 'leftover_shield', value: 4 }] }
     },
     realm: {
       name: '摸鱼境界', cost: 2, type: 'power', rarity: 'rare',
-      desc: '每打出 4 张牌后，抽 1 张牌，消耗。',
+      desc: '每打出 4 张牌后，抽 1 张牌',
       effects: [{ op: 'power', id: 'realm', value: 4 }],
-      up: { cost: 1, desc: '每打出 3 张牌后，抽 1 张牌，消耗。',
+      up: { cost: 1, desc: '每打出 3 张牌后，抽 1 张牌',
         effects: [{ op: 'power', id: 'realm', value: 3 }] }
     },
     rebound: {
       name: '反弹式离职', cost: 2, type: 'power', rarity: 'rare',
-      desc: '每次被攻击反弹 4 点伤害；每回合开始获得 2 点格挡，消耗。',
+      desc: '每次被攻击反弹 4 点伤害；每回合开始获得 2 点格挡',
       tags: ["block"],
       effects: [{ op: 'power', id: 'leftover_shield', value: 4 },
         { op: 'power', id: 'scarf_power', value: 2 }],
-      up: { desc: '每次被攻击反弹 5 点伤害；每回合开始获得 3 点格挡，消耗。',
+      up: { desc: '每次被攻击反弹 5 点伤害；每回合开始获得 3 点格挡',
         effects: [{ op: 'power', id: 'leftover_shield', value: 5 },
           { op: 'power', id: 'scarf_power', value: 3 }] }
     },
     master: {
       name: '摸鱼宗师', cost: 3, type: 'power', rarity: 'rare',
-      desc: '力量 +1；每回合开始获得 4 点格挡，消耗。',
+      desc: '力量 +1；每回合开始获得 4 点格挡',
       tags: ["grow"],
       effects: [{ op: 'strength', value: 1 },
         { op: 'power', id: 'scarf_power', value: 4 }],
-      up: { desc: '力量 +1；每回合开始获得 6 点格挡，消耗。',
+      up: { desc: '力量 +1；每回合开始获得 6 点格挡',
         effects: [{ op: 'strength', value: 1 },
           { op: 'power', id: 'scarf_power', value: 6 }] }
     },
