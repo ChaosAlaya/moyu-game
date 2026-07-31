@@ -558,17 +558,31 @@
       var endMs = midMs + (r.hits.length ? 180 : 0);
       // 摸鱼强总 50% 打断：变身过场（二阶段立绘+全屏过场图+「都给我加班」+金爆）→ 立即反击一轮
       // 演出编排：打断-变身-反击连续播放，动画锁覆盖全程（endMs 顺延）
+      // interrupt50 BOSS（4/5/8 层与部分 Rush BOSS）复用同一演出，文案由引擎 cutText 下发
       if (r.interrupt) {
         var itBase = endMs + 150;
         setTimeout(function () {
           UI.bossCut();
-          UI.bigText('都给我加班！');
+          UI.bigText(r.interrupt.cutText || '都给我加班！');
           UI.goldenFlash();
           UI.appShake();
           Sfx.play('hit');
           render(); // 重绘：二阶段立绘 + 打断后的新回合手牌
         }, itBase);
         endMs = playEnemyActionShow(c, r.interrupt, itBase + 1400);
+      }
+      // 残血不屈（lastStand）：致死一击被 1 HP 扛下 →「垂死挣扎！」→ 立即反击一轮
+      if (r.lastStand) {
+        var lsBase = endMs + 150;
+        setTimeout(function () {
+          UI.bossCut();
+          UI.bigText(r.lastStand.cutText || '垂死挣扎！');
+          UI.goldenFlash();
+          UI.appShake();
+          Sfx.play('hit');
+          render();
+        }, lsBase);
+        endMs = playEnemyActionShow(c, r.lastStand, lsBase + 1400);
       }
       var deathExtra = 0;
       if (c.over) {
@@ -616,6 +630,17 @@
         Sfx.play('hit');
       }, endMs + 150);
       endMs += 900;
+    }
+    // 残血不屈（敌方回合内被反弹至濒死触发）：「垂死挣扎！」→ 立即反击一轮
+    if (r.lastStand) {
+      var lsBase = endMs + 150;
+      setTimeout(function () {
+        UI.bossCut();
+        UI.bigText(r.lastStand.cutText || '垂死挣扎！');
+        UI.appShake();
+        Sfx.play('hit');
+      }, lsBase);
+      endMs = playEnemyActionShow(c, r.lastStand, lsBase + 1400);
     }
     var deathExtra = 0;
     if (c.over) {

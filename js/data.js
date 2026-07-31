@@ -420,11 +420,11 @@
     },
     spendall: {
       name: '挥金如土', cost: 1, type: 'attack', rarity: 'uncommon', char: 'shuanglaoya',
-      desc: '失去当前 10% 金币，造成失去金币 ×2 的伤害。',
+      desc: '失去当前 10% 金币，造成失去金币 ×1 的伤害。',
       tags: ["gold"],
-      effects: [{ op: 'special', kind: 'spendall', pct: 0.1, per: 2 }],
-      up: { desc: '失去当前 10% 金币，造成失去金币 ×3 的伤害。',
-        effects: [{ op: 'special', kind: 'spendall', pct: 0.1, per: 3 }] }
+      effects: [{ op: 'special', kind: 'spendall', pct: 0.1, per: 1 }],
+      up: { desc: '失去当前 15% 金币，造成失去金币 ×1.5 的伤害。',
+        effects: [{ op: 'special', kind: 'spendall', pct: 0.15, per: 1.5 }] }
     },
     binge: {
       name: '暴食', cost: 2, type: 'attack', rarity: 'uncommon', char: 'shengfan',
@@ -716,7 +716,24 @@
     guide: ['assets/v2/avatar/jihuang.jpg', 'contain'],
     optimize: ['assets/v2/avatar/jihuang.jpg', 'contain'],
     calc: ['assets/v2/avatar/jihuang.jpg', 'contain'],
-    leftover_shield: ['assets/v2/avatar/shengfan.jpg', 'contain']
+    leftover_shield: ['assets/v2/avatar/shengfan.jpg', 'contain'],
+    /* 0731 角色专属新卡卡面 */
+    pawflurry: ['assets/v2/card/pawflurry.jpg'],
+    comborua: ['assets/v2/card/comborua.jpg'],
+    paidcharge: ['assets/v2/card/paidcharge.jpg'],
+    macho: ['assets/v2/card/macho.jpg'],
+    cardio: ['assets/v2/card/cardio.jpg'],
+    hangry: ['assets/v2/card/hangry.jpg'],
+    burnboats: ['assets/v2/card/burnboats.jpg'],
+    snatch: ['assets/v2/card/snatch.jpg'],
+    savebackup: ['assets/v2/card/savebackup.jpg'],
+    recyclebin: ['assets/v2/card/recyclebin.jpg'],
+    ammo: ['assets/v2/card/ammo.jpg'],
+    loadstate: ['assets/v2/card/loadstate.jpg'],
+    sidejob: ['assets/v2/card/sidejob.jpg'],
+    throwmoney: ['assets/v2/card/throwmoney.jpg'],
+    insurance: ['assets/v2/card/insurance.jpg'],
+    wealth: ['assets/v2/card/wealth.jpg']
   };
   for (var artId in CARD_ART) {
     if (cards[artId]) {
@@ -1017,6 +1034,7 @@
     },
     boss_fin: {
       name: '财务总监', hp: 120, act: 4, boss: true, img: 'kenni',
+      interrupt50: true, // 半血打断：HP 首次跌破 50% 立即免费行动一轮
       moves: [
         { name: '驳回一切', type: 'attack', value: 12, w: 3 },
         { name: '双面账单', type: 'attack', value: 7, times: 2, w: 2 },
@@ -1025,6 +1043,7 @@
     },
     boss_tech: {
       name: '技术总监·996守护神', hp: 135, act: 5, boss: true, img: 'jihuang', ai: 'loop',
+      interrupt50: true, // 半血打断
       moves: [
         { name: '福报洗礼', type: 'attack', value: 8, times: 2 },
         { name: '服务器护盾', type: 'block', value: 10 },
@@ -1034,6 +1053,7 @@
     },
     boss_mkt: {
       name: '市场总监', hp: 150, act: 6, boss: true, img: 'shuanglaoya',
+      lastStand: true, // 残血不屈：首次致命伤害以 1 HP 存活并立即反击
       moves: [
         { name: '增长黑客', type: 'attack', value: 13, w: 3 },
         { name: '全渠道投放', type: 'attack', value: 8, times: 2, w: 2 },
@@ -1042,6 +1062,7 @@
     },
     boss2: {
       name: 'HR·裁员面谈', hp: 165, act: 7, boss: true, img: 'taer',
+      lastStand: true, // 残血不屈
       moves: [
         { name: '优化', type: 'attack', value: 26, every: 3 },
         { name: '绩效沟通', type: 'attack', value: 14, w: 1 }
@@ -1049,6 +1070,7 @@
     },
     boss_vp: {
       name: '副总裁', hp: 180, act: 8, boss: true, img: 'kenni',
+      interrupt50: true, // 半血打断
       moves: [
         { name: '降维打击', type: 'attack', value: 15, w: 3 },
         { name: '双管齐下', type: 'attack', value: 10, times: 2, w: 2 },
@@ -1057,6 +1079,7 @@
     },
     boss_sec: {
       name: '秘书A先生', hp: 190, act: 9, boss: true, img: 'taer',
+      lastStand: true, // 残血不屈
       moves: [
         { name: '传达圣旨', type: 'attack', value: 22, every: 3 },
         { name: '日程碾压', type: 'attack', value: 16, w: 3 },
@@ -1301,6 +1324,7 @@
   var rushBosses = [
     {
       id: 'front', name: '总部前台·微笑杀手', hp: 220, ai: 'loop', mechanic: 'fakeIntent', // 【微笑欺骗】意图可能是假情报
+      interrupt50: true, // 防秒杀：半血打断
 
       moves: [
         { name: '职业微笑', type: 'block', value: 8 },
@@ -1311,6 +1335,7 @@
     },
     {
       id: 'elevator', name: '电梯战神', hp: 260,
+      lastStand: true, // 防秒杀：残血不屈
       moves: [
         { name: '急速下坠', type: 'attack', value: 22, every: 3, unblockable: true }, // 【急速下坠】必中重击
         { name: '负重深蹲', type: 'attack', value: 28, w: 2 },
@@ -1319,6 +1344,7 @@
     },
     {
       id: 'secretary', name: '会议室秘书长', hp: 300, mechanic: 'junkCard', // 【临时议题】每回合塞废牌
+      interrupt50: true, // 防秒杀：半血打断
 
       moves: [
         { name: '议题发散', type: 'attack', value: 12, w: 3 },
@@ -1328,15 +1354,17 @@
     },
     {
       id: 'thief', name: '神秘偷男', hp: 340, mechanic: 'stealCard', // 【妙手空空】偷手牌，击败归还
+      lastStand: true, // 防秒杀：残血不屈（偷男专属，克制囤金流）
 
       moves: [
-        { name: '顺手牵羊', type: 'stealGold', value: 15, w: 2 },
+        { name: '顺手牵羊', type: 'stealGold', pct: 0.25, min: 15, w: 2 }, // 偷当前金币 25%（保底 15）
         { name: '黑吃黑', type: 'attack', value: 14, w: 3 },
         { name: '销赃', type: 'attack', value: 8, perGold: 50, w: 2 }
       ]
     },
     {
       id: 'findir', name: '财务总监', hp: 390, mechanic: 'budget', // 【预算审核】每回合费用合计≤4
+      interrupt50: true, // 防秒杀：半血打断
 
       moves: [
         { name: '成本核算', type: 'costUp', value: 2, w: 2 },
@@ -1346,6 +1374,7 @@
     },
     {
       id: 'juan', name: '卷王之王', hp: 440, mechanic: 'juanAura', // 【内卷光环】玩家每出1牌力量+1
+      lastStand: true, // 防秒杀：残血不屈
 
       moves: [
         { name: 'KPI 冲刺', type: 'attack', value: 32, every: 4 },
@@ -1354,6 +1383,7 @@
     },
     {
       id: 'hrdir', name: '人力总监', hp: 500, mechanic: 'review', // 【绩效考核】每3回合结算
+      interrupt50: true, // 防秒杀：半血打断
 
       moves: [
         { name: '绩效改进计划', type: 'attack', value: 18, w: 3 },
@@ -1363,6 +1393,7 @@
     },
     {
       id: 'vp', name: '高级VP', hp: 560, passiveBlock: 12, mechanic: 'mirror', // 【影子决策】复制上回合攻击牌
+      lastStand: true, // 防秒杀：残血不屈
 
       moves: [
         { name: '代理决策', type: 'attack', value: 18, w: 3 },
@@ -1372,6 +1403,7 @@
     },
     {
       id: 'board', name: '董事会', hp: 550, multi: true, mechanic: 'rotate', // 【轮值主席】非轮值伤害减半
+      interrupt50: true, // 防秒杀字段（1vN 集团战跳过不触发，仅为全员对齐）
 
       members: [
         {
@@ -1403,6 +1435,7 @@
     },
     {
       id: 'capital', name: '资本化身', hp: 999, mechanic: 'market', // 【市场波动】P3 牛/熊/平轮换
+      lastStand: true, // 防秒杀：残血不屈
 
       phases: [
         {

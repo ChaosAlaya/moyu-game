@@ -708,11 +708,12 @@
           }
           else if (ef.kind === 'darksword') dealDamage(ef.base + ef.per * c.darkswordPlays);
           else if (ef.kind === 'spendall') {
-            // 挥金如土：失去当前 pct 金币，造成失去金币 × per 的伤害（先扣金币再结算，钞能按剩余金币算）
+            // 挥金如土：失去当前 pct 金币，造成失去金币 × per 的伤害（先扣金币再结算，钞能按剩余金币算；
+            // per 可为 1.5 等小数，伤害取整）
             var spent = Math.floor(st.gold * (ef.pct || 0));
             st.gold -= spent;
             result.goldLost = (result.goldLost || 0) + spent;
-            dealDamage(spent * ef.per);
+            dealDamage(Math.floor(spent * ef.per));
           }
           else if (ef.kind === 'breakdown') {
             var lost = Math.max(0, c.combatStartHp - st.hp);
@@ -783,27 +784,37 @@
     else c.discard.push(inst);
 
     this._afterDamageChecks(result);
-    // 摸鱼强总专属：血量跌破 50% 瞬间强行打断玩家回合——立即进二阶段并以二阶段招式反击一轮，
-    // 之后才恢复正常回合交替（1v1 boss3 专属，不影响其他 BOSS 与 1vN）
-    if (!c.over && !c.multi && c.enemy && c.enemy.id === 'boss3' && c.enemy.phase === 0 &&
-        c.enemy.hp > 0 && c.enemy.hp < c.enemy.maxHp * 0.5) {
-      c.enemy.phase = 1;
-      c.log.push({ t: 'phase', text: edef2.phases[1].phaseName || '第二阶段' });
-      // 强行打断：弃掉玩家剩余手牌（能量/未出的牌全部作废）
-      // 机皇【攻略制定】：早有准备，可保留至多 3 张手牌（保手牌流不被完全清零）
-      var keepN = st.charId === 'jihuang' ? 3 : 0;
-      while (c.hand.length > keepN) c.discard.push(c.hand.pop());
-      // 强总立刻行动一轮（打个措手不及）
-      var ir = { dmgToPlayer: 0, enemyBlock: 0, skipped: false, over: false, hits: [], absorbed: [],
-        reflected: 0, scarf: false, attacked: false, interrupt: true };
-      this._chooseIntent(c.enemy); // 二阶段招式池
-      this._enemyAct(c.enemy, ir);
-      this._afterDamageChecks(ir);
-      result.interrupt = ir;
-      // 玩家存活则直接进入新回合（重新抽牌），之后正常交替
-      if (!c.over) {
+    // BOSS 防秒杀①·半血打断：HP 首次跌破 50% 时强行打断玩家回合——弃掉剩余手牌、BOSS 立即
+    // 免费行动一轮，之后恢复正常回合交替。数据驱动 edef.interrupt50（4/5/8 层 BOSS 与部分
+    // Rush BOSS）；摸鱼强总（boss3）走写死路径，额外先进二阶段。均只触发一次，1vN 不触发。
+    if (!c.over && !c.multi && c.enemy && c.enemy.hp > 0 && c.enemy.hp < c.enemy.maxHp * 0.5) {
+      var isBoss3P1 = c.enemy.id === 'boss3' && c.enemy.phase === 0;
+      var isInterrupt50 = !isBoss3P1 && c.enemy._def.interrupt50 && !c.enemy.interrupt50Used;
+      if (isBoss3P1 || isInterrupt50) {
+        if (isBoss3P1) {
+          c.enemy.phase = 1;
+          c.log.push({ t: 'phase', text: edef2.phases[1].phaseName || '第二阶段' });
+        } else {
+          c.enemy.interrupt50Used = true;
+          c.log.push({ t: 'phase', text: 'BOSS 被激怒了！' });
+        }
+        // 强行打断：弃掉玩家剩余手牌（能量/未出的牌全部作废）
+        // 机皇【攻略制定】：早有准备，可保留至多 3 张手牌（保手牌流不被完全清零）
+        var keepN = st.charId === 'jihuang' ? 3 : 0;
+        while (c.hand.length > keepN) c.discard.push(c.hand.pop());
+        // BOSS 立刻行动一轮（打个措手不及）
+        var ir = { dmgToPlayer: 0, enemyBlock: 0, skipped: false, over: false, hits: [], absorbed: [],
+          reflected: 0, scarf: false, attacked: false, interrupt: true,
+          cutText: isBoss3P1 ? '都给我加班！' : 'BOSS 被激怒了！' };
         this._chooseIntent(c.enemy);
-        this._startPlayerTurn();
+        this._enemyAct(c.enemy, ir);
+        this._afterDamageChecks(ir);
+        result.interrupt = ir;
+        // 玩家存活则直接进入新回合（重新抽牌），之后正常交替
+        if (!c.over) {
+          this._chooseIntent(c.enemy);
+          this._startPlayerTurn();
+        }
       }
     }
     return result;
@@ -825,6 +836,22 @@
         this._loseCombat();
         if (result) result.lost = true;
       }
+      return;
+    }
+    // BOSS 防秒杀②·残血不屈：首次受到致命伤害时以 1 HP 存活，随后立即反击行动一次
+    // （数据驱动 edef.lastStand：6/7/9 层 BOSS 与部分 Rush BOSS；只触发一次，1vN 跳过）
+    if (!c.over && c.enemy.hp <= 0 && c.enemy._def.lastStand && !c.enemy.lastStandUsed) {
+      c.enemy.hp = 1;
+      c.enemy.lastStandUsed = true;
+      c.log.push({ t: 'phase', text: '垂死挣扎！' });
+      var lr = { dmgToPlayer: 0, enemyBlock: 0, skipped: false, over: false, hits: [], absorbed: [],
+        reflected: 0, scarf: false, attacked: false, lastStand: true, cutText: '垂死挣扎！' };
+      this._chooseIntent(c.enemy);
+      this._enemyAct(c.enemy, lr);
+      if (result) result.lastStand = lr;
+      // 反击可能打死玩家、也可能被反弹（剩饭护体）反杀：递归结算生死
+      // （lastStandUsed 已置位，不会二次触发）
+      this._afterDamageChecks(result);
       return;
     }
     if (c.enemy.hp <= 0) {
@@ -959,8 +986,11 @@
         case 'buff': if (mv.strength) e.strength += mv.strength; break;
         case 'charge': break; // 蓄力仅作为意图提示
         case 'heal': e.hp = Math.min(e.maxHp, e.hp + mv.value); break;
-        case 'stealGold': { // 偷男：偷取玩家金币（不造成伤害）
-          var stolen = Math.min(st.gold, mv.value);
+        case 'stealGold': { // 偷男：偷取玩家金币（不造成伤害）；pct 按当前金币比例偷（保底 min），否则固定 value
+          var stolen = mv.pct
+            ? Math.max(mv.min || 0, Math.floor(st.gold * mv.pct))
+            : mv.value;
+          stolen = Math.min(st.gold, stolen);
           st.gold -= stolen;
           result.stolenGold = (result.stolenGold || 0) + stolen;
           break;
@@ -1733,7 +1763,7 @@
         else if (ef.kind === 'darksword') base = ef.base + ef.per * c.darkswordPlays;
         else if (ef.kind === 'spendall') {
           var pvSpent = Math.floor(st.gold * (ef.pct || 0));
-          base = pvSpent * ef.per;
+          base = Math.floor(pvSpent * ef.per); // per 可为小数，与结算一致取整
           goldAvail = st.gold - pvSpent;
         }
         else if (ef.kind === 'allout') base = (ef.base || 0) + Math.max(0, c.hand.length - 1) * ef.per; // 打出时本牌已离手

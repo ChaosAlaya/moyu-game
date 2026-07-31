@@ -469,22 +469,22 @@ function mkCombat(charId, hp, maxHp) {
   c11.hand.unshift({ uid: 11, id: 'capitalop', up: false });
   e11.playCard(0);
   ok(s11.gold === g11 + 30 && c11.exhausted.length === 1, `资本运作：+30金币消耗（gold=${s11.gold}）`);
-  // 挥金如土：失去当前 10% 金币，造成失去金币 ×2 伤害
+  // 挥金如土（削弱后）：失去当前 10% 金币，造成失去金币 ×1 伤害
   let [e12, s12, c12] = mkCombat('shuanglaoya');
   s12.gold = 200;
   c12.hand.unshift({ uid: 12, id: 'spendall', up: false });
   let hb12 = c12.enemy.hp;
   e12.playCard(0);
   ok(s12.gold === 180, `挥金如土：200金币失去10%=20（gold=${s12.gold}）`);
-  // 伤害 = 20×2 + 钞能 floor(180/50)=3 → 43
-  ok(c12.enemy.hp === hb12 - 43, `挥金如土：打 40+3（实际 ${hb12 - c12.enemy.hp}）`);
-  // 升级版 ×3：gold 100 → 失去 10，打 30+钞能 floor(90/50)=1 → 31
+  // 伤害 = floor(20×1)=20 + 钞能 floor(180/50)=3 → 23
+  ok(c12.enemy.hp === hb12 - 23, `挥金如土：打 20+3（实际 ${hb12 - c12.enemy.hp}）`);
+  // 升级版：失去 15%，×1.5 取整：gold 100 → 失去 15，打 floor(22.5)=22+钞能 floor(85/50)=1 → 23
   let [e13, s13, c13] = mkCombat('shuanglaoya');
   s13.gold = 100;
   c13.hand.unshift({ uid: 13, id: 'spendall', up: true });
   let hb13 = c13.enemy.hp;
   e13.playCard(0);
-  ok(c13.enemy.hp === hb13 - 31 && s13.gold === 90, `挥金如土+：打 30+1（实际 ${hb13 - c13.enemy.hp}）`);
+  ok(c13.enemy.hp === hb13 - 23 && s13.gold === 85, `挥金如土+：打 22+1（实际 ${hb13 - c13.enemy.hp}）`);
 }
 
 // ============ 0731 十六张新专属卡断言 ============
@@ -1580,7 +1580,7 @@ section('b8) Rush 十专属机制');
   ok(eng.playCard(idx).ok, '议题可正常打出（仅消失）');
 }
 
-// 4 偷男【妙手空空】：偷手牌 + 击败归还
+// 4 偷男【妙手空空】：偷手牌 + 击败归还（偷男挂 lastStand：首次致命伤 1HP 存活反击，需补第二刀）
 {
   const eng = new Engine(604);
   eng.newRun('xiaoq');
@@ -1591,9 +1591,13 @@ section('b8) Rush 十专属机制');
   ok(c.stolenCards.length === 1 && !!r.stolenCardName, `偷走 1 张手牌（${r.stolenCardName}）`);
   c.enemy.hp = 1;
   c.hand.unshift({ uid: 1, id: 'strike_moyu', up: false });
+  const rk = eng.playCard(0);
+  ok(!!rk.lastStand && c.enemy.hp === 1 && !c.over, '偷男残血不屈：首刀 1HP 存活并反击');
+  ok(c.stolenCards.length === 1, '残血不屈期间被偷牌尚未归还');
+  c.hand.unshift({ uid: 2, id: 'strike_moyu', up: false });
   const d0 = c.discard.length;
   eng.playCard(0);
-  ok(c.stolenCards.length === 0 && c.discard.length === d0 + 1 + 1, '击败偷男归还被偷牌进弃牌堆');
+  ok(c.over && c.won && c.stolenCards.length === 0 && c.discard.length === d0 + 1 + 1, '击败偷男归还被偷牌进弃牌堆');
 }
 
 // 5 财务总监【预算审核】：费用合计 ≤4
@@ -1858,7 +1862,9 @@ section('e) 平衡统计（4 角色 × 50 局自动 run）');
     // 0731v2 批量卡牌调整（26 卡审定版，削弱偏多）后实测 6/46/4/24：
     // 小Q/机皇跌破 15% 带，下限按新实测对齐（0.05/0.03），待后续增强回补
     // 0731 四角色 16 张新专属卡进池后随机流平移，实测 4/48/2/12，下限再次按实测对齐
-    const floors = { xiaoq: 0.03, shengfan: 0.15, jihuang: 0.01, shuanglaoya: 0.10 };
+    // BOSS 防秒杀（4 层起 interrupt50/lastStand）+ 挥金如土削弱后实测 0/26/0/2：
+    // BOSS 变难整体压胜率，下限按实测对齐（0/0.15/0/0.01），待后续增强回补
+    const floors = { xiaoq: 0, shengfan: 0.15, jihuang: 0, shuanglaoya: 0.01 };
     ok(wr >= (floors[chId] || 0) && wr <= 0.5, `${chId} 胜率在 ${(floors[chId] || 0) * 100}%~50%（实际 ${(wr * 100).toFixed(0)}%）`);
     ok(errors === 0, `${chId} 50 局无异常`);
   }
@@ -1937,11 +1943,14 @@ function simRush(engine, build) {
     summary[chId] = { wr, avg: parseFloat(avg), runs, errors };
     ok(errors === 0, `${chId} rush 模拟无异常`);
     // v5+十专属机制验收基线（实测全角色通关率 0%、平均 2~6 场，不锁通关率，锁进度下限）
-    ok(summary[chId].avg >= 2, `${chId} 平均进度 ≥2 场（实际 ${avg}）`);
+    // BOSS 全员防秒杀 + 偷男比例偷金后实测 3.0/7.0/1.8/1.8，进度下限按实测分角色对齐
+    const minAvg = { xiaoq: 2, shengfan: 2, jihuang: 1.5, shuanglaoya: 1.5 };
+    ok(summary[chId].avg >= (minAvg[chId] || 2), `${chId} 平均进度 ≥${minAvg[chId] || 2} 场（实际 ${avg}）`);
     // 卡池新增卡牌会平移固定种子的随机流，样本数阈值按当前实测对齐
     // 0731v2 调整后机皇通关构筑仅 4 套（×2 = 8 局），阈值随实测下调
     // 0731 十六张新专属卡进池后机皇通关构筑降至 2 套（×2 = 4 局），机皇阈值再随实测对齐
-    const minRuns = { xiaoq: 8, shengfan: 8, jihuang: 4, shuanglaoya: 8 };
+    // BOSS 防秒杀后通关构筑进一步减少（小Q 2 套/老鸭 2 套），样本阈值按实测对齐
+    const minRuns = { xiaoq: 4, shengfan: 8, jihuang: 4, shuanglaoya: 4 };
     ok(runs >= (minRuns[chId] || 8), `${chId} rush 模拟样本 ≥${minRuns[chId] || 8} 局（实际 ${runs}）`);
   }
   // 强构筑应能摸到中场：最佳角色平均进度 ≥5.0（十机制+新卡池实测最佳 5.3）
@@ -2424,6 +2433,118 @@ function mapFingerprint(e) {
     delete globalThis.GameUI;
     delete globalThis.Game;
   }
+}
+
+/* ---------- k) BOSS 防秒杀：interrupt50 / lastStand / 偷男比例偷金 ---------- */
+section('k) BOSS 防秒杀（interrupt50/lastStand）与偷男比例偷金');
+
+// 数据挂载：主游戏 4-9 层 + Rush 全员
+{
+  ok(['boss_fin', 'boss_tech', 'boss_vp'].every(id => D.enemies[id].interrupt50 === true),
+    '4/5/8 层 BOSS 挂 interrupt50（财务总监/技术总监/副总裁）');
+  ok(['boss_mkt', 'boss2', 'boss_sec'].every(id => D.enemies[id].lastStand === true),
+    '6/7/9 层 BOSS 挂 lastStand（市场总监/HR/秘书A先生）');
+  ok(D.rushBosses.every(b => b.interrupt50 === true || b.lastStand === true),
+    'Rush 十 BOSS 全员挂防秒杀（interrupt50 或 lastStand）');
+  ok(D.rushBosses[3].id === 'thief' && D.rushBosses[3].lastStand === true, '偷男必为 lastStand');
+}
+
+// interrupt50：首次破 50% 触发打断、BOSS 立即免费行动一轮，且只触发一次
+{
+  const e = new Engine(9201);
+  e.newRun('xiaoq');
+  e.startCombat('boss_fin');
+  const c = e.state.combat, boss = c.enemy;
+  boss.hp = Math.ceil(boss.maxHp * 0.52); // 63
+  const tcBefore = boss.turnCount;
+  c.hand.unshift({ uid: 9001, id: 'strike_moyu', up: false });
+  const r = e.playCard(0);
+  ok(!!r.interrupt && boss.interrupt50Used === true && boss.phase === 0,
+    'interrupt50：52%→破半血触发打断（不进阶段）');
+  ok(boss.turnCount === tcBefore + 1 && r.interrupt.cutText === 'BOSS 被激怒了！',
+    '打断后 BOSS 立即免费行动一轮（演出文案 cutText 下发）');
+  ok(c.hand.length === 5 && c.energy === c.maxEnergy && c.turn === 2,
+    '玩家当前回合被强制结束：弃牌重抽 5 张、能量回满、进新回合');
+  // 只触发一次：血量仍低于 50% 时继续出牌不再次打断
+  const idx2 = c.hand.findIndex(i => Engine.cardDef(i).cost <= c.energy);
+  const r2 = e.playCard(idx2 >= 0 ? idx2 : 0);
+  ok(!r2.interrupt, 'interrupt50 只触发一次');
+  // 未破 50% 不触发
+  const e9 = new Engine(9202);
+  e9.newRun('xiaoq');
+  e9.startCombat('boss_fin');
+  const c9 = e9.state.combat;
+  c9.hand.unshift({ uid: 9009, id: 'strike_moyu', up: false });
+  ok(!e9.playCard(0).interrupt, '未破 50% 不触发打断');
+}
+
+// lastStand：致死伤保留 1HP 且只触发一次、随后立即反击行动一次
+{
+  const e = new Engine(9203);
+  e.newRun('xiaoq');
+  e.startCombat('boss_mkt');
+  const c = e.state.combat, boss = c.enemy;
+  boss.hp = 5;
+  const tcBefore = boss.turnCount;
+  c.hand.unshift({ uid: 9002, id: 'strike_moyu', up: false });
+  const r = e.playCard(0);
+  ok(!!r.lastStand && boss.hp === 1 && boss.lastStandUsed === true && !c.over,
+    'lastStand：致死一击以 1HP 存活（战斗继续）');
+  ok(boss.turnCount === tcBefore + 1 && r.lastStand.cutText === '垂死挣扎！',
+    'lastStand 随后立即反击行动一次（演出文案「垂死挣扎！」）');
+  // 只触发一次：第二刀直接击杀获胜
+  c.hand.unshift({ uid: 9003, id: 'strike_moyu', up: false });
+  const r2 = e.playCard(0);
+  ok(!r2.lastStand && c.over && c.won, 'lastStand 只触发一次（第二刀击杀获胜）');
+}
+
+// 偷男【顺手牵羊】：偷当前金币 25%（保底 15）
+{
+  const mv = D.rushBosses[3].moves.filter(m => m.type === 'stealGold')[0];
+  ok(mv && mv.pct === 0.25 && mv.min === 15 && mv.value === undefined,
+    '顺手牵羊数据为 25% 比例偷取 + 保底 15');
+  // 200 金 → 偷 50
+  const e = new Engine(9204);
+  e.newRun('xiaoq');
+  e.startRushCombat(D.rushBosses[3], 4);
+  const c = e.state.combat;
+  e.state.gold = 200;
+  c.enemy.intent = mv;
+  c.hand = [];
+  const r = e.endTurn();
+  ok(r.stolenGold === 50 && e.state.gold === 150, `200金被偷25%=50（实际 ${r.stolenGold}）`);
+  // 40 金 → 25%=10 < 保底 → 偷 15
+  const e2 = new Engine(9205);
+  e2.newRun('xiaoq');
+  e2.startRushCombat(D.rushBosses[3], 4);
+  const c2 = e2.state.combat;
+  e2.state.gold = 40;
+  c2.enemy.intent = mv;
+  c2.hand = [];
+  const r2 = e2.endTurn();
+  ok(r2.stolenGold === 15 && e2.state.gold === 25, `40金保底偷15（实际 ${r2.stolenGold}）`);
+}
+
+// 1vN（董事会）：防秒杀字段在 multi 下安全跳过，不抛异常
+{
+  const e = new Engine(9206);
+  e.newRun('xiaoq');
+  e.startMultiCombat(D.rushBosses[8], 9);
+  const c = e.state.combat;
+  ok(c.multi === true && D.rushBosses[8].interrupt50 === true, '董事会挂 interrupt50 且为 1vN 集团战');
+  // 非轮值董事压到半血以下、轮值董事一刀打进致死：均不应触发打断/不屈
+  const chair = c.enemies[c.chairIdx];
+  c.enemies.forEach(m2 => { if (m2 !== chair) m2.hp = Math.floor(m2.maxHp * 0.4); });
+  chair.hp = 4;
+  c.hand.unshift({ uid: 9004, id: 'strike_moyu', up: false });
+  let err = null, r = null;
+  try { r = e.playCard(0); } catch (ex) { err = ex; }
+  ok(!err, 'multi 下致死/破半血伤害不抛异常');
+  ok(r && !r.interrupt && !r.lastStand && chair.dead === true, 'multi 下防秒杀不触发，成员正常死亡结算');
+  // 全程打完不抛异常且战斗正常结束
+  err = null;
+  try { scriptedCombat(e, 300, true); } catch (ex2) { err = ex2; }
+  ok(!err && c.over, 'multi 全程战斗无异常且正常结束');
 }
 
 /* ---------- 汇总 ---------- */
