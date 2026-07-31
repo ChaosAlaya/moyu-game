@@ -1767,6 +1767,164 @@ section('g) 肯尼的镜片（预见队列）');
   ok(!e3.state.combat.enemy.foresight, '无镜片不生成预见队列');
 }
 
+/* ---------- h) 存档版本迁移 / 损坏自愈 / 统计累计 ---------- */
+section('h) 存档版本迁移 / 损坏自愈 / 统计累计');
+{
+  const GE = globalThis.GameEngine;
+
+  // 1) v1 → 当前版本迁移：补 saveVer + stats，保留既有进度
+  const v1save = {
+    unlocks: { xiaoq: true, shengfan: true },
+    maxFloor: 6, wins: 2, runs: 5,
+    codex: { cards: { rua: true }, relics: {}, enemies: {} },
+    history: [{ t: 1 }]
+  };
+  const mig = GE.migrateSave(JSON.parse(JSON.stringify(v1save)));
+  ok(mig && mig.saveVer === GE.SAVE_VERSION, 'v1 存档迁移到当前版本（saveVer 就位）');
+  ok(mig.stats && mig.stats.runs === 0 && mig.stats.wins === 0 &&
+     mig.stats.maxFloor === 0 && mig.stats.bossKills === 0 && mig.stats.bestHit === 0,
+     '迁移后 stats 存在且默认全 0');
+  ok(mig.stats.chars.xiaoq && mig.stats.chars.shengfan && mig.stats.chars.jihuang && mig.stats.chars.shuanglaoya,
+     'stats 预填全部角色场次/胜场');
+  ok(mig.maxFloor === 6 && mig.wins === 2 && mig.runs === 5 && mig.history.length === 1 && mig.codex.cards.rua === true,
+     '迁移保留既有进度字段');
+  // 已是当前版本：原样通过且 stats 合法值保留
+  const cur = GE.migrateSave({ saveVer: GE.SAVE_VERSION, stats: { runs: 3, chars: { xiaoq: { runs: 3, wins: 1 } } } });
+  ok(cur && cur.stats.runs === 3 && cur.stats.chars.xiaoq.wins === 1, '当前版本存档 stats 合法值保留');
+  // stats 部分损坏：迁移时自愈补默认
+  const healed = GE.migrateSave({ saveVer: 1, stats: { runs: '坏', chars: '坏' } });
+  ok(healed && healed.stats.runs === 0 && healed.stats.chars.xiaoq.runs === 0, 'stats 子字段损坏自愈');
+
+  // 2) 结构非法 → null（loadSave / importSave 据此回退默认）
+  ok(GE.migrateSave(null) === null, 'null 存档返回 null');
+  ok(GE.migrateSave('字符串') === null, '字符串存档返回 null');
+  ok(GE.migrateSave([1, 2]) === null, '数组存档返回 null');
+  ok(GE.migrateSave({ unlocks: '坏' }) === null, 'unlocks 类型非法返回 null');
+  ok(GE.migrateSave({ codex: 42 }) === null, 'codex 类型非法返回 null');
+  ok(GE.migrateSave({ history: '坏' }) === null, 'history 类型非法返回 null');
+  ok(GE.migrateSave({ saveVer: GE.SAVE_VERSION + 1 }) === null, '更高版本存档拒绝迁移（防旧客户端误写）');
+
+  // 3) 对局快照结构校验（main.js runLoadSave 用，非法即静默清除）
+  const engSnap = new Engine(42);
+  engSnap.newRun('xiaoq');
+  const goodSnap = {
+    v: 1, charId: 'xiaoq', act: 1, step: 0, hp: 60, maxHp: 60, gold: 99,
+    deck: engSnap.state.deck.map(c => ({ uid: c.uid, id: c.id, up: false })),
+    relics: [], equippedRelics: [], seenEvents: [], seen: { cards: {}, relics: {}, enemies: {} },
+    map: engSnap.state.map, lastNodeType: null, floorsCleared: 0, path: [], uidCounter: 11
+  };
+  ok(GE.validRunSnapshot(goodSnap), '合法对局快照通过校验');
+  ok(!GE.validRunSnapshot(null), 'null 快照非法');
+  ok(!GE.validRunSnapshot('坏') && !GE.validRunSnapshot({}), '非对象/空对象快照非法');
+  ok(!GE.validRunSnapshot(Object.assign({}, goodSnap, { charId: 'ghost' })), '未知角色快照非法');
+  ok(!GE.validRunSnapshot(Object.assign({}, goodSnap, { deck: [] })), '空牌组快照非法');
+  ok(!GE.validRunSnapshot(Object.assign({}, goodSnap, { map: null })), '缺地图快照非法');
+  ok(!GE.validRunSnapshot(Object.assign({}, goodSnap, { hp: '满血' })), 'hp 非数字快照非法');
+
+  // 4) stats 累计正确性
+  const saveA = { stats: GE.defaultStats() };
+  GE.accumulateStats(saveA, { charId: 'xiaoq', act: 4, floorsCleared: 3, victory: false, maxHit: 18 });
+  GE.accumulateStats(saveA, { charId: 'xiaoq', act: 10, floorsCleared: 10, victory: true, maxHit: 45 });
+  GE.accumulateStats(saveA, { charId: 'shengfan', act: 2, floorsCleared: 1, victory: false, maxHit: 12 });
+  const stA = saveA.stats;
+  ok(stA.runs === 3 && stA.wins === 1, `stats 总场次/总胜场（实际 ${stA.runs}/${stA.wins}）`);
+  ok(stA.chars.xiaoq.runs === 2 && stA.chars.xiaoq.wins === 1, 'stats 各角色场次/胜场');
+  ok(stA.chars.shengfan.runs === 1 && stA.chars.shengfan.wins === 0, 'stats 第二角色只计场次');
+  ok(stA.maxFloor === 10, `stats 最高到达层（实际 ${stA.maxFloor}）`);
+  ok(stA.bossKills === 14, `stats 总击杀 Boss 数（实际 ${stA.bossKills}）`);
+  ok(stA.bestHit === 45, `stats 单局最高伤害（实际 ${stA.bestHit}）`);
+  // 旧档缺 stats：累计时自动补默认，不炸（run 缺 floorsCleared/maxHit 也安全）
+  const saveB = {};
+  GE.accumulateStats(saveB, { charId: 'jihuang', act: 1, victory: false });
+  ok(saveB.stats && saveB.stats.runs === 1 && saveB.stats.bossKills === 0, '缺 stats 旧档累计自动补默认');
+
+  // 5) 存档码：旧 v1 码仍能导入（解码 + 迁移），新码带新版本号
+  const codec2 = GE.saveCodec;
+  const v1Code = Buffer.from(JSON.stringify({ v: 1, data: { save: v1save, sfx: 'off' } }), 'utf8').toString('base64');
+  const decoded = codec2.decode(v1Code);
+  ok(decoded && decoded.sfx === 'off' && decoded.save && decoded.save.wins === 2, 'v1 旧存档码可解码');
+  const mig2 = decoded && GE.migrateSave(decoded.save);
+  ok(mig2 && mig2.saveVer === GE.SAVE_VERSION && mig2.stats && mig2.stats.chars.xiaoq, 'v1 旧码导入即迁移到当前版本');
+  const newRaw = JSON.parse(Buffer.from(codec2.encode({ save: v1save, sfx: 'on' }), 'base64').toString('utf8'));
+  ok(newRaw.v === GE.SAVE_VERSION, `新导出存档码版本号 = ${GE.SAVE_VERSION}（实际 ${newRaw.v}）`);
+  ok(codec2.decode(Buffer.from('{"v":99,"data":{"save":{}}}', 'utf8').toString('base64')) === null, '未来版本存档码返回 null');
+
+  // 6) 引擎记录单局最高伤害（bestHit 数据源）
+  const engHit = new Engine(7);
+  engHit.newRun('xiaoq');
+  engHit.startCombat('group_at');
+  scriptedCombat(engHit, 10, true);
+  ok(engHit.state.maxHit > 0, `引擎记录单局最高伤害 maxHit（实际 ${engHit.state.maxHit}）`);
+  // 精准校验：手动打出一张攻击牌，maxHit = 该牌最大单段伤害
+  const engHit2 = new Engine(11);
+  engHit2.newRun('xiaoq');
+  engHit2.startCombat('group_at');
+  const cH = engHit2.state.combat;
+  let manualMax = -1;
+  for (let i = 0; i < cH.hand.length && manualMax < 0; i++) {
+    const defH = D.cards[cH.hand[i].id];
+    if (defH && defH.type === 'attack' && defH.cost <= cH.energy) {
+      const rH = engHit2.playCard(i);
+      if (rH.ok && rH.hits.length) manualMax = Math.max.apply(null, rH.hits);
+    }
+  }
+  ok(manualMax >= 0 && engHit2.state.maxHit === manualMax, 'maxHit = 出牌最大单段伤害');
+
+  // 7) main.js 读取点集成：localStorage 损坏回退 / 非法快照清除（Node 下 eval main.js）
+  const mainSrc = fs.readFileSync(path.join(root, 'js', 'main.js'), 'utf8');
+  function mockLS(store) {
+    return {
+      getItem: function (k) { return Object.prototype.hasOwnProperty.call(store, k) ? store[k] : null; },
+      setItem: function (k, v) { store[k] = String(v); },
+      removeItem: function (k) { delete store[k]; }
+    };
+  }
+  // 前序测试块留了 document mock，main.js 启动分支会跑：GameUI 需要 toast/preloadFx/render 三个桩
+  globalThis.GameUI = { toast: function () {}, preloadFx: function () {}, render: function () {} };
+  try {
+    // 元存档 JSON 损坏 → 回退默认（含 saveVer/stats）
+    let store = { moyu_save_v1: '{损坏JSON' };
+    globalThis.localStorage = mockLS(store);
+    eval(mainSrc);
+    let sv = globalThis.Game.state.save;
+    ok(sv.saveVer === GE.SAVE_VERSION && sv.wins === 0 && sv.stats && sv.stats.runs === 0,
+       'loadSave：损坏 JSON 回退默认存档');
+    // 元存档结构非法 → 回退默认
+    store = { moyu_save_v1: JSON.stringify({ unlocks: '坏', codex: 1 }) };
+    globalThis.localStorage = mockLS(store);
+    eval(mainSrc);
+    sv = globalThis.Game.state.save;
+    ok(sv.saveVer === GE.SAVE_VERSION && sv.unlocks.xiaoq === true && sv.unlocks.shengfan === false,
+       'loadSave：结构非法回退默认存档');
+    // v1 元存档 → 加载即迁移且保留进度
+    store = { moyu_save_v1: JSON.stringify(v1save) };
+    globalThis.localStorage = mockLS(store);
+    eval(mainSrc);
+    sv = globalThis.Game.state.save;
+    ok(sv.saveVer === GE.SAVE_VERSION && sv.wins === 2 && sv.maxFloor === 6 && sv.unlocks.shengfan === true,
+       'loadSave：v1 存档加载即迁移且保留进度');
+    ok(sv.stats && sv.stats.runs === 0 && sv.stats.chars.xiaoq.wins === 0, 'loadSave：迁移后 stats 就位');
+    // 对局快照 JSON 损坏 → continueRun 静默清除，不炸
+    store = { moyu_run_save: '{损坏JSON' };
+    globalThis.localStorage = mockLS(store);
+    eval(mainSrc);
+    globalThis.Game.continueRun();
+    ok(!('moyu_run_save' in store) && globalThis.Game.state.runSave === null,
+       'runLoadSave：损坏快照静默清除（继续游戏按钮隐藏）');
+    // 对局快照结构非法 → 同上
+    store = { moyu_run_save: JSON.stringify({ charId: 'ghost', deck: 'x', map: null }) };
+    globalThis.localStorage = mockLS(store);
+    eval(mainSrc);
+    globalThis.Game.continueRun();
+    ok(!('moyu_run_save' in store) && globalThis.Game.state.runSave === null,
+       'runLoadSave：结构非法快照静默清除');
+  } finally {
+    delete globalThis.localStorage;
+    delete globalThis.GameUI;
+    delete globalThis.Game;
+  }
+}
+
 /* ---------- 汇总 ---------- */
 console.log(`\n========================================`);
 console.log(`结果: ${passed} 通过, ${failed} 失败`);
