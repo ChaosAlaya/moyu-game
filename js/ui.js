@@ -348,6 +348,12 @@
       text += '　<span class="budget-left">预算剩 ' + Math.max(0, 4 - c.spentThisTurn) + '/4</span>';
       tip += '（预算剩 ' + Math.max(0, 4 - c.spentThisTurn) + '/4）';
     }
+    // 【议题轰炸】显示当前议题数和预计罚款
+    if (edef.mechanic === 'junkCard') {
+      var yn = c.hand.filter(function (x) { return x.id === 'yiti'; }).length;
+      text += '　<span class="yiti-count">议题 ' + yn + ' 张·罚 ' + yn * 3 + ' 金</span>';
+      tip += '（逾期罚款：回合结束每未打出 1 张议题罚 3 金币，金不够罚 2 精力）';
+    }
     // 狂暴标记
     if (e.enraged) {
       text += '　<span class="enrage-badge">狂暴</span>';
@@ -421,6 +427,9 @@
     } else {
       var eStatus = statusBadges([
         e.enraged ? { cls: 'enrage', txt: '狂暴' } : null,
+        edef.mechanic === 'junkCard'
+          ? { cls: 'str', txt: '议题×' + c.hand.filter(function (x) { return x.id === 'yiti'; }).length }
+          : null,
         e.strength ? { cls: 'str', txt: '力量+' + e.strength } : null,
         e.weak ? { cls: 'weak', txt: '虚弱 ' + e.weak } : null,
         e.vulnerable ? { cls: 'vuln', txt: '易伤 ' + e.vulnerable } : null
@@ -943,7 +952,8 @@
       html: '<p><b>力量</b>：每层 +1 攻击伤害</p>' +
         '<p><b>虚弱</b>：造成伤害 -25%（按回合衰减）</p>' +
         '<p><b>易伤</b>：受伤 +50%（按回合衰减）</p>' +
-        '<p><b>消耗</b>：打出后本场战斗移除（不进弃牌堆）</p>'
+        '<p><b>消耗</b>：打出后本场战斗移除（不进弃牌堆）</p>' +
+        '<p><b>议题</b>：会议室秘书长每回合塞 2 张的废牌；回合结束没打出会被<b>逾期罚款</b>——每张罚 3 金币，金币不够罚 2 精力，赶紧把它打出去！</p>'
     },
     {
       title: '地图节点',

@@ -1567,17 +1567,56 @@ section('b8) Rush 十专属机制');
   ok(eng.state.hp === hp0 - 22, `必中重击：50 格挡被无视（掉 ${hp0 - eng.state.hp}）`);
 }
 
-// 3 秘书长【临时议题】：每回合塞废牌，废牌无效果可打出
+// 3 秘书长【临时议题 v2】：每回合塞 2 张废牌 + 逾期罚款，废牌无效果可打出
 {
   const eng = new Engine(603);
   eng.newRun('xiaoq');
   eng.startRushCombat(D.rushBosses[2], 3);
   const c = eng.state.combat;
-  ok(c.hand.filter(x => x.id === 'yiti').length === 1, '第一回合手牌含 1 张议题');
+  ok(c.hand.filter(x => x.id === 'yiti').length === 2, '第一回合手牌含 2 张议题（v2 翻倍）');
   ok(D.cards.yiti.effects.length === 0 && D.cards.yiti.noReward, '议题为 1 费无效果废牌且不入奖励池');
   ok(Engine.cardPool('xiaoq').indexOf('yiti') < 0, '议题不进抽牌奖励池');
   const idx = c.hand.findIndex(x => x.id === 'yiti');
   ok(eng.playCard(idx).ok, '议题可正常打出（仅消失）');
+}
+
+// 3v2 秘书长【逾期罚款】：逐张 3 金、金不够罚 2 精力、打出不罚、意图显示
+{
+  // 罚款逐张结算（金够）
+  let eng = new Engine(612);
+  eng.newRun('xiaoq');
+  eng.startRushCombat(D.rushBosses[2], 3);
+  let c = eng.state.combat;
+  eng.state.gold = 10;
+  c.hand = [{ uid: 91, id: 'yiti' }, { uid: 92, id: 'yiti' }, { uid: 93, id: 'yiti' }];
+  let r = eng.endTurn();
+  ok(r.fineCount === 3 && r.fineGold === 9 && !r.fineHp && eng.state.gold === 1,
+    '逾期罚款逐张 3 金（3 张罚 9，剩 1）');
+  // 金币不足改罚精力
+  eng = new Engine(613);
+  eng.newRun('xiaoq');
+  eng.startRushCombat(D.rushBosses[2], 3);
+  c = eng.state.combat;
+  eng.state.gold = 4;
+  const hp0 = eng.state.hp;
+  c.hand = [{ uid: 91, id: 'yiti' }, { uid: 92, id: 'yiti' }];
+  r = eng.endTurn();
+  ok(r.fineGold === 4 && r.fineHp === 2 && eng.state.gold === 0,
+    '金不够：先扣金 4，第 2 张改罚 2 精力');
+  ok(r.actions.some(a => a.name === '逾期罚款'), '罚款进演出 actions');
+  // 打出议题不罚
+  eng = new Engine(614);
+  eng.newRun('xiaoq');
+  eng.startRushCombat(D.rushBosses[2], 3);
+  c = eng.state.combat;
+  eng.state.gold = 50; c.energy = 4;
+  eng.playCard(c.hand.findIndex(x => x.id === 'yiti'));
+  eng.playCard(c.hand.findIndex(x => x.id === 'yiti'));
+  r = eng.endTurn();
+  ok(!r.fineCount && eng.state.gold === 50, '打出议题=完成工作不罚款');
+  // 意图显示议题数/罚款
+  const uiSrc2 = require('fs').readFileSync(require('path').join(__dirname, '..', 'js', 'ui.js'), 'utf8');
+  ok(/yiti-count/.test(uiSrc2), '意图气泡显示议题数与预计罚款');
 }
 
 // 4 偷男【妙手空空】：偷手牌 + 击败归还（偷男挂 lastStand：首次致命伤 1HP 存活反击，需补第二刀）

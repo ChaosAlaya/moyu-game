@@ -1417,3 +1417,6 @@ img.fx-pow { animation: powpop .5s cubic-bezier(.2,1.4,.4,1) forwards; }
 /* ---------- 图鉴升级对比 ---------- */
 .codex-card { display: inline-block; }
 .up-preview.codex-up { right: 3vw; }
+
+/* 议题轰炸：议题数/罚款角标 */
+.yiti-count { color: var(--yellow); font-weight: 900; font-size: 13px; }

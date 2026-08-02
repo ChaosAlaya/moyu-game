@@ -463,6 +463,10 @@
     if (r.stolenCardName) setTimeout(function () {
       UI.floater('player-img', '被偷走「' + r.stolenCardName + '」！', 'dmg');
     }, baseMs + 100);
+    if (r.fineCount) setTimeout(function () {
+      UI.floater('player-img', '逾期罚款 ×' + r.fineCount + '：-' + r.fineGold + ' 金币' +
+        (r.fineHp ? ' -' + r.fineHp + ' 精力' : ''), 'dmg');
+    }, baseMs + 60);
     if (r.reviewSelf) setTimeout(function () {
       UI.floater(eImg(), '考核达标！自伤 -' + r.reviewSelf, 'heal');
     }, baseMs + 100);

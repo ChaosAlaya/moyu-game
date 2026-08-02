@@ -544,8 +544,9 @@
     // 洞洞板：第一回合多抽 1 张
     if (c.turn === 1 && this.hasRelic('pegboard')) drawN += 1;
     this._draw(drawN);
-    // 【临时议题】会议室秘书长：每回合开始往玩家手牌塞 1 张「议题」废牌
+    // 【临时议题 v2】会议室秘书长：每回合开始往玩家手牌塞 2 张「议题」废牌
     if (!c.multi && c.enemy._def.mechanic === 'junkCard') {
+      c.hand.push({ uid: st.uidCounter++, id: 'yiti', up: false });
       c.hand.push({ uid: st.uidCounter++, id: 'yiti', up: false });
     }
     // 【预算审核】财务总监：每回合出牌费用合计 ≤4
@@ -1077,6 +1078,33 @@
     var st = this.state, c = st.combat;
     if (!c || c.over) return { over: true };
     var result = { dmgToPlayer: 0, enemyBlock: 0, skipped: false, over: false, hits: [], absorbed: [], reflected: 0, scarf: false, attacked: false };
+    // 【逾期罚款】会议室秘书长 v2：回合结束时手里每张未打出的「议题」罚 3 金币，
+    // 逐张结算：先扣金，金不够扣 2 点精力（打出议题=完成工作，不罚）
+    if (!c.multi && c.enemy._def.mechanic === 'junkCard' && !c.enemy.dead) {
+      var yitis = c.hand.filter(function (x) { return x.id === 'yiti'; });
+      if (yitis.length) {
+        var fineG = 0, fineH = 0;
+        yitis.forEach(function () {
+          if (st.gold >= 3) { st.gold -= 3; fineG += 3; }
+          else { fineG += st.gold; st.gold = 0; st.hp -= 2; fineH += 2; }
+        });
+        result.fineCount = yitis.length;
+        result.fineGold = fineG;
+        result.fineHp = fineH;
+        c.log.push({ t: 'sys', text: '逾期罚款：-' + fineG + ' 金币' + (fineH ? '，-' + fineH + ' 精力' : '') });
+        if (fineH > 0) {
+          result.attacked = true;
+          var fh = result.hits.length;
+          result.hits.push(fineH);
+          result.absorbed.push(0);
+          result.dmgToPlayer += fineH;
+          (result.actions = result.actions || []).push({
+            id: c.enemy.id, name: '逾期罚款', special: false, hs: fh, he: result.hits.length
+          });
+          this._afterDamageChecks(result);
+        }
+      }
+    }
     // 【妙手空空】偷男：敌方回合开始（弃牌前）偷走玩家随机 1 张手牌，击败他归还
     if (!c.multi && c.enemy._def.mechanic === 'stealCard' && !c.enemy.dead && c.hand.length) {
       var si = this.rng.int(c.hand.length);
