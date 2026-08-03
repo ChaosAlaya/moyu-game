@@ -551,6 +551,12 @@
     }
     // 【预算审核】财务总监：每回合出牌费用合计 ≤4
     c.spentThisTurn = 0;
+    // 【画饼】部门主管：本回合首张牌费用 -1（bingTurn 生效回合）
+    c.bingUsed = false;
+    c.bingTurn = false;
+    if (c.bingNext) { c.bingTurn = true; c.bingNext = false; }
+    // 【报销审核】财务主管：每回合首张 ≥2 费牌审核一次
+    c.auditUsed = false;
     // 【轮值主席】董事会：每回合轮换，仅轮值董事可被正常攻击
     if (c.multi && c.enemies) {
       var alive2 = c.enemies.filter(function (x) { return !x.dead; });
@@ -585,6 +591,18 @@
     if (def.type === 'attack' && this.hasRelic('cyberdesk') && !c.flags.attackPadUsed) {
       cost = Math.max(0, cost - 1);
     }
+    // 【画饼】部门主管：画饼回合首张牌费用 -1
+    if (c.bingTurn && !c.bingUsed) {
+      cost = Math.max(0, cost - 1);
+      c.bingUsed = true;
+    }
+    // 【报销审核】财务主管在场：每回合第一张 ≥2 费的牌先交 3 金，交不起效果减半
+    var auditHalve = false;
+    if (!c.multi && c.enemy._def.mechanic === 'expenseAudit' && !c.auditUsed && cost >= 2) {
+      c.auditUsed = true;
+      if (st.gold >= 3) { st.gold -= 3; }
+      else { auditHalve = true; }
+    }
     if (c.energy < cost) return { ok: false, error: '能量不足' };
     // 【预算审核】财务总监在场：每回合出牌费用合计不能超过 4 点
     if (!c.multi && c.enemy._def.mechanic === 'budget' && c.spentThisTurn + cost > 4) {
@@ -600,6 +618,13 @@
     }
     c.hand.splice(handIdx, 1);
     var result = { ok: true, card: def, dmgToEnemy: 0, dmgToPlayer: 0, blockGained: 0, healGained: 0, hits: [] };
+    // 【行政摊派】行政主管在场：每打出 1 张牌交 1 金币（没金币改罚 2 精力）
+    if (!c.multi && c.enemy._def.mechanic === 'adminFee') {
+      if (st.gold >= 1) { st.gold -= 1; result.adminFeeGold = (result.adminFeeGold || 0) + 1; }
+      else { st.hp -= 2; result.adminFeeHp = (result.adminFeeHp || 0) + 2; result.dmgToPlayer += 2; }
+    }
+    // 【代理决策】记录本回合第一张技能牌（供摸鱼副总下回合复制）
+    if (def.type === 'skill' && !c.firstSkill) c.firstSkill = { id: inst.id, up: !!inst.up };
     var self = this;
 
     // 圣物伤害加成：键盘（攻击牌每段 +1）、黑暗剑穗（对精英/BOSS +2）
@@ -624,6 +649,7 @@
       if (c.multi && c.enemies && c.enemies[c.chairIdx] && c.enemy !== c.enemies[c.chairIdx]) {
         dmg = Math.floor(dmg / 2);
       }
+      if (auditHalve) dmg = Math.ceil(dmg / 2); // 【报销审核】交不起 3 金：效果减半
       if (dmg < 0) dmg = 0;
       // 敌人格挡
       var absorbed = Math.min(c.enemy.block, dmg);
@@ -647,6 +673,7 @@
           // 鼠标垫：技能牌格挡 +2
           var bv = ef.value;
           if (def.type === 'skill' && self.hasRelic('mousepad')) bv += 2;
+          if (auditHalve) bv = Math.ceil(bv / 2); // 【报销审核】效果减半
           c.playerBlock += bv; result.blockGained += bv;
           break;
         }
@@ -655,6 +682,7 @@
           // 小面仙人：回复效果 +2
           var hv = ef.value;
           if (self.hasRelic('noodle_god')) hv += 2;
+          if (auditHalve) hv = Math.ceil(hv / 2); // 【报销审核】效果减半
           var hpBeforeHeal = st.hp;
           st.hp = Math.min(st.maxHp, st.hp + hv);
           // 只记录实际回复量，避免满血时飘字虚报
@@ -983,19 +1011,31 @@
         }
       });
     }
-    if (e.skipTurns > 0) {
-      e.skipTurns--;
-      result.skipped = true;
-    } else if (e.intent) {
-      var mv = e.intent;
+    // 【全渠道投放】市场主管：伤害随玩家圣物数量 +2/件
+    if (edef.mechanic === 'marketing') { e.dmgBonus = st.relics.length * 2; result.mktBonus = e.dmgBonus; }
+    // 【画饼】部门主管：每 3 回合——玩家下回合首张牌费用 -1（当回合没打攻击牌吃 8 点失望）
+    if (edef.mechanic === 'bingTu' && e.turnCount % 3 === 0) { c.bingNext = true; result.bingTu = true; }
+    // 【优化名单】HR：每 4 回合从玩家弃牌堆随机“优化”2 张（本场战斗移除）
+    if (edef.mechanic === 'optimize' && e.turnCount % 4 === 0 && c.discard.length) {
+      result.optimized = result.optimized || [];
+      for (var opz = 0; opz < 2 && c.discard.length; opz++) {
+        var oi = self.rng.int(c.discard.length);
+        var oCard = c.discard.splice(oi, 1)[0];
+        c.exhausted.push(oCard);
+        result.optimized.push(Engine.cardDef(oCard).name);
+      }
+    }
+    // 【上线冲刺】技术主管：每 4 回合双倍攻击，下回合宕机跳过
+    var sprintDbl = edef.mechanic === 'sprint' && e.turnCount % 4 === 0;
+    function execMove(mv) {
       switch (mv.type) {
         case 'attack': {
           result.attacked = true;
           var hStart = result.hits.length; // 打击感演出：记录本次行动的命中区间
-          var times = mv.times || 1;
+          var times = (mv.times || 1) * (sprintDbl ? 2 : 1);
           for (var i = 0; i < times; i++) enemyHit(mv.value, mv);
           (result.actions = result.actions || []).push({
-            id: e.id, name: mv.name, special: !!mv.every, hs: hStart, he: result.hits.length
+            id: e.id, name: mv.name + (sprintDbl ? '·双倍' : ''), special: !!mv.every || sprintDbl, hs: hStart, he: result.hits.length
           });
           if (mv.weak) c.playerWeak += mv.weak;
           if (mv.vulnerable) c.playerVuln += mv.vulnerable;
@@ -1040,6 +1080,32 @@
           break;
         }
       }
+    }
+    if (e.skipTurns > 0) {
+      e.skipTurns--;
+      result.skipped = true;
+    } else if (e.intent) {
+      execMove(e.intent);
+      // 【日程即圣旨】秘书A先生：每 4 回合临时插入一次额外行动
+      if (edef.mechanic === 'agenda' && e.turnCount % 4 === 0 && !e.dead) {
+        result.extraAction = true;
+        execMove(e.intent);
+      }
+      // 【上线冲刺】双倍攻击后下回合宕机
+      if (sprintDbl && !e.dead) { e.skipTurns += 1; result.sprint = true; }
+    }
+    // 【代理决策】摸鱼副总：复制玩家上一回合第一张技能牌为自己所用
+    if (edef.mechanic === 'agentCopy' && c.prevFirstSkill && !e.dead) {
+      var skBase = D.cards[c.prevFirstSkill.id];
+      var skDef = (c.prevFirstSkill.up && skBase.up) ? Object.assign({}, skBase, skBase.up) : skBase;
+      result.agentCopy = skDef.name;
+      (skDef.effects || []).forEach(function (ef) {
+        if (ef.op === 'block') { e.block += ef.value; result.enemyBlock = (result.enemyBlock || 0) + ef.value; }
+        else if (ef.op === 'heal') e.hp = Math.min(e.maxHp, e.hp + ef.value);
+        else if (ef.op === 'strength') e.strength += ef.value;
+        else if (ef.op === 'weak') c.playerWeak += ef.value;
+        else if (ef.op === 'vulnerable') c.playerVuln += ef.value;
+      });
     }
     // 【影子决策】高级VP：复制玩家上一回合最后打出的攻击牌（按其数值）打回
     if (edef.mechanic === 'mirror' && c.prevAttack && !e.dead) {
@@ -1112,6 +1178,17 @@
       c.stolenCards.push(stolenC);
       result.stolenCardName = Engine.cardDef(stolenC).name;
     }
+    // 【需求变更】项目经理：每 2 回合（弃牌前）随机改玩家 1 张手牌费用 ±1（不低于 0）
+    if (!c.multi && c.enemy._def.mechanic === 'reqChange' && !c.enemy.dead &&
+        (c.enemy.turnCount + 1) % 2 === 0 && c.hand.length) {
+      var rc = c.hand[this.rng.int(c.hand.length)];
+      var rcDef = Engine.cardDef(rc);
+      var delta = this.rng() < 0.5 ? -1 : 1;
+      var curCost = rcDef.cost + (rc.costMod || 0);
+      if (curCost + delta < 0) delta = -curCost;
+      rc.costMod = (rc.costMod || 0) + delta;
+      result.reqChange = { name: rcDef.name, delta: delta };
+    }
     // 深谋：机皇本回合没打出过攻击牌时，手牌全部保留到下回合；否则照常弃牌
     var keepHand = st.charId === 'jihuang' && c.attacksThisTurn === 0;
     if (!keepHand) while (c.hand.length) c.discard.push(c.hand.pop());
@@ -1121,6 +1198,26 @@
     // 【影子决策】快照本回合最后攻击牌，供 VP 下回合复制
     c.prevAttack = c.lastAttack;
     c.lastAttack = null;
+    // 【代理决策】快照本回合第一张技能牌，供摸鱼副总下回合复制
+    c.prevFirstSkill = c.firstSkill;
+    c.firstSkill = null;
+    // 【画饼】失望：画饼回合结束玩家没打出过攻击牌 → 受 8 点失望伤害
+    if (!c.multi && c.enemy._def.mechanic === 'bingTu' && c.bingTurn && c.attacksThisTurn === 0 && !c.enemy.dead) {
+      result.attacked = true;
+      var bAbs = Math.min(c.playerBlock, 8);
+      c.playerBlock -= bAbs;
+      var bThrough = 8 - bAbs;
+      st.hp -= bThrough;
+      result.dmgToPlayer += bThrough;
+      var bh2 = result.hits.length;
+      result.hits.push(bThrough);
+      result.absorbed.push(bAbs);
+      (result.actions = result.actions || []).push({
+        id: c.enemy.id, name: '失望', special: false, hs: bh2, he: result.hits.length
+      });
+      result.bingtuMiss = true;
+      this._afterDamageChecks(result);
+    }
 
     if (c.multi) {
       // 1vN：存活董事按顺序各自行动

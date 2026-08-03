@@ -1420,3 +1420,19 @@ img.fx-pow { animation: powpop .5s cubic-bezier(.2,1.4,.4,1) forwards; }
 
 /* 议题轰炸：议题数/罚款角标 */
 .yiti-count { color: var(--yellow); font-weight: 900; font-size: 13px; }
+
+/* ---------- BOSS 台词气泡 ---------- */
+.speech-bubble { position: absolute; transform: translate(-50%, -100%); pointer-events: none;
+  background: #fff; border: 3px solid var(--ink); border-radius: 14px; padding: 8px 14px;
+  font-size: 17px; font-weight: 900; color: var(--ink); white-space: nowrap; z-index: 65;
+  box-shadow: 4px 4px 0 rgba(0,0,0,.35); animation: bubblepop .3s cubic-bezier(.2,1.4,.4,1) both; }
+.speech-bubble::after { content: ''; position: absolute; left: 50%; bottom: -12px; transform: translateX(-50%);
+  border: 6px solid transparent; border-top-color: var(--ink); }
+@keyframes bubblepop { from { opacity: 0; transform: translate(-50%, -80%) scale(.6); } to { opacity: 1; transform: translate(-50%, -100%) scale(1); } }
+/* ---------- 日程即圣旨：招式序列表 ---------- */
+.agenda-board { margin-top: 6px; font-size: 13px; background: rgba(255,255,255,.9); border: 2px solid var(--ink);
+  border-radius: 8px; padding: 4px 8px; display: flex; align-items: center; gap: 4px; flex-wrap: wrap; max-width: 420px; }
+.agenda-move { color: #888; font-weight: 700; }
+.agenda-move.cur { color: var(--red); font-weight: 900; text-decoration: underline; }
+.agenda-arrow { color: #bbb; }
+.mkt-bonus { color: var(--yellow); font-weight: 900; font-size: 13px; }

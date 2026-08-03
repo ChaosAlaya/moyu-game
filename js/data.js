@@ -1013,7 +1013,8 @@
     },
     /* BOSS */
     boss1: {
-      name: '部门主管', hp: 76, act: 1, boss: true, img: 'kenni',
+      name: '部门主管', hp: 76, act: 1, boss: true, img: 'kenni', mechanic: 'bingTu', // 【画饼】每3回合：下回合首牌-1费，但当回合没打攻击牌吃8点失望
+      quoteStart: '这个季度的饼，管够', quoteDie: '饼……还没画完……',
       moves: [
         { name: '单独谈话', type: 'attack', value: 9, w: 3 },
         { name: '画饼激励', type: 'buff', strength: 2, w: 2 },
@@ -1021,7 +1022,8 @@
       ]
     },
     boss_pm: {
-      name: '项目经理·改需求狂魔', hp: 92, act: 2, boss: true, img: 'shuanglaoya',
+      name: '项目经理·改需求狂魔', hp: 92, act: 2, boss: true, img: 'shuanglaoya', mechanic: 'reqChange', // 【需求变更】每2回合随机改1张手牌费用±1
+      quoteStart: '我觉得还是第一版好', quoteDie: '需求……冻结了……',
       moves: [
         { name: '需求又变了', type: 'attack', value: 11, w: 3 },
         { name: '紧急加需求', type: 'attack', value: 6, times: 2, w: 2 },
@@ -1029,7 +1031,8 @@
       ]
     },
     boss_admin: {
-      name: '行政主管', hp: 105, act: 3, boss: true, img: 'taer',
+      name: '行政主管', hp: 105, act: 3, boss: true, img: 'taer', mechanic: 'adminFee', // 【行政摊派】玩家每出1牌交1金，没金罚2精力
+      quoteStart: '零食全部没收！', quoteDie: '这份通报……写我自己？',
       moves: [
         { name: '卫生检查', type: 'attack', value: 10, w: 3 },
         { name: '零食没收', type: 'buff', strength: 2, w: 2 },
@@ -1037,7 +1040,8 @@
       ]
     },
     boss_fin: {
-      name: '财务主管', hp: 120, act: 4, boss: true, img: 'kenni',
+      name: '财务主管', hp: 120, act: 4, boss: true, img: 'kenni', mechanic: 'expenseAudit', // 【报销审核】每回合首张≥2费牌先交3金，交不起效果减半
+      quotePhase: '发票不合规，驳回', quoteDie: '这笔账……算平了',
       // 二阶段化：半血进入「年底突击审计」（原 interrupt50 半血打断被 phases 取代）
       phases: [
         {
@@ -1060,7 +1064,8 @@
       moves: [] // 由 phases 接管
     },
     boss_tech: {
-      name: '技术主管·996守护神', hp: 135, act: 5, boss: true, img: 'jihuang', ai: 'loop',
+      name: '技术主管·996守护神', hp: 135, act: 5, boss: true, img: 'jihuang', ai: 'loop', mechanic: 'sprint', // 【上线冲刺】每4回合双倍攻击，下回合宕机
+      quotePhase: '上线！出了事我背', quoteDie: '宕机了……别拉我进群',
       // 二阶段化：半血进入「上线即宕机」（原 interrupt50 半血打断被 phases 取代）
       phases: [
         {
@@ -1085,7 +1090,8 @@
       moves: [] // 由 phases 接管
     },
     boss_mkt: {
-      name: '市场主管', hp: 150, act: 6, boss: true, img: 'shuanglaoya',
+      name: '市场主管', hp: 150, act: 6, boss: true, img: 'shuanglaoya', mechanic: 'marketing', // 【全渠道投放】伤害随玩家圣物+2/件
+      quotePhase: '预算？我没有预算', quoteDie: '投放……先停一停',
       lastStand: true, // 残血不屈：首次致命伤害以 1 HP 存活并立即反击（与二阶段并存）
       phases: [
         {
@@ -1108,7 +1114,8 @@
       moves: [] // 由 phases 接管
     },
     boss2: {
-      name: 'HR·裁员面谈', hp: 165, act: 7, boss: true, img: 'taer',
+      name: 'HR·裁员面谈', hp: 165, act: 7, boss: true, img: 'taer', mechanic: 'optimize', // 【优化名单】每4回合从弃牌堆优化2张
+      quotePhase: '这不是裁员，是优化', quoteDie: '我也……被优化了',
       lastStand: true, // 残血不屈（与二阶段并存）
       phases: [
         {
@@ -1129,7 +1136,8 @@
       moves: [] // 由 phases 接管
     },
     boss_vp: {
-      name: '摸鱼副总', hp: 180, act: 8, boss: true, img: 'kenni',
+      name: '摸鱼副总', hp: 180, act: 8, boss: true, img: 'kenni', mechanic: 'agentCopy', // 【代理决策】复制上回合首张技能牌为自己所用
+      quotePhase: '现在我说的算', quoteDie: '代理……到此为止',
       // 二阶段化：半血进入「现在我说了算」（原 interrupt50 半血打断被 phases 取代）
       phases: [
         {
@@ -1152,7 +1160,8 @@
       moves: [] // 由 phases 接管
     },
     boss_sec: {
-      name: '秘书A先生', hp: 190, act: 9, boss: true, img: 'taer',
+      name: '秘书A先生', hp: 190, act: 9, boss: true, img: 'taer', mechanic: 'agenda', // 【日程即圣旨】招式序列公开可背板，每4回合额外行动一次
+      quotePhase: '日程即圣旨', quoteDie: '明天的日程……空了',
       lastStand: true, // 残血不屈（与二阶段并存）
       phases: [
         {
@@ -1175,7 +1184,7 @@
       moves: [] // 由 phases 接管
     },
     boss3: {
-      name: '摸鱼强总', hp: 200, act: 10, boss: true, img: 'kenni',
+      name: '摸鱼强总', hp: 200, act: 10, boss: true, img: 'kenni', quoteDie: '今天……都给我准时下班',
       p2Art: true, // 有二阶段立绘（boss3_p2.jpg）；其余二阶段 BOSS 无 p2 图，沿用一阶段立绘
       phases: [
         {
@@ -1551,6 +1560,21 @@
       moves: []
     }
   ];
+
+  // 主线 BOSS 全面加强：攻击×1.2（四舍五入）、虚弱/易伤+1 回合（Rush BOSS 不受影响）
+  Object.keys(enemies).forEach(function (id) {
+    var d = enemies[id];
+    if (!d.boss) return;
+    function boostMoves(moves) {
+      (moves || []).forEach(function (m) {
+        if (m.type === 'attack' && m.value) m.value = Math.round(m.value * 1.2);
+        if (m.weak) m.weak += 1;
+        if (m.vulnerable) m.vulnerable += 1;
+      });
+    }
+    boostMoves(d.moves);
+    (d.phases || []).forEach(function (p) { boostMoves(p.moves); });
+  });
 
   g.GameData = {
     KEYWORDS: KEYWORDS,

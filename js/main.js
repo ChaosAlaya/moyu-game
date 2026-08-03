@@ -249,9 +249,10 @@
       S.screen = 'event';
     }
     render();
-    // 仪式感：BOSS 开场亮出名字大字卡
+    // 仪式感：BOSS 开场亮出名字大字卡 + 开场台词（无阶段的 BOSS 在此说台词）
     if (node.type === 'boss' && S.run.combat && S.run.combat.enemy) {
       UI.bigText(S.run.combat.enemy.name);
+      if (S.run.combat.enemy._def.quoteStart) UI.speechBubble(eImg(), S.run.combat.enemy._def.quoteStart);
     }
   };
 
@@ -346,6 +347,7 @@
       if (img) img.src = downSrc;
       UI.bossDeathScene();
       UI.bigText('下班！');
+      if (edef.quoteDie) UI.speechBubble(eImg(), edef.quoteDie); // 死亡台词气泡
       UI.playFxFrames(eImg(), 'stars', { size: 280, fps: 7, loops: 3 });
       // 1.5s 后倒地立绘定格特写（约 1.9s），定格结束再本体消散
       setTimeout(function () {
@@ -467,6 +469,28 @@
       UI.floater('player-img', '逾期罚款 ×' + r.fineCount + '：-' + r.fineGold + ' 金币' +
         (r.fineHp ? ' -' + r.fineHp + ' 精力' : ''), 'dmg');
     }, baseMs + 60);
+    // 主线 BOSS 机制反馈飘字
+    if (r.reqChange) setTimeout(function () {
+      UI.floater('player-img', '需求变更：「' + r.reqChange.name + '」费用 ' + (r.reqChange.delta > 0 ? '+1' : '-1'), 'text');
+    }, baseMs + 60);
+    if (r.optimized) setTimeout(function () {
+      UI.floater(eImg(), '优化名单：移除「' + r.optimized.join('」「') + '」', 'text');
+    }, baseMs + 60);
+    if (r.agentCopy) setTimeout(function () {
+      UI.floater(eImg(), '代理决策·' + r.agentCopy, 'block');
+    }, baseMs + 60);
+    if (r.bingTu) setTimeout(function () {
+      UI.floater(eImg(), '画饼：下回合首张牌 -1 费', 'text');
+    }, baseMs + 60);
+    if (r.sprint) setTimeout(function () {
+      UI.floater(eImg(), '上线冲刺·双倍攻击！下回合宕机', 'dmg');
+    }, baseMs + 60);
+    if (r.bingtuMiss) setTimeout(function () {
+      UI.floater('player-img', '失望 -8', 'dmg');
+    }, baseMs + 60);
+    if (r.extraAction) setTimeout(function () {
+      UI.floater(eImg(), '临时插入·额外行动', 'text');
+    }, baseMs + 60);
     if (r.reviewSelf) setTimeout(function () {
       UI.floater(eImg(), '考核达标！自伤 -' + r.reviewSelf, 'heal');
     }, baseMs + 100);
@@ -513,6 +537,12 @@
         }
       }
       render();
+      // 行政摊派/报销审核 出牌反馈
+      if (r.adminFeeGold) UI.floater('player-img', '行政费 -1 金币', 'text');
+      if (r.adminFeeHp) UI.floater('player-img', '行政费 -2 精力', 'dmg');
+      if (c.enemy._def.mechanic === 'expenseAudit' && c.auditUsed) {
+        UI.floater('player-img', '报销审核 -3 金币', 'text');
+      }
       // 命中帧三档：<15 普通（hit/combo+小震）、≥15 重击（crit+全屏震）、≥30 超重击（大crit+双冲击波+特大数字）
       r.hits.forEach(function (h, idx) {
         setTimeout(function () {
@@ -640,6 +670,7 @@
         UI.appShake();
         UI.edgeFlash();
         UI.bigText(ph.phaseName || '第二阶段');
+        if (edef.quotePhase) UI.speechBubble(eImg(), edef.quotePhase); // 阶段台词气泡
         Sfx.play('hit');
       }, endMs + 150);
       endMs += 900;
@@ -1069,7 +1100,7 @@
   Game.openGuide = function () { S.showGuide = true; S.guidePage = 0; render(); };
   Game.closeGuide = function () { S.showGuide = false; render(); };
   Game.guideNext = function () {
-    if ((S.guidePage || 0) < 4) { S.guidePage = (S.guidePage || 0) + 1; render(); }
+    if ((S.guidePage || 0) < 5) { S.guidePage = (S.guidePage || 0) + 1; render(); } // 6 页（含 BOSS 机制速览）
   };
   Game.guidePrev = function () {
     if ((S.guidePage || 0) > 0) { S.guidePage = (S.guidePage || 0) - 1; render(); }

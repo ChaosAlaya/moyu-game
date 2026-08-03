@@ -354,6 +354,11 @@
       text += '　<span class="yiti-count">议题 ' + yn + ' 张·罚 ' + yn * 3 + ' 金</span>';
       tip += '（逾期罚款：回合结束每未打出 1 张议题罚 3 金币，金不够罚 2 精力）';
     }
+    // 【全渠道投放】显示当前加成
+    if (edef.mechanic === 'marketing') {
+      text += '　<span class="mkt-bonus">投放 +' + (S.run.relics.length * 2) + '</span>';
+      tip += '（全渠道投放：伤害随你的圣物 +2/件）';
+    }
     // 狂暴标记
     if (e.enraged) {
       text += '　<span class="enrage-badge">狂暴</span>';
@@ -441,6 +446,13 @@
           '<div class="txt">' + e.hp + '/' + e.maxHp + '</div></div>' +
         (e.block > 0 ? '<div class="block-badge">' + ico('block') + ' 格挡 ' + e.block + '</div>' : '') +
         '<div class="status-row">' + eStatus + '</div>';
+      // 【日程即圣旨】秘书A先生：公开全部招式序列（可背板），当前意图高亮
+      if (edef.mechanic === 'agenda') {
+        var agendaMoves = edef.phases ? edef.phases[Math.min(e.phase, edef.phases.length - 1)].moves : edef.moves;
+        enemyZoneHtml += '<div class="agenda-board">📅 ' + agendaMoves.map(function (m) {
+          return '<span class="agenda-move' + (e.intent === m ? ' cur' : '') + '">' + m.name + '</span>';
+        }).join('<span class="agenda-arrow">→</span>') + '</div>';
+      }
     }
 
     var pStatus = statusBadges([
@@ -954,6 +966,19 @@
         '<p><b>易伤</b>：受伤 +50%（按回合衰减）</p>' +
         '<p><b>消耗</b>：打出后本场战斗移除（不进弃牌堆）</p>' +
         '<p><b>议题</b>：会议室秘书长每回合塞 2 张的废牌；回合结束没打出会被<b>逾期罚款</b>——每张罚 3 金币，金币不够罚 2 精力，赶紧把它打出去！</p>'
+    },
+    {
+      title: 'BOSS 机制速览',
+      html: '<p><b>部门主管</b>画饼：每 3 回合送你首牌 -1 费，但当回合不打攻击牌吃「失望」8 点</p>' +
+        '<p><b>项目经理</b>需求变更：每 2 回合随机改你 1 张手牌费用 ±1</p>' +
+        '<p><b>行政主管</b>行政摊派：每出 1 牌交 1 金，没金罚 2 精力</p>' +
+        '<p><b>财务主管</b>报销审核：每回合首张 ≥2 费牌先交 3 金，交不起效果减半</p>' +
+        '<p><b>技术主管</b>上线冲刺：每 4 回合双倍攻击，随后宕机 1 回合（输出窗口！）</p>' +
+        '<p><b>市场主管</b>全渠道投放：伤害随你的圣物数 +2/件</p>' +
+        '<p><b>HR</b>优化名单：每 4 回合从你弃牌堆移除 2 张牌</p>' +
+        '<p><b>摸鱼副总</b>代理决策：复制你上回合第一张技能牌为自己所用</p>' +
+        '<p><b>秘书A先生</b>日程即圣旨：招式全公开可背板，每 4 回合额外行动一次</p>' +
+        '<p><b>摸鱼强总</b>：半血强行打断你，立刻二阶段反击——留好爆发！</p>'
     },
     {
       title: '地图节点',
@@ -1557,6 +1582,21 @@
     }, 620 + 1000);
   }
 
+  // BOSS 台词气泡（阶段切换/死亡/开场；纯文本不换图）
+  function speechBubble(targetId, text) {
+    var t = document.getElementById(targetId);
+    var fx = document.getElementById('fx');
+    if (!t || !fx || !text) return;
+    var r = t.getBoundingClientRect();
+    var d = document.createElement('div');
+    d.className = 'speech-bubble';
+    d.textContent = '「' + text + '」';
+    d.style.left = (r.left + r.width / 2) + 'px';
+    d.style.top = (r.top - 12) + 'px';
+    fx.appendChild(d);
+    setTimeout(function () { d.remove(); }, 1900);
+  }
+
   // 敌人死亡消散
   function deathAnim(targetId) {
     var t = document.getElementById(targetId);
@@ -1595,6 +1635,7 @@
     preloadFx: preloadFx, playFxAt: playFxAt, playFxFrames: playFxFrames,
     shockRing: shockRing, bossCut: bossCut, bossDeathScene: bossDeathScene, goldenFlash: goldenFlash,
     chargeLunge: chargeLunge, hitStop: hitStop, knockback: knockback, bigShake: bigShake,
-    redFlash: redFlash, dangerWarn: dangerWarn, powBurst: powBurst, FX_ART: FX_ART
+    redFlash: redFlash, dangerWarn: dangerWarn, powBurst: powBurst, FX_ART: FX_ART,
+    speechBubble: speechBubble
   };
 })(typeof window !== 'undefined' ? window : globalThis);
