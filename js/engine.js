@@ -969,6 +969,7 @@
     if (enrT && e.turnCount > enrT) {
       if (!e.enraged) {
         e.enraged = true;
+        result.enraged = true; // 首次狂暴：触发机制说明卡
         c.log.push({ t: 'phase', text: '狂暴！' });
       }
       e.strength += 3;
@@ -994,6 +995,7 @@
         result.scarf = true;
       }
       var absorbed = mv.unblockable ? 0 : Math.min(c.playerBlock, dmg); // 【急速下坠】必中：无视格挡
+      if (mv.unblockable) result.unblockableFired = true;
       c.playerBlock -= absorbed;
       var through = dmg - absorbed;
       st.hp -= through;

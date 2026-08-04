@@ -1576,6 +1576,35 @@
     (d.phases || []).forEach(function (p) { boostMoves(p.moves); });
   });
 
+  /* ---------------- BOSS 机制展示文案（说明横幅/徽章 tooltip 共用） ----------------
+   * 写法：规则是什么 + 怎么应对 */
+  var MECH_INFO = {
+    /* 主线 9 + 强总 */
+    bingTu: { name: '画饼', desc: '每 3 回合给你下回合首张牌 -1 费；但当回合没打出攻击牌就吃 8 点「失望」。攻出去，别光挨打！' },
+    reqChange: { name: '需求变更', desc: '每 2 回合随机改你 1 张手牌费用 ±1（不低于 0）。关键牌别攒太久，费用随时会变。' },
+    adminFee: { name: '行政摊派', desc: '你每打出 1 张牌交 1 金币，没金币改罚 2 精力。少打废牌，金币就是血量。' },
+    expenseAudit: { name: '报销审核', desc: '每回合你第一张 ≥2 费的牌要先交 3 金币，交不起该牌效果减半。先出小牌垫审核，或留 3 金。' },
+    sprint: { name: '上线冲刺', desc: '每 4 回合双倍攻击，随后宕机跳过 1 回合。冲刺回合全力格挡，宕机回合全力输出！' },
+    marketing: { name: '全渠道投放', desc: '它的伤害随你的圣物数量 +2/件。圣物越多它越疼，速战速决。' },
+    optimize: { name: '优化名单', desc: '每 4 回合从你弃牌堆移除 2 张牌（本场战斗消失）。核心循环牌尽快打，别留在坟场。' },
+    agentCopy: { name: '代理决策', desc: '复制你上一回合第一张技能牌为它所用（格挡/回复/力量归它）。首牌先出无关紧要的。' },
+    agenda: { name: '日程即圣旨', desc: '全部招式序列公开（可背板），但每 4 回合额外行动一次。看着日程表规划格挡。' },
+    interruptQiang: { name: '都给我加班', desc: '半血强行打断你的回合：弃掉手牌、立刻以二阶段招式反击一轮。压血线前留好格挡和爆发！' },
+    /* Rush 10 */
+    fakeIntent: { name: '微笑欺骗', desc: '她的意图有 50% 是假情报（气泡带 ? 角标）。肯尼的镜片可以识破真意图。' },
+    unblockable: { name: '急速下坠', desc: '每 3 回合一次必中重击，无视全部格挡。只能靠硬扛或提前击杀，别赌格挡。' },
+    junkCard: { name: '议题轰炸+逾期罚款', desc: '每回合塞你 2 张「议题」废牌；回合结束每张未打出罚 3 金币，金不够罚 2 精力。及时把议题打出去！' },
+    stealCard: { name: '妙手空空', desc: '每回合偷走你 1 张随机手牌（本场战斗暂扣），击败他全部归还。爆发牌尽早用。' },
+    budget: { name: '预算审核', desc: '每回合出牌费用合计不能超过 4 点（气泡显示剩余预算）。规划好大牌节奏。' },
+    juanAura: { name: '内卷光环', desc: '你每打出 1 张牌，卷王力量 +1。少出牌、出重牌，别跟他拼回合数。' },
+    review: { name: '绩效考核', desc: '每 3 回合结算：期间出牌 <9 张罚 24 点，≥9 张它自伤 12。凑够 9 张就是胜利。' },
+    mirror: { name: '影子决策', desc: '复制你上一回合最后打出的攻击牌（按数值）打回来。收尾牌别放大招。' },
+    rotate: { name: '轮值主席', desc: '每回合只有轮值董事（金框）吃全额伤害，其余减半。跟着金框转火。' },
+    market: { name: '市场波动', desc: '最终阶段：牛（18×2 高攻）/熊（自加 15 格挡）/平（自回 15）按回合轮换。牛市防守，熊市抢攻。' },
+    /* 通用 */
+    enrage: { name: '狂暴', desc: '拖太久了！此后它每回合力量 +3。马上结束战斗，要么它死要么你亡。' }
+  };
+
   g.GameData = {
     KEYWORDS: KEYWORDS,
     EFFECT_OPS: EFFECT_OPS,
@@ -1592,6 +1621,7 @@
     PRE_BOSS_WEIGHTS: PRE_BOSS_WEIGHTS,
     CHAR_CARD_WEIGHTS: CHAR_CARD_WEIGHTS,
     rushBosses: rushBosses,
+    MECH_INFO: MECH_INFO,
     NODE_NAMES: NODE_NAMES
   };
 })(typeof window !== 'undefined' ? window : globalThis);

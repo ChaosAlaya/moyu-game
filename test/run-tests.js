@@ -1614,9 +1614,9 @@ section('b8) Rush 十专属机制');
   eng.playCard(c.hand.findIndex(x => x.id === 'yiti'));
   r = eng.endTurn();
   ok(!r.fineCount && eng.state.gold === 50, '打出议题=完成工作不罚款');
-  // 意图显示议题数/罚款
+  // 意图显示议题数/罚款（机制徽章行动态标签）
   const uiSrc2 = require('fs').readFileSync(require('path').join(__dirname, '..', 'js', 'ui.js'), 'utf8');
-  ok(/yiti-count/.test(uiSrc2), '意图气泡显示议题数与预计罚款');
+  ok(/mech-badges/.test(uiSrc2) && /议题×/.test(uiSrc2), '徽章行显示议题数与预计罚款');
 }
 
 // 4 偷男【妙手空空】：偷手牌 + 击败归还（偷男挂 lastStand：首次致命伤 1HP 存活反击，需补第二刀）
@@ -1819,9 +1819,9 @@ section('b9) 防刷金：逃跑+狂暴+消耗');
   c.enemy.turnCount = 2; c.hand = [];
   eng4.endTurn();
   ok(c.enemy.enraged === true, 'enrageTurn 字段可覆盖默认阈值');
-  // UI：狂暴徽章
+  // UI：狂暴徽章（机制徽章行体系统一）
   const uiSrc = require('fs').readFileSync(require('path').join(__dirname, '..', 'js', 'ui.js'), 'utf8');
-  ok(/enrage-badge/.test(uiSrc) && /enrage/.test(uiSrc), '狂暴徽章+意图标记已渲染');
+  ok(/mech-badge/.test(uiSrc) && /enraged/.test(uiSrc), '狂暴徽章+tooltip 已并入徽章行');
 }
 
 // 产金卡全部消耗（资本运作/副业收入等 gainGold 非 power 卡必须 exhaust）
@@ -2023,6 +2023,63 @@ section('b10) 主线 BOSS v2（9 机制/×1.2/台词）');
   ok(/function speechBubble/.test(uiS), 'UI.speechBubble 台词气泡存在');
   ok(/quoteStart/.test(mainS) && /quotePhase/.test(mainS) && /quoteDie/.test(mainS),
     '台词时机接线：开场/阶段切换/死亡');
+}
+
+/* ---------- b11) BOSS 机制说明卡 + 徽章行 ---------- */
+section('b11) 机制说明卡 / 徽章行');
+
+// MECH_INFO 文案齐全（19 机制 + 强总打断 + 狂暴，含规则+应对）
+{
+  const MI = D.MECH_INFO;
+  const keys = ['bingTu', 'reqChange', 'adminFee', 'expenseAudit', 'sprint', 'marketing', 'optimize',
+    'agentCopy', 'agenda', 'interruptQiang', 'fakeIntent', 'unblockable', 'junkCard', 'stealCard',
+    'budget', 'juanAura', 'review', 'mirror', 'rotate', 'market', 'enrage'];
+  ok(keys.length === 21 && keys.every(k => MI[k] && MI[k].name && MI[k].desc && MI[k].desc.length >= 12),
+    `MECH_INFO 21 条机制文案齐全（实际 ${keys.filter(k => MI[k]).length}）`);
+  // 每个有 mechanic 字段的 BOSS 都有文案
+  const withMech = Object.keys(D.enemies).filter(id => D.enemies[id].mechanic)
+    .concat(D.rushBosses.filter(b => b.mechanic).map(b => b.id));
+  ok(withMech.every(id => {
+    const m = (D.enemies[id] || D.rushBosses.find(b => b.id === id)).mechanic;
+    return !!MI[m];
+  }), '所有挂 mechanic 的 BOSS 均有展示文案');
+}
+
+// 引擎首次激活上报
+{
+  const eng = new Engine(720);
+  eng.newRun('xiaoq');
+  eng.startCombat('boss1');
+  let c = eng.state.combat;
+  c.enemy.turnCount = 12; c.hand = [];
+  const r = eng.endTurn();
+  ok(r.enraged === true, '首次狂暴 result.enraged 上报');
+  const eng2 = new Engine(721);
+  eng2.newRun('xiaoq');
+  eng2.startRushCombat(D.rushBosses[1], 2);
+  c = eng2.state.combat;
+  c.enemy.intent = D.rushBosses[1].moves[0]; // 急速下坠 unblockable
+  c.hand = [];
+  const r2 = eng2.endTurn();
+  ok(r2.unblockableFired === true, '急速下坠 result.unblockableFired 上报');
+}
+
+// UI/main 接线（fs 级）：说明卡、只弹一次、徽章行、tooltip、阶段卡
+{
+  const fs4 = require('fs'), p4 = require('path');
+  const uiS = fs4.readFileSync(p4.join(__dirname, '..', 'js', 'ui.js'), 'utf8');
+  const mainS = fs4.readFileSync(p4.join(__dirname, '..', 'js', 'main.js'), 'utf8');
+  ok(/function mechBanner/.test(uiS) && /mech-banner/.test(uiS), 'UI.mechBanner 说明横幅存在');
+  ok(/mechShown\[key\]/.test(mainS), '首次激活只弹一次（mechShown 守卫）');
+  ok(/mechBadgesHtml/.test(uiS) && /mech-badge" title=/.test(uiS), '徽章行渲染+tooltip 文案');
+  ok(/mechBanner\('market'\)/.test(mainS) && /mechBanner\('interruptQiang'\)/.test(mainS),
+    '阶段切换/强总打断触发说明卡（内容走 MECH_INFO desc）');
+  ok(/startMechBanner/.test(mainS) && /MECH_AT_START/.test(mainS), '开场即生效机制接线');
+  // 指南 19 机制齐全
+  const need = ['微笑欺骗', '急速下坠', '议题轰炸', '妙手空空', '预算审核', '内卷光环', '绩效考核',
+    '影子决策', '轮值主席', '市场波动', '画饼', '需求变更', '行政摊派', '报销审核', '上线冲刺',
+    '全渠道投放', '优化名单', '代理决策', '日程即圣旨', '狂暴'];
+  ok(need.every(w => uiS.includes(w)), '指南 BOSS 机制速览 19+1 机制齐全');
 }
 
 /* ---------- c) 地图生成 ---------- */

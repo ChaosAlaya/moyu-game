@@ -343,25 +343,20 @@
       if (c.playerVuln > 0) v = Math.floor(v * 1.5);
       tip += '（精确：每段 ' + v + ' 点）';
     }
-    // 【预算审核】意图气泡附带剩余预算
+    // 【预算审核】tooltip 提示（展示徽章在机制徽章行统一呈现）
     if (edef.mechanic === 'budget') {
-      text += '　<span class="budget-left">预算剩 ' + Math.max(0, 4 - c.spentThisTurn) + '/4</span>';
       tip += '（预算剩 ' + Math.max(0, 4 - c.spentThisTurn) + '/4）';
     }
-    // 【议题轰炸】显示当前议题数和预计罚款
+    // 【议题轰炸】tooltip 提示
     if (edef.mechanic === 'junkCard') {
-      var yn = c.hand.filter(function (x) { return x.id === 'yiti'; }).length;
-      text += '　<span class="yiti-count">议题 ' + yn + ' 张·罚 ' + yn * 3 + ' 金</span>';
       tip += '（逾期罚款：回合结束每未打出 1 张议题罚 3 金币，金不够罚 2 精力）';
     }
-    // 【全渠道投放】显示当前加成
+    // 【全渠道投放】tooltip 提示
     if (edef.mechanic === 'marketing') {
-      text += '　<span class="mkt-bonus">投放 +' + (S.run.relics.length * 2) + '</span>';
       tip += '（全渠道投放：伤害随你的圣物 +2/件）';
     }
-    // 狂暴标记
+    // 狂暴标记（tooltip；徽章在机制徽章行）
     if (e.enraged) {
-      text += '　<span class="enrage-badge">狂暴</span>';
       tip += '（狂暴：每回合力量+3）';
     }
     var html = '<div class="intent ' + mv.type + '" title="' + tip + '">' + ico(ic) + ' ' + text + fakeBadge + '</div>';
@@ -427,7 +422,12 @@
           (me.strength ? '<div class="status-row"><span class="status str">力量+' + me.strength + '</span></div>' : '') +
           '</div>';
       }).join('');
-      enemyZoneHtml = '<div class="multi-enemies">' + members + '</div>' +
+      // 1vN 机制徽章行（轮值主席 + 狂暴成员提示）
+      var MI2 = D.MECH_INFO || {};
+      var rotateInfo = MI2.rotate || { name: '轮值主席', desc: '' };
+      enemyZoneHtml = '<div class="mech-badges">' +
+        '<span class="mech-badge" title="' + rotateInfo.name + '：' + rotateInfo.desc + '">' + rotateInfo.name + '</span>' +
+        '</div>' + '<div class="multi-enemies">' + members + '</div>' +
         '<div class="multi-tip">点击敌人切换集火目标 · 金框为轮值主席（非轮值伤害减半）</div>';
     } else {
       var eStatus = statusBadges([
@@ -439,7 +439,7 @@
         e.weak ? { cls: 'weak', txt: '虚弱 ' + e.weak } : null,
         e.vulnerable ? { cls: 'vuln', txt: '易伤 ' + e.vulnerable } : null
       ]);
-      enemyZoneHtml = intentHtml(S) +
+      enemyZoneHtml = intentHtml(S) + mechBadgesHtml(S) +
         '<img class="enemy-img v2 ' + cls + '" id="enemy-img" src="' + eArt + '" alt="' + e.name + '">' +
         '<div class="enemy-name">' + e.name + '</div>' +
         '<div class="hpbar"><div class="fill" style="width:' + eHpPct + '%"></div>' +
@@ -978,7 +978,19 @@
         '<p><b>HR</b>优化名单：每 4 回合从你弃牌堆移除 2 张牌</p>' +
         '<p><b>摸鱼副总</b>代理决策：复制你上回合第一张技能牌为自己所用</p>' +
         '<p><b>秘书A先生</b>日程即圣旨：招式全公开可背板，每 4 回合额外行动一次</p>' +
-        '<p><b>摸鱼强总</b>：半血强行打断你，立刻二阶段反击——留好爆发！</p>'
+        '<p><b>摸鱼强总</b>：半血强行打断你，立刻二阶段反击——留好爆发！</p>' +
+        '<p>—— Rush 总部篇 ——</p>' +
+        '<p><b>总部前台</b>微笑欺骗：意图 50% 是假的（带 ? 角标，镜片可识破）</p>' +
+        '<p><b>电梯战神</b>急速下坠：每 3 回合必中重击，无视格挡</p>' +
+        '<p><b>会议室秘书长</b>议题轰炸：每回合塞 2 张议题，未打出每张罚 3 金</p>' +
+        '<p><b>神秘偷男</b>妙手空空：每回合偷 1 张手牌，击败他全归还</p>' +
+        '<p><b>财务总监</b>预算审核：每回合费用合计 ≤4</p>' +
+        '<p><b>卷王之王</b>内卷光环：你每出 1 牌他力量 +1</p>' +
+        '<p><b>人力总监</b>绩效考核：每 3 回合出牌 &lt;9 张罚 24，≥9 张他自伤 12</p>' +
+        '<p><b>高级VP</b>影子决策：复制你上回合最后攻击牌打回来</p>' +
+        '<p><b>董事会</b>轮值主席：只有金框轮值董事吃全额伤害</p>' +
+        '<p><b>资本化身</b>市场波动：P3 牛/熊/平三形态逐回合轮换</p>' +
+        '<p><b>通用</b>：BOSS 拖过 12 回合 / 精英 15 回合<b>狂暴</b>（每回合力量+3）</p>'
     },
     {
       title: '地图节点',
@@ -1582,6 +1594,58 @@
     }, 620 + 1000);
   }
 
+  // BOSS 机制说明横幅：阶段切换/机制首次激活时弹出（非阻塞，~3s 自动消失，点击立即关闭）
+  function mechBanner(opts) {
+    var fx = document.getElementById('fx');
+    if (!fx) return;
+    var old = document.querySelector('.mech-banner');
+    if (old) old.remove();
+    var d = document.createElement('div');
+    d.className = 'mech-banner';
+    d.innerHTML = (opts.img ? '<img class="mb-img" src="' + opts.img + '">' : '') +
+      '<div class="mb-text"><div class="mb-name">' + opts.name + '</div>' +
+      '<div class="mb-desc">' + opts.desc + '</div></div>' +
+      '<div class="mb-close">✕</div>';
+    d.onclick = function () { d.remove(); };
+    fx.appendChild(d);
+    setTimeout(function () {
+      if (d.parentNode) {
+        d.classList.add('out');
+        setTimeout(function () { d.remove(); }, 320);
+      }
+    }, 3000);
+  }
+
+  // 常驻机制徽章行：当前 BOSS 激活的机制徽章（悬停 tooltip 显示完整说明）
+  function mechBadgesHtml(S) {
+    var c = S.run.combat, e = c.enemy, edef = e._def, MI = D.MECH_INFO || {};
+    var badges = [];
+    function add(key, label) {
+      var info = MI[key];
+      if (!info) return;
+      badges.push('<span class="mech-badge" title="' + info.name + '：' + info.desc + '">' +
+        (label || info.name) + '</span>');
+    }
+    // 机制徽章（含动态数值标签）
+    if (edef.mechanic === 'junkCard') {
+      add('junkCard', '议题×' + c.hand.filter(function (x) { return x.id === 'yiti'; }).length);
+    } else if (edef.mechanic === 'budget') {
+      add('budget', '预算剩 ' + Math.max(0, 4 - c.spentThisTurn) + '/4');
+    } else if (edef.mechanic === 'marketing') {
+      add('marketing', '投放 +' + (S.run.relics.length * 2));
+    } else if (edef.mechanic && MI[edef.mechanic]) {
+      add(edef.mechanic);
+    }
+    // 急速下坠：招式带 unblockable 的 BOSS（电梯战神无 mechanic 字段，按招式识别）
+    var allMoves = (edef.moves || []).concat(
+      edef.phases ? edef.phases.reduce(function (a, p) { return a.concat(p.moves); }, []) : []);
+    if (allMoves.some(function (m) { return m.unblockable; })) add('unblockable');
+    // 狂暴徽章并入徽章行（不再单独挂意图气泡）
+    if (e.enraged) add('enrage');
+    if (!badges.length) return '';
+    return '<div class="mech-badges">' + badges.join('') + '</div>';
+  }
+
   // BOSS 台词气泡（阶段切换/死亡/开场；纯文本不换图）
   function speechBubble(targetId, text) {
     var t = document.getElementById(targetId);
@@ -1636,6 +1700,6 @@
     shockRing: shockRing, bossCut: bossCut, bossDeathScene: bossDeathScene, goldenFlash: goldenFlash,
     chargeLunge: chargeLunge, hitStop: hitStop, knockback: knockback, bigShake: bigShake,
     redFlash: redFlash, dangerWarn: dangerWarn, powBurst: powBurst, FX_ART: FX_ART,
-    speechBubble: speechBubble
+    speechBubble: speechBubble, mechBanner: mechBanner
   };
 })(typeof window !== 'undefined' ? window : globalThis);

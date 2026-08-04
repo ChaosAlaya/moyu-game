@@ -238,6 +238,7 @@
     if (node.type === 'monster' || node.type === 'elite' || node.type === 'boss') {
       S.engine.startCombat(node.enemyId);
       S.screen = 'combat';
+      S.mechShown = {}; // 新战斗：机制说明卡重新计次
     } else if (node.type === 'shop') {
       S.shop = node.shop;
       S.screen = 'shop';
@@ -253,6 +254,7 @@
     if (node.type === 'boss' && S.run.combat && S.run.combat.enemy) {
       UI.bigText(S.run.combat.enemy.name);
       if (S.run.combat.enemy._def.quoteStart) UI.speechBubble(eImg(), S.run.combat.enemy._def.quoteStart);
+      startMechBanner(S.run.combat.enemy._def.mechanic); // 机制说明卡（开场即生效类）
     }
   };
 
@@ -496,7 +498,46 @@
     }, baseMs + 100);
     if (r.skipped) UI.floater(eImg(), '跳过了行动！', 'text');
     if (r.enemyBlock > 0) UI.floater(eImg(), '+' + r.enemyBlock + ' 格挡', 'block');
+    // 机制说明卡：首次激活弹出（每场战斗一次）
+    if (r.bingTu) mechBanner('bingTu');
+    if (r.reqChange) mechBanner('reqChange');
+    if (r.optimized) mechBanner('optimize');
+    if (r.sprint) mechBanner('sprint');
+    if (r.mirrored) mechBanner('mirror');
+    if (r.reviewPen || r.reviewSelf) mechBanner('review');
+    if (r.stolenCardName) mechBanner('stealCard');
+    if (r.agentCopy) mechBanner('agentCopy');
+    if (r.unblockableFired) mechBanner('unblockable');
+    if (r.enraged) mechBanner('enrage');
     return tl;
+  }
+
+  /* ---------- BOSS 机制说明卡（首次激活弹一次，非阻塞） ---------- */
+  function mechArt() {
+    var c = S.run && S.run.combat;
+    if (!c) return null;
+    if (c.rushBoss) {
+      return c.rushBoss.id === 'capital'
+        ? 'assets/v2/rush/capital_p' + (c.enemy.phase + 1) + '.jpg'
+        : 'assets/v2/rush/' + c.rushBoss.id + '.jpg';
+    }
+    return 'assets/v2/enemy/' + c.enemy.id + (c.enemy._def.phases && c.enemy.phase > 0 ? '_p2' : '') + '.jpg';
+  }
+  function mechBanner(key) {
+    var MI = D.MECH_INFO && D.MECH_INFO[key];
+    if (!MI) return;
+    if (!S.mechShown) S.mechShown = {};
+    if (S.mechShown[key]) return; // 每场战斗每个机制只弹一次
+    S.mechShown[key] = true;
+    UI.mechBanner({ img: mechArt(), name: MI.name, desc: MI.desc });
+  }
+  // 战斗开始即生效的机制：开场大字卡后弹出
+  var MECH_AT_START = { fakeIntent: 1, junkCard: 1, budget: 1, juanAura: 1, rotate: 1,
+    marketing: 1, agenda: 1, adminFee: 1, expenseAudit: 1 };
+  function startMechBanner(mech) {
+    if (MECH_AT_START[mech]) {
+      setTimeout(function () { if (S.screen === 'combat') mechBanner(mech); }, 1100);
+    }
   }
 
   Game.playCard = function (i) {
@@ -609,6 +650,7 @@
           UI.bigText(r.interrupt.cutText || '都给我加班！');
           UI.goldenFlash();
           UI.appShake();
+          if (c.enemy.id === 'boss3') mechBanner('interruptQiang'); // 强总打断机制说明卡
           Sfx.play('hit');
           render(); // 重绘：二阶段立绘 + 打断后的新回合手牌
         }, itBase);
@@ -671,6 +713,10 @@
         UI.edgeFlash();
         UI.bigText(ph.phaseName || '第二阶段');
         if (edef.quotePhase) UI.speechBubble(eImg(), edef.quotePhase); // 阶段台词气泡
+        // 阶段机制说明卡：资本化身 P3 走【市场波动】，其余阶段给通用说明
+        if (edef.mechanic === 'market' && c.enemy.phase === 2) mechBanner('market');
+        else UI.mechBanner({ img: mechArt(), name: ph.phaseName || '第二阶段',
+          desc: ph.desc || 'BOSS 进入新阶段：招式全面强化，注意应对！' });
         Sfx.play('hit');
       }, endMs + 150);
       endMs += 900;
@@ -1019,12 +1065,14 @@
     if (!S.run || !S.run.rush) return;
     S.engine.rushStartFight();
     S.screen = 'combat';
+    S.mechShown = {}; // 新战斗：机制说明卡重新计次
     render();
     // 仪式感：每场 BOSS 开场大字卡；资本化身登场全屏金色脉冲
     var rb = S.run.combat && S.run.combat.rushBoss;
     if (rb) {
       UI.bigText(rb.name);
       if (rb.id === 'capital') UI.goldenFlash();
+      startMechBanner(rb.mechanic); // 机制说明卡（开场即生效类）
     }
   };
 
