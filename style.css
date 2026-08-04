@@ -1458,3 +1458,6 @@ img.fx-pow { animation: powpop .5s cubic-bezier(.2,1.4,.4,1) forwards; }
   .mb-img { width: 40px; height: 40px; }
   .mb-desc { font-size: 12px; }
 }
+
+/* Rush 整备点：圣物/牌组管理入口 */
+.rush-manage { display: flex; gap: 10px; justify-content: center; margin: 8px 0 12px; }

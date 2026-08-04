@@ -2082,6 +2082,62 @@ section('b11) 机制说明卡 / 徽章行');
   ok(need.every(w => uiS.includes(w)), '指南 BOSS 机制速览 19+1 机制齐全');
 }
 
+/* ---------- b12) Rush 圣物/牌组管理入口 ---------- */
+section('b12) Rush 圣物调整 / 牌组查看入口');
+
+{
+  // 复用 b7 垫片环境（globalThis.Game 已加载）
+  const G = globalThis.Game;
+  const fs5 = require('fs'), p5 = require('path');
+  const uiS = fs5.readFileSync(p5.join(__dirname, '..', 'js', 'ui.js'), 'utf8');
+
+  // 入口按钮存在（大厅/整备点/顶栏）
+  ok(/showRelics\(\)">圣物/.test(uiS), 'Rush 大厅【圣物 N/4】入口');
+  ok(/rush-manage/.test(uiS), '整备点圣物/牌组入口行');
+  ok(/showDeck\(/.test(uiS), '牌组入口（顶栏/大厅/整备点）');
+
+  // 进入 Rush（带 5 件圣物，限装 4）
+  localStorage.removeItem('moyu_rush_save'); // 清掉 b7 留下的 rush 进度，避免污染构筑
+  G.state.save.wins = 1;
+  G.state.save.unlocks.xiaoq = true;
+  if (!G.state.run || !G.state.run.deck) G.pickChar('xiaoq');
+  G.state.save.lastWinBuild = {
+    charId: 'xiaoq',
+    deck: G.state.run.deck.map(c => ({ uid: c.uid, id: c.id, up: c.up, costMod: 0 })),
+    relics: ['badge', 'doll', 'gamepad', 'mousepad', 'bowl'],
+    equippedRelics: ['badge', 'doll', 'gamepad', 'mousepad'],
+    gold: 100, hp: 70, maxHp: 75
+  };
+  G.enterRush();
+  G.rushConfirmGo();
+  ok(G.state.screen === 'rush', '进入 Rush 大厅');
+
+  // 牌组查看弹层
+  G.showDeck('deck');
+  ok(G.state.deckView === 'deck', '牌组弹层渲染（deckView=deck）');
+  G.closeDeck();
+
+  // 圣物调整：卸下 badge → 后续战斗 hasRelic 按新配置
+  G.showRelics();
+  ok(G.state.relicView === true, '圣物调整弹层渲染');
+  ok(G.state.engine.hasRelic('badge'), '调整前 badge 已装备');
+  G.toggleRelic('badge'); // 卸下
+  ok(G.state.run.equippedRelics.indexOf('badge') < 0, '卸下 badge 生效');
+  G.rushFight();
+  ok(!G.state.engine.hasRelic('badge'), '后续场次战斗 hasRelic 按新配置（badge 失效）');
+  ok(G.state.engine.hasRelic('doll'), '其余装备不受影响（doll 生效）');
+
+  // 限装 4 提示：装备第 5 件被拒
+  G.state.screen = 'rush';
+  G.state.run.combat = null;
+  G.toggleRelic('bowl'); // 装备第 4 件（现 3 件→4 件）成功
+  ok(G.state.run.equippedRelics.length === 4, '装备到 4 件');
+  G.toggleRelic('badge'); // 第 5 件 → 拒绝
+  ok(G.state.run.equippedRelics.indexOf('badge') < 0 && G.state.run.equippedRelics.length === 4,
+    '限装 4 件：第 5 件被拒（toast 提示）');
+  G.closeRelics();
+}
+
 /* ---------- c) 地图生成 ---------- */
 section('c) 地图生成（10 层 × 100 次）');
 {

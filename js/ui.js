@@ -777,6 +777,8 @@
       '<div class="topbar"><span class="floor">总部连续作战！ · 第 ' + fight + '/10 场</span>' +
       '<span class="hp-mini">精力 ' + st.hp + '/' + st.maxHp + '</span>' +
       '<span class="gold">金币 ' + st.gold + '</span>' +
+      '<button onclick="Game.showRelics()">圣物 ' + (st.equippedRelics || st.relics).length + '/' + g.GameEngine.MAX_EQUIPPED_RELICS + '</button>' +
+      '<button onclick="Game.showDeck(\'deck\')">牌组 ' + st.deck.length + '</button>' +
       '<div class="spacer"></div>' +
       '<button onclick="Game.rushQuit()">存档退出</button></div>' +
       '<div class="rush-body">' +
@@ -793,6 +795,10 @@
       '<div class="center-wrap"><div class="panel">' +
       '<h2>整备点 · 第 ' + (st.rush.fight - 1) + ' 场后</h2>' +
       '<div class="event-text">连续作战间隙，选择一项补给再继续：</div>' +
+      '<div class="rush-manage">' +
+      '<button onclick="Game.showRelics()">圣物 ' + (st.equippedRelics || st.relics).length + '/' + g.GameEngine.MAX_EQUIPPED_RELICS + '</button>' +
+      '<button onclick="Game.showDeck(\'deck\')">牌组 ' + st.deck.length + '</button>' +
+      '</div>' +
       '<div class="rest-opts">' +
       '<button class="primary" onclick="Game.rushRest(0)">回复 40% 最大精力（当前 ' + st.hp + '/' + st.maxHp + '）</button>' +
       '<button class="yellow" onclick="Game.rushRest(1)">升级随机 2 张牌</button>' +
