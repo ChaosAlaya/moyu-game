@@ -762,7 +762,10 @@
     wealth: ['assets/v2/card/wealth.jpg'],
     /* 补充卡面 */
     interrupt: ['assets/v2/card/interrupt.jpg'],
-    yiti: ['assets/v2/card/yiti.jpg']
+    yiti: ['assets/v2/card/yiti.jpg'],
+    bloodvolt: ['assets/v2/card/bloodvolt.jpg'],
+    bloodburst: ['assets/v2/card/bloodburst.jpg'],
+    hungerpounce: ['assets/v2/card/hungerpounce.jpg']
   };
   for (var artId in CARD_ART) {
     if (cards[artId]) {
