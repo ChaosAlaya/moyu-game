@@ -1755,8 +1755,8 @@
 
   /* ---------- 被动技能实时数值（与伤害管线同公式，供信息卡显示） ---------- */
   // 共享系数：改数值只动这里，管线与显示永远一致
-  Engine.BLOODRAGE_PER = 5;     // 血怒：剩饭每缺少 N 点精力，伤害 +1
-  Engine.BLOODRAGE_CAP = 6;     // 血怒加成上限（平衡锁定）
+  Engine.BLOODRAGE_PER = 4;     // 血怒：剩饭每缺少 N 点精力，伤害 +1
+  Engine.BLOODRAGE_CAP = Infinity; // 血怒加成无上限（2026-08 调整：4 点/无上限，管线位置不变）
   Engine.STRATEGIST_PER = 2;      // 深谋：每 N 张手牌 +1 伤
   Engine.MONEYPOWER_PER = 50;     // 钞能：每 N 金币 +1 伤
   Engine.ENERGY_CYCLE = 5;        // 摸鱼之道：每 N 张牌回 1 能量

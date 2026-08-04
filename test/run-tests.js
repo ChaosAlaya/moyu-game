@@ -308,7 +308,7 @@ section('b2.5) 四角色被动数值断言');
   ok(c.energy === 2, `摸鱼之道：第 10 张牌后再 +1（实际 ${c.energy}）`);
 }
 
-// shengfan 血怒：每缺少 5 点精力伤害 +1（固定值，与力量同级相加）
+// shengfan 血怒：每缺少 4 点精力伤害 +1 无上限（固定值，与力量同级相加）
 {
   const engine = new Engine(32);
   engine.newRun('shengfan');
@@ -320,18 +320,18 @@ section('b2.5) 四角色被动数值断言');
   let hb = c.enemy.hp;
   engine.playCard(0);
   ok(c.enemy.hp === hb - 6, `血怒满血打 6（实际 ${hb - c.enemy.hp}）`);
-  st.hp = 35; // 65 满 → 损失 30 → +6
+  st.hp = 35; // 65 满 → 损失 30 → floor(30/4)=7
   c.energy = 3;
   c.hand.unshift({ uid: 2, id: 'strike_moyu', up: false });
   hb = c.enemy.hp;
   engine.playCard(0);
-  ok(c.enemy.hp === hb - 12, `血怒损失30打 6+6=12（实际 ${hb - c.enemy.hp}）`);
-  st.hp = 1; // 损失 64 → 上限 +6；力量 4 同级相加：6+4+6=16
+  ok(c.enemy.hp === hb - 13, `血怒损失30打 6+7=13（实际 ${hb - c.enemy.hp}）`);
+  st.hp = 1; // 损失 64 → 无上限 floor(64/4)=16；力量 4 同级相加：6+4+16=26
   c.energy = 3; c.playerStrength = 4;
   c.hand.unshift({ uid: 3, id: 'strike_moyu', up: false });
   hb = c.enemy.hp;
   engine.playCard(0);
-  ok(c.enemy.hp === hb - 16, `血怒上限+6 与力量同级相加 6+4+6=16（实际 ${hb - c.enemy.hp}）`);
+  ok(c.enemy.hp === hb - 26, `血怒无上限+16 与力量同级相加 6+4+16=26（实际 ${hb - c.enemy.hp}）`);
 }
 
 // jihuang 深谋 a：每 2 张其他手牌攻击 +1
@@ -431,7 +431,7 @@ function mkCombat(charId, hp, maxHp) {
   c5.hand.unshift({ uid: 5, id: 'hunger', up: false });
   let hb5 = c5.enemy.hp;
   e5.playCard(0);
-  ok(c5.enemy.hp === hb5 - 14, `饥饿咆哮：损失40打 8+血怒6=14（实际 ${hb5 - c5.enemy.hp}）`);
+  ok(c5.enemy.hp === hb5 - 18, `饥饿咆哮：损失40打 8+血怒10=18（实际 ${hb5 - c5.enemy.hp}）`);
   let [e6, s6, c6] = mkCombat('shengfan', 80, 90);
   c6.hand.unshift({ uid: 6, id: 'hunger', up: false });
   let hb6 = c6.enemy.hp;
@@ -560,33 +560,33 @@ section('b2.6a) 0731 新专属卡（16 张）数值断言');
   qc7.energy = 3;
   nhb = qc7.enemy.hp;
   n7.playCard(0);
-  // hp 50→46（缺口 44）：max(10, floor(44×0.35))=15 + 血怒 floor(44/5)=8→封顶6 → 21
-  ok(q7.hp === 46 && qc7.enemy.hp === nhb - 21,
-    `破釜沉舟：先自伤再结算 15+血怒6=21（hp=${q7.hp} 实际 ${nhb - qc7.enemy.hp}）`);
-  // 满血出 = 最低 10（缺口仅自伤 4：floor(4×0.35)=1 → min 10，血怒 0）
+  // hp 50→46（缺口 44）：max(10, floor(44×0.35))=15 + 血怒 floor(44/4)=11 → 26
+  ok(q7.hp === 46 && qc7.enemy.hp === nhb - 26,
+    `破釜沉舟：先自伤再结算 15+血怒11=26（hp=${q7.hp} 实际 ${nhb - qc7.enemy.hp}）`);
+  // 满血出 = 最低 10（缺口仅自伤 4：floor(4×0.35)=1 → min 10，血怒 floor(4/4)=1）
   let [n7b, q7b, qc7b] = mkCombat('shengfan', 90, 90);
   qc7b.hand.unshift({ uid: 7, id: 'burnboats', up: false });
   qc7b.energy = 3;
   nhb = qc7b.enemy.hp;
   n7b.playCard(0);
-  ok(q7b.hp === 86 && qc7b.enemy.hp === nhb - 10,
-    `破釜沉舟：满血保底 10（hp=${q7b.hp} 实际 ${nhb - qc7b.enemy.hp}）`);
-  // 自伤 clamp：2 血出破釜沉舟最多扣到 1 血，不致死；缺口 89 → 31+血怒6=37
+  ok(q7b.hp === 86 && qc7b.enemy.hp === nhb - 11,
+    `破釜沉舟：满血保底 10+血怒1=11（hp=${q7b.hp} 实际 ${nhb - qc7b.enemy.hp}）`);
+  // 自伤 clamp：2 血出破釜沉舟最多扣到 1 血，不致死；缺口 89 → 31+血怒22=53
   let [n7c, q7c, qc7c] = mkCombat('shengfan', 2, 90);
   qc7c.hand.unshift({ uid: 7, id: 'burnboats', up: false });
   qc7c.energy = 3;
   nhb = qc7c.enemy.hp;
   n7c.playCard(0);
-  ok(q7c.hp === 1 && !qc7c.over && qc7c.enemy.hp === nhb - 37,
+  ok(q7c.hp === 1 && !qc7c.over && qc7c.enemy.hp === nhb - 53,
     `破釜沉舟：自伤clamp到1血不死（hp=${q7c.hp} 实际 ${nhb - qc7c.enemy.hp}）`);
-  // 抢饭：打 6+血怒6 回 2（升级 7 回 3）
+  // 抢饭：打 6+血怒10 回 2（升级 7 回 3）
   let [n8, q8, qc8] = mkCombat('shengfan', 50, 90);
   qc8.hand.unshift({ uid: 8, id: 'snatch', up: false });
   qc8.energy = 3;
   nhb = qc8.enemy.hp;
   n8.playCard(0);
-  ok(qc8.enemy.hp === nhb - 12 && q8.hp === 52,
-    `抢饭：打6+血怒6=12 回2（hp=${q8.hp} 实际 ${nhb - qc8.enemy.hp}）`);
+  ok(qc8.enemy.hp === nhb - 16 && q8.hp === 52,
+    `抢饭：打6+血怒10=16 回2（hp=${q8.hp} 实际 ${nhb - qc8.enemy.hp}）`);
 
   // —— 机皇 ——
   // 备份存档：抽 3 + 3 格挡
@@ -1065,13 +1065,16 @@ section('b2.8) passiveInfo 读取入口');
   const c1 = e1.state.combat;
   c1.cardsPlayed = 7;
   ok(e1.passiveInfo().value === '已打出 2/5 张牌', `passiveInfo 小Q进度（实际 ${e1.passiveInfo().value}）`);
-  // 剩饭：血怒固定值 = floor(损失/5)
+  // 剩饭：血怒固定值 = floor(损失/4) 无上限
   const e2 = new Engine(61);
   e2.newRun('shengfan');
   e2.startCombat('group_at');
-  e2.state.hp = 35; // 65 满 → 损失 30 → +6
-  ok(e2.passiveInfo().value === '当前加伤 +6',
+  e2.state.hp = 35; // 65 满 → 损失 30 → floor(30/4)=7
+  ok(e2.passiveInfo().value === '当前加伤 +7',
     `passiveInfo 血怒（实际 ${e2.passiveInfo().value}）`);
+  e2.state.hp = 1; // 损失 64 → 无上限 +16
+  ok(e2.passiveInfo().value === '当前加伤 +16',
+    `passiveInfo 血怒无上限（实际 ${e2.passiveInfo().value}）`);
   // 与管线一致：strike 6 × (1+0.4×0.25) = floor(6.6) = 6 → 打 6+加成验证在 b2.5 已锁
   // 机皇：手牌加伤 + 不弃牌标记
   const e3 = new Engine(62);
@@ -2138,6 +2141,115 @@ section('b12) Rush 圣物调整 / 牌组查看入口');
   G.closeRelics();
 }
 
+/* ---------- b13) 血怒无上限 + 卖血新卡 + 图鉴滚动保持 ---------- */
+section('b13) 血怒 4点无上限 / 卖血新卡 / 图鉴滚动');
+
+// 血怒新系数：损失 8/16/32 → +2/+4/+8（无上限证明）
+{
+  function rageDmg(seed, hp, maxHp) {
+    const eng = new Engine(seed);
+    eng.newRun('shengfan');
+    eng.state.maxHp = maxHp;
+    eng.state.hp = maxHp; // newRun 后补设
+    eng.startCombat('punchclock');
+    const st = eng.state, c = st.combat;
+    st.maxHp = maxHp; st.hp = hp;
+    c.enemy.hp = 999; c.enemy.maxHp = 999;
+    c.hand.unshift({ uid: 1, id: 'strike_moyu', up: false });
+    const hb = c.enemy.hp;
+    eng.playCard(0);
+    return hb - c.enemy.hp;
+  }
+  ok(rageDmg(81, 57, 65) === 6 + 2, '血怒损失 8 → +2（打 8）');
+  ok(rageDmg(82, 49, 65) === 6 + 4, '血怒损失 16 → +4（打 10）');
+  ok(rageDmg(83, 33, 65) === 6 + 8, '血怒损失 32 → +8 无上限（打 14）');
+}
+
+// 3 张卖血新卡
+{
+  // 以血换电：-3 血 +2 能量；升级 -2 血
+  let eng = new Engine(84);
+  eng.newRun('shengfan');
+  eng.startCombat('punchclock');
+  let c = eng.state.combat, st = eng.state;
+  st.hp = 50;
+  c.energy = 0;
+  c.hand.unshift({ uid: 1, id: 'bloodvolt', up: false });
+  let r = eng.playCard(0);
+  ok(r.ok && st.hp === 47 && c.energy === 2 && c.exhausted.length === 1,
+    `以血换电：-3血+2能量进消耗堆（hp=${st.hp} 能量=${c.energy}）`);
+  eng = new Engine(85);
+  eng.newRun('shengfan');
+  eng.startCombat('punchclock');
+  c = eng.state.combat; st = eng.state;
+  st.hp = 50; c.energy = 0;
+  c.hand.unshift({ uid: 2, id: 'bloodvolt', up: true });
+  eng.playCard(0);
+  ok(st.hp === 48 && c.energy === 2, '以血换电+：-2血+2能量');
+  // 1 血下限保护
+  st.hp = 2; c.energy = 0;
+  c.hand.unshift({ uid: 3, id: 'bloodvolt', up: false });
+  eng.playCard(0);
+  ok(st.hp === 1 && !c.over, '以血换电：2 血打出 clamp 到 1 不致死');
+  // 血性爆发：-3 血 打 8+血怒 力量+1；升级打 10
+  eng = new Engine(86);
+  eng.newRun('shengfan');
+  eng.startCombat('punchclock');
+  c = eng.state.combat; st = eng.state;
+  st.hp = 60; // 出后 hp57 损失 8 → 血怒 +2
+  c.enemy.hp = 100; c.enemy.maxHp = 100;
+  c.hand.unshift({ uid: 4, id: 'bloodburst', up: false });
+  let hb = c.enemy.hp;
+  eng.playCard(0);
+  ok(c.enemy.hp === hb - (8 + 2) && c.playerStrength === 1 && st.hp === 57,
+    `血性爆发：-3血打8+血怒2=10 力量+1（实际 ${hb - c.enemy.hp}）`);
+  eng = new Engine(87);
+  eng.newRun('shengfan');
+  eng.startCombat('punchclock');
+  c = eng.state.combat; st = eng.state;
+  st.hp = 60; c.enemy.hp = 100; c.enemy.maxHp = 100;
+  c.hand.unshift({ uid: 5, id: 'bloodburst', up: true });
+  hb = c.enemy.hp;
+  eng.playCard(0);
+  ok(c.enemy.hp === hb - (10 + 2), '血性爆发+：打 10+血怒2=12');
+  // 饿虎扑食：-5 血打 14；升级 -4 血打 16
+  eng = new Engine(88);
+  eng.newRun('shengfan');
+  eng.startCombat('punchclock');
+  c = eng.state.combat; st = eng.state;
+  st.hp = 60; // 出后 hp55 损失 10 → 血怒 +2
+  c.enemy.hp = 100; c.enemy.maxHp = 100;
+  c.hand.unshift({ uid: 6, id: 'hungerpounce', up: false });
+  hb = c.enemy.hp;
+  eng.playCard(0);
+  ok(c.enemy.hp === hb - (14 + 2) && st.hp === 55,
+    `饿虎扑食：-5血打14+血怒2=16（实际 ${hb - c.enemy.hp}）`);
+  eng = new Engine(89);
+  eng.newRun('shengfan');
+  eng.startCombat('punchclock');
+  c = eng.state.combat; st = eng.state;
+  st.hp = 60; c.enemy.hp = 100; c.enemy.maxHp = 100;
+  c.hand.unshift({ uid: 7, id: 'hungerpounce', up: true });
+  hb = c.enemy.hp;
+  eng.playCard(0);
+  ok(c.enemy.hp === hb - (16 + 2) && st.hp === 56, '饿虎扑食+：-4血打16+血怒2=18');
+  // 稀有度/归属
+  ok(D.cards.bloodvolt.rarity === 'uncommon' && D.cards.bloodvolt.exhaust &&
+    D.cards.bloodburst.rarity === 'uncommon' && D.cards.hungerpounce.rarity === 'common' &&
+    [ 'bloodvolt', 'bloodburst', 'hungerpounce' ].every(id => D.cards[id].char === 'shengfan'),
+    '3 新卡稀有度/消耗/剩饭专属');
+}
+
+// 图鉴滚动位置保持：render 前后保存/恢复 scrollTop
+{
+  const uiS = require('fs').readFileSync(require('path').join(__dirname, '..', 'js', 'ui.js'), 'utf8');
+  ok(/savedScroll/.test(uiS) && /scrollTop = savedScroll/.test(uiS),
+    'render() 保存/恢复 scrollTop（codex-body/deck-select/dv-panel）');
+  ok(uiS.indexOf('savedScroll') < uiS.indexOf('el().innerHTML = html') ||
+    uiS.indexOf('SCROLLERS.forEach') < uiS.indexOf('el().innerHTML = html'),
+    '保存发生在 innerHTML 替换之前');
+}
+
 /* ---------- c) 地图生成 ---------- */
 section('c) 地图生成（10 层 × 100 次）');
 {
@@ -2378,6 +2490,7 @@ function simRush(engine, build) {
     // BOSS 全员防秒杀 + 偷男比例偷金后实测 3.0/7.0/1.8/1.8，进度下限按实测分角色对齐
     // 0801 狂暴上线后实测 4.0/7.0/0（无样本）/6.0，机皇下限放空
     // 0801 主线 BOSS 全面加强+9 机制后 1v1 通关构筑：仅剩饭 2 套（其余全 0），下限放空仅记录（用户已知悉）
+    // 0804 血怒改 4点/无上限+3 卖血卡：剩饭构筑 2→4 套、Rush 通关 25%→63%（5/8），其余仍 0（随机流平移）
     const minAvg = { xiaoq: 0, shengfan: 2, jihuang: 0, shuanglaoya: 0 };
     ok(summary[chId].avg >= (minAvg[chId] != null ? minAvg[chId] : 2), `${chId} 平均进度 ≥${minAvg[chId] != null ? minAvg[chId] : 2} 场（实际 ${avg}）`);
     // 卡池新增卡牌会平移固定种子的随机流，样本数阈值按当前实测对齐

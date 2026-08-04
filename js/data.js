@@ -530,6 +530,31 @@
         effects: [{ op: 'selfDamage', value: 4 },
           { op: 'special', kind: 'hunger', pct: 0.45, min: 13 }] }
     },
+    bloodvolt: {
+      name: '以血换电', cost: 0, type: 'skill', rarity: 'uncommon', char: 'shengfan',
+      exhaust: true,
+      desc: '失去 3 点精力，获得 2 点能量。消耗。',
+      tags: ["selfhp"],
+      effects: [{ op: 'selfDamage', value: 3 }, { op: 'energy', value: 2 }],
+      up: { desc: '失去 2 点精力，获得 2 点能量。消耗。',
+        effects: [{ op: 'selfDamage', value: 2 }, { op: 'energy', value: 2 }] }
+    },
+    bloodburst: {
+      name: '血性爆发', cost: 1, type: 'attack', rarity: 'uncommon', char: 'shengfan',
+      desc: '失去 3 点精力，造成 8 点伤害，本场战斗力量 +1。',
+      tags: ["selfhp", "grow"],
+      effects: [{ op: 'selfDamage', value: 3 }, { op: 'damage', value: 8 }, { op: 'strength', value: 1 }],
+      up: { desc: '失去 3 点精力，造成 10 点伤害，本场战斗力量 +1。',
+        effects: [{ op: 'selfDamage', value: 3 }, { op: 'damage', value: 10 }, { op: 'strength', value: 1 }] }
+    },
+    hungerpounce: {
+      name: '饿虎扑食', cost: 2, type: 'attack', rarity: 'common', char: 'shengfan',
+      desc: '失去 5 点精力，造成 14 点伤害。',
+      tags: ["selfhp"],
+      effects: [{ op: 'selfDamage', value: 5 }, { op: 'damage', value: 14 }],
+      up: { desc: '失去 4 点精力，造成 16 点伤害。',
+        effects: [{ op: 'selfDamage', value: 4 }, { op: 'damage', value: 16 }] }
+    },
     snatch: {
       name: '抢饭', cost: 1, type: 'attack', rarity: 'common', char: 'shengfan',
       desc: '造成 6 点伤害，回复 2 点精力。',
@@ -626,7 +651,7 @@
       name: '北极熊剩饭', title: '干饭人', img: 'shengfan',
       avatar: 'assets/v2/avatar/shengfan.jpg',
       maxHp: 65, gold: 99,
-      passive: '每缺少 5 点精力，造成的伤害 +1（最多 +6）。',
+      passive: '每缺少 4 点精力，造成的伤害 +1（无上限）。',
       passiveId: 'bloodrage',
       unlock: 2,
       deck: ['strike_moyu', 'strike_moyu', 'strike_moyu',

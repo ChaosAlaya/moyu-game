@@ -1009,7 +1009,7 @@
     {
       title: '角色与被动',
       html: '<p><b>摸鱼奎恩</b>·摸鱼之道：本场战斗每打出 5 张牌，恢复 1 点能量</p>' +
-        '<p><b>北极熊剩饭</b>·血怒：每缺少 5 点精力，伤害 +1（上限 6）</p>' +
+        '<p><b>北极熊剩饭</b>·血怒：每缺少 4 点精力，伤害 +1（无上限）</p>' +
         '<p><b>企鹅机皇</b>·深谋：攻击牌每 2 张其他手牌 +1 伤；本回合没打攻击牌则不弃牌</p>' +
         '<p><b>爽老鸭</b>·钞能：每有 50 金币，伤害 +1；商店 +1 格、开战 +10 金</p>'
     }
@@ -1116,7 +1116,19 @@
       case 'cutscene': html = renderCutscene(S); break;
       default: html = '<div class="screen">未知界面</div>';
     }
+    // 图鉴滚动位置保持：悬停升级预览等触发的整表重绘不重置 scrollTop
+    var SCROLLERS = ['.codex-body', '.deck-select', '.dv-panel'];
+    var savedScroll = [];
+    SCROLLERS.forEach(function (sel) {
+      var el2 = document.querySelector(sel);
+      savedScroll.push(el2 ? el2.scrollTop : null);
+    });
     el().innerHTML = html + (S.deckView ? deckViewHtml(S) : '') + (S.relicView ? relicViewHtml(S) : '') + (S.showGuide ? renderGuide(S) : '') + (S.showRushConfirm ? renderRushConfirm(S) : '');
+    SCROLLERS.forEach(function (sel, i) {
+      if (savedScroll[i] == null) return;
+      var el3 = document.querySelector(sel);
+      if (el3) el3.scrollTop = savedScroll[i];
+    });
     // 界面切换时统一清理动画临时元素，防止飘字跨屏残留（同屏重绘保留进行中的动画）
     if (S.screen !== lastScreen) {
       var fx = document.getElementById('fx');
