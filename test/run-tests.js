@@ -724,6 +724,9 @@ section('b2.7) 实时伤害角标');
   s2.hp = 50; // 65 满 → 损失 15 → hunger base max(8,3)=8，血怒 +3 → 11
   const pv = e2.previewDamage({ id: 'hunger', up: false });
   ok(pv === 11, `角标饥饿咆哮含血怒=${pv}（期望11）`);
+  // 深夜破防角标：损失 15 → max(4, floor(15×0.3))=4，血怒 floor(15/4)=3 → 4+3=7
+  const pvBd = e2.previewDamage({ id: 'breakdown', up: false });
+  ok(pvBd === 7, `角标深夜破防=${pvBd}（期望7=破防4+血怒3）`);
   // 普通攻击牌无角标
   ok(engine.previewDamage({ id: 'strike_moyu', up: false }) === null, '普通牌无角标返回 null');
 }

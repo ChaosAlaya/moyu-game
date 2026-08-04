@@ -1919,6 +1919,7 @@
         else if (ef.kind === 'allout') base = (ef.base || 0) + Math.max(0, c.hand.length - 1) * ef.per; // 打出时本牌已离手
         else if (ef.kind === 'combo') base = ef.base + ef.per * c.cardsThisTurn; // 本回合已打出的其他牌数（不含本牌）
         else if (ef.kind === 'hunger') base = Math.max(ef.min, Math.floor((st.maxHp - st.hp) * ef.pct));
+        else if (ef.kind === 'breakdown') base = Math.max(ef.min, Math.floor(Math.max(0, c.combatStartHp - st.hp) * ef.pct)); // 深夜破防：已损失精力×pct（最低min）
       } else if (ef.op === 'goldDamage') {
         base = ef.value + (ef.per
           ? Math.floor(st.gold / ef.per) * (ef.bonus || 1)
